@@ -1,0 +1,684 @@
+Yes — that’s the right next step.
+
+That’s the difference between:
+	•	a system that says “missing field”
+	•	and
+	•	a system that helps the user repair the declaration surgically
+
+You want:
+
+click missing field → guided micro-editor → patch compiled draft → re-run gap detection
+
+Not:
+
+“rewrite everything manually”
+
+⸻
+
+What this bridge should do
+
+If NOMOS says:
+	•	missing required field: food_source_truth_or_labels
+	•	missing required field: target_macros_or_goal
+
+the user should be able to click that field and get a small inline editor like:
+
+Example
+
+Missing: target_macros_or_goal
+
+Open control:
+	•	calories
+	•	protein
+	•	carbs
+	•	fat
+
+Then NOMOS patches the compiled draft and re-checks evaluability.
+
+⸻
+
+Message to Replit
+
+Build the edit-in-place bridge for missing fields in the compiled NOMOS draft.
+
+Goal:
+Allow the user to click a missing field and repair only that field through a small guided editor, instead of rewriting the full prompt.
+
+Create:
+- src/ui/components/compiler/MissingFieldEditor.tsx
+- src/ui/components/compiler/FieldPatchPanel.tsx
+- src/compiler/draft_patcher.ts
+- update CompiledDraftPanel.tsx
+- update QueryBuilderPage.tsx
+
+Requirements:
+
+1. MissingFieldEditor.tsx
+Render a small guided input form based on the missing field key.
+
+Support at least these field keys first:
+- meal_system_or_phase_plan
+- target_macros_or_goal
+- food_source_truth_or_labels
+- correction_mode
+- locked_food_placements
+- objective
+- hard_constraints
+- planned_schedule
+
+2. draft_patcher.ts
+Add deterministic patch functions that update the StructuredDraft in place.
+
+Functions:
+- patchDraftField(draft, fieldKey, value)
+- revalidateDraft(draft, intent)
+
+3. CompiledDraftPanel.tsx
+Make each missing required field clickable.
+When clicked:
+- open the MissingFieldEditor
+- prefill with empty/default values
+- allow Save / Cancel
+
+4. QueryBuilderPage.tsx
+After saving a patch:
+- update the local compiled draft
+- rerun validation / gap detection
+- update isEvaluable immediately
+
+5. Editing should be field-local only.
+Do not rewrite unrelated sections.
+
+6. UI behavior:
+- missing required fields should have a “Fix” action
+- missing optional fields may also be editable, but required fields first
+- once a field is patched successfully, it should disappear from the missing list
+
+7. This bridge must remain deterministic.
+Do not use LLM generation here.
+
+Success condition:
+The user can repair a compiled draft field-by-field until isEvaluable becomes true, without having to rewrite the full raw prompt.
+
+
+⸻
+
+draft_patcher.ts
+
+import { StructuredDraft } from "./auto_compiler";
+import { IntentType } from "./domain_templates";
+
+export function patchDraftField(
+  draft: StructuredDraft,
+  fieldKey: string,
+  value: unknown
+): StructuredDraft {
+  const next: StructuredDraft = {
+    ...draft,
+    state: [...draft.state],
+    constraints: [...draft.constraints],
+    uncertainties: [...draft.uncertainties],
+    candidates: [...draft.candidates],
+    objective: [...draft.objective],
+    missingRequiredFields: [...draft.missingRequiredFields],
+    missingOptionalFields: [...draft.missingOptionalFields],
+    warnings: [...draft.warnings],
+    notes: [...draft.notes],
+  };
+
+  switch (fieldKey) {
+    case "meal_system_or_phase_plan": {
+      if (typeof value === "string" && value.trim()) {
+        next.state = replaceOrAppend(
+          next.state,
+          "A declared multi-meal or multi-phase nutrition system is present."
+        );
+        next.notes = removeMatching(next.notes, "No computable meal system detected.");
+        next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+      }
+      break;
+    }
+
+    case "target_macros_or_goal": {
+      if (typeof value === "string" && value.trim()) {
+        next.objective = replaceOrAppend(next.objective, value.trim());
+        next.state = replaceOrAppend(next.state, "Target macro blocks were detected.");
+        next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+      }
+      break;
+    }
+
+    case "food_source_truth_or_labels": {
+      if (typeof value === "string" && value.trim()) {
+        next.state = replaceOrAppend(next.state, "Food-label or source-truth references were detected.");
+        next.constraints = replaceOrAppend(
+          next.constraints,
+          "Label truth overrides food assumptions where labels are provided."
+        );
+        next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+      }
+      break;
+    }
+
+    case "correction_mode": {
+      if (typeof value === "string" && value.trim()) {
+        next.candidates = [
+          ...next.candidates,
+          {
+            id: "USER",
+            text: value.trim(),
+          },
+        ];
+        next.missingOptionalFields = removeKey(next.missingOptionalFields, fieldKey);
+      }
+      break;
+    }
+
+    case "locked_food_placements": {
+      if (typeof value === "string" && value.trim()) {
+        next.constraints = replaceOrAppend(next.constraints, value.trim());
+        next.missingOptionalFields = removeKey(next.missingOptionalFields, fieldKey);
+      }
+      break;
+    }
+
+    case "objective": {
+      if (typeof value === "string" && value.trim()) {
+        next.objective = replaceOrAppend(next.objective, value.trim());
+        next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+      }
+      break;
+    }
+
+    case "hard_constraints": {
+      if (typeof value === "string" && value.trim()) {
+        next.constraints = replaceOrAppend(next.constraints, value.trim());
+        next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+      }
+      break;
+    }
+
+    case "planned_schedule": {
+      if (typeof value === "string" && value.trim()) {
+        next.state = replaceOrAppend(next.state, "A schedule or time-block structure is present.");
+        next.notes = removeMatching(next.notes, "Planned schedule or anchor blocks were not explicitly declared.");
+        next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+      }
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  next.isEvaluable = next.missingRequiredFields.length === 0;
+  return next;
+}
+
+export function revalidateDraft(
+  draft: StructuredDraft,
+  _intent: IntentType
+): StructuredDraft {
+  return {
+    ...draft,
+    isEvaluable: draft.missingRequiredFields.length === 0,
+  };
+}
+
+function replaceOrAppend(list: string[], line: string): string[] {
+  if (list.includes(line)) return list;
+  return [...list, line];
+}
+
+function removeKey(list: string[], key: string): string[] {
+  return list.filter((x) => x !== key);
+}
+
+function removeMatching(list: string[], match: string): string[] {
+  return list.filter((x) => x !== match);
+}
+
+
+⸻
+
+MissingFieldEditor.tsx
+
+import React, { useState } from "react";
+
+export interface MissingFieldEditorProps {
+  fieldKey: string;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}
+
+function getFieldLabel(fieldKey: string): string {
+  switch (fieldKey) {
+    case "meal_system_or_phase_plan":
+      return "Meal System / Phase Plan";
+    case "target_macros_or_goal":
+      return "Target Macros or Goal";
+    case "food_source_truth_or_labels":
+      return "Food Source Truth / Labels";
+    case "correction_mode":
+      return "Correction Mode";
+    case "locked_food_placements":
+      return "Locked Food Placements";
+    case "objective":
+      return "Objective";
+    case "hard_constraints":
+      return "Hard Constraints";
+    case "planned_schedule":
+      return "Planned Schedule";
+    default:
+      return fieldKey;
+  }
+}
+
+function getPlaceholder(fieldKey: string): string {
+  switch (fieldKey) {
+    case "meal_system_or_phase_plan":
+      return "Paste the declared meal system or phase plan...";
+    case "target_macros_or_goal":
+      return "e.g. 2695 / 174p / 331c / 54f";
+    case "food_source_truth_or_labels":
+      return "e.g. Whey, Flax, Oat, Dextrin, Yogurt labels attached";
+    case "correction_mode":
+      return "e.g. Audit + minimal correction";
+    case "locked_food_placements":
+      return "e.g. Preserve whey placement by meal";
+    case "objective":
+      return "State what outcome matters most...";
+    case "hard_constraints":
+      return "State the hard non-negotiables...";
+    case "planned_schedule":
+      return "Paste the declared schedule...";
+    default:
+      return "Enter value...";
+  }
+}
+
+export function MissingFieldEditor({
+  fieldKey,
+  onSave,
+  onCancel,
+}: MissingFieldEditorProps) {
+  const [value, setValue] = useState("");
+
+  return (
+    <div className="nm-missing-editor">
+      <div className="nm-missing-editor__title">
+        Fix: {getFieldLabel(fieldKey)}
+      </div>
+
+      <textarea
+        className="nm-missing-editor__input"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={getPlaceholder(fieldKey)}
+      />
+
+      <div className="nm-missing-editor__actions">
+        <button
+          type="button"
+          className="nm-btn nm-btn--secondary"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          disabled={!value.trim()}
+          onClick={() => onSave(value)}
+        >
+          Save Field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+FieldPatchPanel.tsx
+
+import React from "react";
+import { MissingFieldEditor } from "./MissingFieldEditor";
+
+export interface FieldPatchPanelProps {
+  activeField: string | null;
+  onSave: (fieldKey: string, value: string) => void;
+  onCancel: () => void;
+}
+
+export function FieldPatchPanel({
+  activeField,
+  onSave,
+  onCancel,
+}: FieldPatchPanelProps) {
+  if (!activeField) return null;
+
+  return (
+    <div className="nm-field-patch-panel">
+      <MissingFieldEditor
+        fieldKey={activeField}
+        onSave={(value) => onSave(activeField, value)}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
+
+⸻
+
+Update CompiledDraftPanel.tsx
+
+Add click-to-fix behavior for missing fields.
+
+import React from "react";
+import { StructuredDraft } from "../../../compiler/auto_compiler";
+
+export interface CompiledDraftPanelProps {
+  draft: StructuredDraft | null;
+  isConfirmed: boolean;
+  onConfirm: () => void;
+  onRevise: () => void;
+  onFixField: (fieldKey: string) => void;
+}
+
+function FieldList({
+  title,
+  items,
+  tone,
+  clickable,
+  onFixField,
+}: {
+  title: string;
+  items: string[];
+  tone: "required" | "optional" | "warning" | "note";
+  clickable?: boolean;
+  onFixField?: (fieldKey: string) => void;
+}) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className={`nm-compiled-meta nm-compiled-meta--${tone}`}>
+      <div className="nm-compiled-meta__title">{title}</div>
+      <ul className="nm-compiled-meta__list">
+        {items.map((item, i) => (
+          <li key={`${title}-${i}`} className="nm-compiled-meta__item">
+            <span>{item}</span>
+            {clickable && onFixField && (
+              <button
+                type="button"
+                className="nm-fix-link"
+                onClick={() => onFixField(item)}
+              >
+                Fix
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+Then in the main render:
+
+<FieldList
+  title="MISSING REQUIRED FIELDS"
+  items={draft.missingRequiredFields}
+  tone="required"
+  clickable
+  onFixField={onFixField}
+/>
+
+And update props accordingly.
+
+⸻
+
+Update QueryBuilderPage.tsx
+
+Add local patch flow.
+
+import React, { useMemo, useState } from "react";
+import { autoCompile, StructuredDraft } from "../../../compiler/auto_compiler";
+import { IntentType } from "../../../compiler/domain_templates";
+import { patchDraftField, revalidateDraft } from "../../../compiler/draft_patcher";
+import { CompiledDraftPanel } from "../components/compiler/CompiledDraftPanel";
+import { FieldPatchPanel } from "../components/compiler/FieldPatchPanel";
+
+export function QueryBuilderPage() {
+  const [rawInput, setRawInput] = useState("");
+  const [intent, setIntent] = useState<IntentType>("NUTRITION_AUDIT");
+  const [hasCompiled, setHasCompiled] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [patchedDraft, setPatchedDraft] = useState<StructuredDraft | null>(null);
+  const [activeField, setActiveField] = useState<string | null>(null);
+
+  const compileResult = useMemo(() => {
+    if (!hasCompiled || !rawInput.trim()) return null;
+    return autoCompile(rawInput, intent);
+  }, [rawInput, intent, hasCompiled]);
+
+  const draft = patchedDraft ?? compileResult?.draft ?? null;
+
+  function handleCompile() {
+    setHasCompiled(true);
+    setIsConfirmed(false);
+    setPatchedDraft(null);
+    setActiveField(null);
+  }
+
+  function handleRevise() {
+    setIsConfirmed(false);
+  }
+
+  function handleConfirm() {
+    if (!draft?.isEvaluable) return;
+    setIsConfirmed(true);
+  }
+
+  function handleEvaluate() {
+    if (!draft || !draft.isEvaluable || !isConfirmed) return;
+    console.log("Evaluating confirmed compiled draft:", draft);
+  }
+
+  function handleFixField(fieldKey: string) {
+    setActiveField(fieldKey);
+    setIsConfirmed(false);
+  }
+
+  function handleSaveField(fieldKey: string, value: string) {
+    if (!draft) return;
+    const patched = patchDraftField(draft, fieldKey, value);
+    const revalidated = revalidateDraft(patched, intent);
+    setPatchedDraft(revalidated);
+    setActiveField(null);
+  }
+
+  function handleCancelFieldEdit() {
+    setActiveField(null);
+  }
+
+  return (
+    <div className="nm-query-page">
+      <div className="nm-query-page__header">
+        <div className="nm-query-page__title">Query Builder</div>
+        <div className="nm-query-page__subtitle">
+          Raw request → compiled declaration → confirmation → evaluation
+        </div>
+      </div>
+
+      <div className="nm-query-controls">
+        <label className="nm-query-controls__field">
+          <span>Intent</span>
+          <select
+            value={intent}
+            onChange={(e) => {
+              setIntent(e.target.value as IntentType);
+              setHasCompiled(false);
+              setIsConfirmed(false);
+              setPatchedDraft(null);
+              setActiveField(null);
+            }}
+          >
+            <option value="NUTRITION_AUDIT">Nutrition Audit</option>
+            <option value="TRAINING_AUDIT">Training Audit</option>
+            <option value="SCHEDULE_AUDIT">Schedule Audit</option>
+            <option value="GENERIC_CONSTRAINT_TASK">Generic Constraint Task</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="nm-query-input-panel">
+        <div className="nm-query-input-panel__title">RAW INPUT</div>
+        <textarea
+          className="nm-query-textarea"
+          value={rawInput}
+          onChange={(e) => {
+            setRawInput(e.target.value);
+            setHasCompiled(false);
+            setIsConfirmed(false);
+            setPatchedDraft(null);
+            setActiveField(null);
+          }}
+          placeholder="Paste or write the raw request here..."
+        />
+        <div className="nm-query-input-panel__actions">
+          <button
+            type="button"
+            className="nm-btn nm-btn--primary"
+            onClick={handleCompile}
+            disabled={!rawInput.trim()}
+          >
+            Compile
+          </button>
+        </div>
+      </div>
+
+      <CompiledDraftPanel
+        draft={draft}
+        isConfirmed={isConfirmed}
+        onConfirm={handleConfirm}
+        onRevise={handleRevise}
+        onFixField={handleFixField}
+      />
+
+      <FieldPatchPanel
+        activeField={activeField}
+        onSave={handleSaveField}
+        onCancel={handleCancelFieldEdit}
+      />
+
+      <div className="nm-query-evaluate">
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          disabled={!draft?.isEvaluable || !isConfirmed}
+          onClick={handleEvaluate}
+        >
+          Evaluate
+        </button>
+
+        {!draft?.isEvaluable && hasCompiled && (
+          <div className="nm-query-evaluate__note">
+            Evaluation blocked until required fields are present.
+          </div>
+        )}
+
+        {draft?.isEvaluable && !isConfirmed && (
+          <div className="nm-query-evaluate__note">
+            Confirm the compiled draft before evaluation.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+CSS additions
+
+.nm-compiled-meta__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+}
+
+.nm-fix-link {
+  border: none;
+  background: transparent;
+  color: var(--nm-accent, #7aa2ff);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.nm-field-patch-panel,
+.nm-missing-editor {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+}
+
+.nm-missing-editor__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.nm-missing-editor__input {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--nm-border);
+  background: var(--nm-surface-2, #0d0d0d);
+  color: inherit;
+  resize: vertical;
+}
+
+.nm-missing-editor__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+
+⸻
+
+Why this matters
+
+This makes NOMOS feel:
+	•	strict
+	•	helpful
+	•	repairable
+	•	non-chatty
+
+The user no longer has to restart from zero.
+They just repair the exact missing field.
+
+That’s the right experience for a constitutional system.
+
+What it enables next
+
+After this, the strongest next step is:
+
+field-aware controls instead of a generic textarea
+
+Examples:
+	•	target macros → 4 numeric inputs
+	•	correction mode → dropdown
+	•	food source truth → checklist / attachment state
+	•	locked placements → toggle list
+
+That makes the bridge even tighter and reduces ambiguity further.

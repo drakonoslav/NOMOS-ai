@@ -25,6 +25,13 @@ export function QueryModeSwitcher({ mode, onChange }: QueryModeSwitcherProps) {
         >
           Natural Language
         </button>
+        <button
+          type="button"
+          className={`query-tab ${mode === "auto" ? "is-active" : ""}`}
+          onClick={() => onChange("auto")}
+        >
+          Auto-Compile
+        </button>
       </div>
     </div>
   );

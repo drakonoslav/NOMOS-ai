@@ -1,0 +1,557 @@
+Yes — that is the right next step.
+
+Below is a copy-paste-ready spec for Replit, followed by the actual first-pass code.
+
+⸻
+
+Message to Replit
+
+Build the UI bridge for the NOMOS auto-compiler.
+
+Goal:
+Render the compiled draft inside the Query Builder page so the user can:
+- see structured sections
+- see missing required fields
+- see warnings
+- confirm or revise the compiled draft
+- be blocked from evaluation until isEvaluable === true
+
+Create:
+- src/ui/components/compiler/CompiledDraftPanel.tsx
+- update src/ui/pages/QueryBuilderPage.tsx
+- add minimal styles to the NOMOS stylesheet
+
+Requirements:
+
+1. CompiledDraftPanel.tsx
+Render:
+- title
+- STATE
+- CONSTRAINTS
+- UNCERTAINTIES
+- CANDIDATES
+- OBJECTIVE
+- missing required fields
+- missing optional fields
+- warnings
+- notes
+- evaluable status
+
+2. QueryBuilderPage wiring
+Flow:
+- user pastes raw input
+- user clicks Compile
+- autoCompiler runs
+- compiled draft renders
+- if isEvaluable is false, Evaluate button must be disabled
+- allow Confirm Draft and Revise Draft flow
+- evaluation only runs after confirmation and only if isEvaluable is true
+
+3. Add a clean, architectural UI style:
+- compiled sections shown as cards/panels
+- missing required fields highlighted strongly
+- warnings shown separately
+- evaluable status shown clearly
+- avoid chat bubble styling
+
+4. Do not run actual NOMOS evaluation from raw input anymore.
+5. Evaluation must consume the compiled/confirmed draft only.
+6. Preserve deterministic behavior.
+
+
+⸻
+
+CompiledDraftPanel.tsx
+
+import React from "react";
+import { StructuredDraft } from "../../../compiler/auto_compiler";
+
+export interface CompiledDraftPanelProps {
+  draft: StructuredDraft | null;
+  isConfirmed: boolean;
+  onConfirm: () => void;
+  onRevise: () => void;
+}
+
+function SectionList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="nm-compiled-section">
+      <div className="nm-compiled-section__title">{title}</div>
+      <ul className="nm-compiled-section__list">
+        {items.map((item, i) => (
+          <li key={`${title}-${i}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CandidateList({
+  items,
+}: {
+  items: { id: string; text: string }[];
+}) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="nm-compiled-section">
+      <div className="nm-compiled-section__title">CANDIDATES</div>
+      <div className="nm-compiled-candidates">
+        {items.map((item) => (
+          <div key={item.id} className="nm-compiled-candidate">
+            <div className="nm-compiled-candidate__id">{item.id}</div>
+            <div className="nm-compiled-candidate__text">{item.text}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FieldList({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  tone: "required" | "optional" | "warning" | "note";
+}) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className={`nm-compiled-meta nm-compiled-meta--${tone}`}>
+      <div className="nm-compiled-meta__title">{title}</div>
+      <ul className="nm-compiled-meta__list">
+        {items.map((item, i) => (
+          <li key={`${title}-${i}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function CompiledDraftPanel({
+  draft,
+  isConfirmed,
+  onConfirm,
+  onRevise,
+}: CompiledDraftPanelProps) {
+  if (!draft) return null;
+
+  return (
+    <div className="nm-compiled-panel">
+      <div className="nm-compiled-panel__header">
+        <div>
+          <div className="nm-compiled-panel__eyebrow">COMPILED DRAFT</div>
+          <div className="nm-compiled-panel__title">{draft.title}</div>
+        </div>
+
+        <div
+          className={`nm-compiled-status ${
+            draft.isEvaluable
+              ? "nm-compiled-status--evaluable"
+              : "nm-compiled-status--blocked"
+          }`}
+        >
+          {draft.isEvaluable ? "EVALUABLE" : "INCOMPLETE"}
+        </div>
+      </div>
+
+      <div className="nm-compiled-panel__body">
+        <SectionList title="STATE" items={draft.state} />
+        <SectionList title="CONSTRAINTS" items={draft.constraints} />
+        <SectionList title="UNCERTAINTIES" items={draft.uncertainties} />
+        <CandidateList items={draft.candidates} />
+        <SectionList title="OBJECTIVE" items={draft.objective} />
+
+        <div className="nm-compiled-grid">
+          <FieldList
+            title="MISSING REQUIRED FIELDS"
+            items={draft.missingRequiredFields}
+            tone="required"
+          />
+
+          <FieldList
+            title="MISSING OPTIONAL FIELDS"
+            items={draft.missingOptionalFields}
+            tone="optional"
+          />
+
+          <FieldList title="WARNINGS" items={draft.warnings} tone="warning" />
+
+          <FieldList title="NOTES" items={draft.notes} tone="note" />
+        </div>
+      </div>
+
+      <div className="nm-compiled-panel__footer">
+        <button
+          type="button"
+          className="nm-btn nm-btn--secondary"
+          onClick={onRevise}
+        >
+          Revise Draft
+        </button>
+
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          onClick={onConfirm}
+          disabled={!draft.isEvaluable}
+        >
+          {isConfirmed ? "Draft Confirmed" : "Confirm Draft"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+QueryBuilderPage.tsx wiring
+
+This assumes you already have:
+	•	autoCompile
+	•	intent detection or a selected intent
+	•	existing query input textarea
+
+import React, { useMemo, useState } from "react";
+import { autoCompile } from "../../../compiler/auto_compiler";
+import { IntentType } from "../../../compiler/domain_templates";
+import { CompiledDraftPanel } from "../components/compiler/CompiledDraftPanel";
+
+export function QueryBuilderPage() {
+  const [rawInput, setRawInput] = useState("");
+  const [intent, setIntent] = useState<IntentType>("NUTRITION_AUDIT");
+  const [hasCompiled, setHasCompiled] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+
+  const compileResult = useMemo(() => {
+    if (!hasCompiled || !rawInput.trim()) return null;
+    return autoCompile(rawInput, intent);
+  }, [rawInput, intent, hasCompiled]);
+
+  const draft = compileResult?.draft ?? null;
+
+  function handleCompile() {
+    setHasCompiled(true);
+    setIsConfirmed(false);
+  }
+
+  function handleRevise() {
+    setIsConfirmed(false);
+  }
+
+  function handleConfirm() {
+    if (!draft?.isEvaluable) return;
+    setIsConfirmed(true);
+  }
+
+  function handleEvaluate() {
+    if (!draft || !draft.isEvaluable || !isConfirmed) return;
+
+    // Replace this with your real runtime call later.
+    console.log("Evaluating confirmed compiled draft:", draft);
+  }
+
+  return (
+    <div className="nm-query-page">
+      <div className="nm-query-page__header">
+        <div className="nm-query-page__title">Query Builder</div>
+        <div className="nm-query-page__subtitle">
+          Raw request → compiled declaration → confirmation → evaluation
+        </div>
+      </div>
+
+      <div className="nm-query-controls">
+        <label className="nm-query-controls__field">
+          <span>Intent</span>
+          <select
+            value={intent}
+            onChange={(e) => {
+              setIntent(e.target.value as IntentType);
+              setHasCompiled(false);
+              setIsConfirmed(false);
+            }}
+          >
+            <option value="NUTRITION_AUDIT">Nutrition Audit</option>
+            <option value="TRAINING_AUDIT">Training Audit</option>
+            <option value="SCHEDULE_AUDIT">Schedule Audit</option>
+            <option value="GENERIC_CONSTRAINT_TASK">Generic Constraint Task</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="nm-query-input-panel">
+        <div className="nm-query-input-panel__title">RAW INPUT</div>
+        <textarea
+          className="nm-query-textarea"
+          value={rawInput}
+          onChange={(e) => {
+            setRawInput(e.target.value);
+            setHasCompiled(false);
+            setIsConfirmed(false);
+          }}
+          placeholder="Paste or write the raw request here..."
+        />
+        <div className="nm-query-input-panel__actions">
+          <button
+            type="button"
+            className="nm-btn nm-btn--primary"
+            onClick={handleCompile}
+            disabled={!rawInput.trim()}
+          >
+            Compile
+          </button>
+        </div>
+      </div>
+
+      <CompiledDraftPanel
+        draft={draft}
+        isConfirmed={isConfirmed}
+        onConfirm={handleConfirm}
+        onRevise={handleRevise}
+      />
+
+      <div className="nm-query-evaluate">
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          disabled={!draft?.isEvaluable || !isConfirmed}
+          onClick={handleEvaluate}
+        >
+          Evaluate
+        </button>
+
+        {!draft?.isEvaluable && hasCompiled && (
+          <div className="nm-query-evaluate__note">
+            Evaluation blocked until required fields are present.
+          </div>
+        )}
+
+        {draft?.isEvaluable && !isConfirmed && (
+          <div className="nm-query-evaluate__note">
+            Confirm the compiled draft before evaluation.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+CSS additions
+
+Add these to your NOMOS stylesheet.
+
+.nm-query-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nm-query-page__title {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.nm-query-page__subtitle {
+  color: var(--nm-text-muted);
+  margin-top: 4px;
+}
+
+.nm-query-controls__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+}
+
+.nm-query-input-panel,
+.nm-compiled-panel {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+}
+
+.nm-query-input-panel__title,
+.nm-compiled-panel__eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+}
+
+.nm-query-textarea {
+  width: 100%;
+  min-height: 220px;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--nm-border);
+  background: var(--nm-surface-2, #0d0d0d);
+  color: inherit;
+  resize: vertical;
+}
+
+.nm-query-input-panel__actions,
+.nm-compiled-panel__footer,
+.nm-query-evaluate {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.nm-btn {
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nm-btn--primary {
+  font-weight: 600;
+}
+
+.nm-btn--secondary {
+  opacity: 0.9;
+}
+
+.nm-compiled-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.nm-compiled-panel__title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.nm-compiled-status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.nm-compiled-status--evaluable {
+  border: 1px solid var(--nm-lawful, #2e8b57);
+  color: var(--nm-lawful, #2e8b57);
+}
+
+.nm-compiled-status--blocked {
+  border: 1px solid var(--nm-invalid, #cc4444);
+  color: var(--nm-invalid, #cc4444);
+}
+
+.nm-compiled-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.nm-compiled-section {
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.nm-compiled-section__title,
+.nm-compiled-meta__title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.nm-compiled-section__list,
+.nm-compiled-meta__list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.nm-compiled-candidates {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-compiled-candidate {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.nm-compiled-candidate__id {
+  font-weight: 700;
+}
+
+.nm-compiled-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nm-compiled-meta {
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.nm-compiled-meta--required {
+  border-color: var(--nm-invalid, #cc4444);
+}
+
+.nm-compiled-meta--warning {
+  border-color: var(--nm-degraded, #c58b00);
+}
+
+.nm-query-evaluate__note {
+  font-size: 13px;
+  color: var(--nm-text-muted);
+}
+
+
+⸻
+
+Why this is the right bridge
+
+This gives NOMOS the exact flow you want:
+	1.	user writes messy request
+	2.	NOMOS compiles it into structured declaration
+	3.	user sees gaps and warnings
+	4.	user confirms or revises
+	5.	evaluation remains blocked until the draft is actually admissible
+
+That preserves the constitutional behavior:
+
+NOMOS evaluates confirmed declared structure, not raw human ambiguity
+
+If you want, the next step is the edit-in-place bridge, where clicking a missing field opens a small guided control to fill just that field instead of rewriting the entire prompt.

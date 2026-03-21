@@ -1,0 +1,69 @@
+Build field-aware controls for the NOMOS edit-in-place bridge.
+
+Goal:
+Replace the generic textarea editor for known missing fields with structured controls that reduce ambiguity and patch the compiled draft deterministically.
+
+Create:
+- src/ui/components/compiler/FieldAwareEditor.tsx
+- src/ui/components/compiler/editors/TargetMacrosEditor.tsx
+- src/ui/components/compiler/editors/CorrectionModeEditor.tsx
+- src/ui/components/compiler/editors/FoodSourceTruthEditor.tsx
+- src/ui/components/compiler/editors/LockedPlacementsEditor.tsx
+- update MissingFieldEditor.tsx to route to field-aware editors first
+- update draft_patcher.ts to accept structured payloads where needed
+
+Requirements:
+
+1. Field-aware editor routing
+For these field keys, use dedicated editors instead of generic textarea:
+- target_macros_or_goal
+- correction_mode
+- food_source_truth_or_labels
+- locked_food_placements
+- objective
+- hard_constraints
+
+2. TargetMacrosEditor
+Render numeric inputs:
+- calories
+- protein
+- carbs
+- fat
+On save, patch the draft with a normalized target string such as:
+"2695 / 174p / 331c / 54f"
+
+3. CorrectionModeEditor
+Render dropdown options:
+- audit_only
+- audit_and_correct
+- derive_global_bias
+On save, patch candidates or mode metadata deterministically.
+
+4. FoodSourceTruthEditor
+Render checklist items:
+- whey label attached
+- flax label attached
+- oats label attached
+- dextrin label attached
+- yogurt label attached
+- banana estimated
+- egg estimated
+On save, patch STATE / CONSTRAINTS / UNCERTAINTIES deterministically.
+
+5. LockedPlacementsEditor
+Render toggle list:
+- preserve meal order
+- preserve meal count
+- preserve protein placement by meal
+- preserve whey placement
+- preserve meal dispersal
+On save, patch CONSTRAINTS deterministically.
+
+6. Generic textarea fallback
+If no dedicated editor exists for a field key, use the existing generic textarea editor.
+
+7. Do not use LLM logic in editors.
+8. All patch behavior must remain deterministic.
+
+Success condition:
+Known missing fields can be repaired through explicit structured controls instead of freeform typing.
