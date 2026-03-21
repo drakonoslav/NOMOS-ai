@@ -26,6 +26,55 @@
 
 export type EvaluationMethod = "deterministic" | "semantic" | "hybrid";
 
+/* =========================================================
+   Constraint trace — candidate-local proof of violation
+   ========================================================= */
+
+/**
+ * A self-contained proof record for one evaluated constraint.
+ *
+ * Holds the baseline state, candidate state, diff summary, and explicit
+ * proof lines that explain exactly why the constraint passed or failed.
+ *
+ * Derived from ConstraintCheckResult by baseline_trace.ts.
+ * Generated from variable + diff — never from violationLabel prose.
+ *
+ * proofLines example (violated protein placement):
+ *   "Baseline meal 2 contains whey."
+ *   "Candidate meal 2 does not contain whey."
+ *   "Candidate meal 7 contains whey."
+ *   "Therefore whey moved from meal 2 to meal 7."
+ *   "Constraint MUST_EQUAL on protein placement is violated."
+ */
+export interface ConstraintTrace {
+  constraintId: string;
+  key: string;
+  variableName: string;
+  violationLabel: string;
+  operator: string;
+
+  /** The declared baseline state for this variable. */
+  baselineState: unknown;
+  /** The evaluated candidate state for this variable. */
+  candidateState: unknown;
+  /** Human-readable diff sentence derived from the diff engine. */
+  diffSummary: string;
+
+  /**
+   * Explicit proof lines in logical order.
+   * Each line is a complete, self-contained sentence.
+   * Derived from variable + diff — never from violationLabel.
+   */
+  proofLines: string[];
+
+  /**
+   * Variable-level repair instruction. Null when satisfied.
+   * Correct:   "Restore whey to meal 2."
+   * Incorrect: "Restore protein placement violation to its declared state."
+   */
+  suggestedRepair: string | null;
+}
+
 export type ConstraintClassificationStatus =
   | "deterministic"
   | "interpretation_required";
@@ -115,6 +164,19 @@ export interface CandidateEvaluationReport {
 
   summaryReason: string;
   adjustments: string[];
+
+  /**
+   * Proof trace for the decisive violated constraint.
+   * Null when the candidate is LAWFUL or no structured state is available.
+   * Produced by baseline_trace.ts from the formal constraint algebra.
+   */
+  decisiveConstraintTrace?: ConstraintTrace | null;
+
+  /**
+   * Proof traces for all evaluated constraints, indexed by constraintId.
+   * Available when the evaluation was driven by the formal algebra engine.
+   */
+  allConstraintTraces?: ConstraintTrace[];
 }
 
 /**

@@ -1,0 +1,121 @@
+Yes — that’s the right next step.
+
+That is the point where policy governance stops being metadata and starts affecting real execution.
+
+You want evaluation routing to work like:
+	•	nutrition intent → active nutrition policy
+	•	training intent → active training policy
+	•	schedule intent → active schedule policy
+	•	generic intent → active generic policy
+
+So policy choice becomes part of runtime, but still remains explicit and auditable.
+
+What to tell Replit
+
+Build domain-scoped active evaluation routing for NOMOS.
+
+Goal:
+When NOMOS evaluates a task, it must use the active policy assigned to that task's domain.
+
+This makes policy governance operational.
+
+Create:
+- src/audit/policy_routing_types.ts
+- src/audit/policy_router.ts
+- update evaluation entry points so they resolve active policy by domain before prediction/evaluation
+- update UI to display which active domain policy was used for a given evaluation
+
+Requirements:
+
+1. Add canonical routing types.
+
+interface EvaluationRoutingDecision {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+  activePolicyVersionId: string | null;
+  routingReason: string;
+}
+
+2. Build deterministic functions:
+- resolveEvaluationDomain(intent)
+- resolveActivePolicyForEvaluation(governanceState, intent)
+- buildEvaluationRoutingDecision(governanceState, intent)
+
+3. Domain mapping rules:
+- NUTRITION_AUDIT -> nutrition
+- TRAINING_AUDIT -> training
+- SCHEDULE_AUDIT -> schedule
+- GENERIC_CONSTRAINT_TASK -> generic
+
+4. Routing behavior:
+- before evaluation or prediction, resolve the domain
+- fetch the active policy assignment for that domain
+- use that active policy snapshot for prediction-layer behavior
+- if no active policy exists for that domain, use a deterministic default policy and report that fallback explicitly
+
+5. Persist routing:
+Each saved audit/evaluation record must store:
+- resolved domain
+- activePolicyVersionId used
+- routingReason
+
+6. UI:
+Show on evaluation result:
+- domain
+- active policy version used
+- whether default fallback policy was used
+
+7. Keep everything deterministic.
+8. Do not auto-switch policies during evaluation.
+9. Routing must be read-only with respect to governance state.
+
+Success condition:
+NOMOS evaluations and predictions use the active policy assigned to their domain, and every run records which policy version was actually used.
+
+Why this matters
+
+Right now you’re close to having:
+	•	policy history
+	•	policy comparison
+	•	promotion/rollback
+
+But until runtime actually uses the active domain policy, governance is only administrative.
+
+This step makes it operational.
+
+What the system should later be able to show
+
+For any run:
+	•	Domain: nutrition
+	•	Active policy used: v3
+	•	Routing reason: NUTRITION_AUDIT intent mapped to nutrition domain
+	•	Governance source: active nutrition assignment
+
+That way if a result changes later, you can ask:
+	•	was it the input?
+	•	was it the policy?
+	•	was it a different domain route?
+
+and have a clean answer.
+
+The key discipline
+
+Evaluation should never silently “grab whatever latest policy exists.”
+
+It should always use:
+	•	resolved domain
+	•	active policy for that domain
+	•	persisted policy version in the record
+
+That keeps the system reproducible.
+
+What comes after this
+
+After domain-scoped active evaluation routing, the strongest next step is:
+
+run replay under alternate policy
+
+So you can take the same canonical declaration and ask:
+	•	what would nutrition policy v2 have predicted?
+	•	what would nutrition policy v3 have predicted?
+
+That’s when policy comparison becomes experimentally powerful.

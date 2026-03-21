@@ -13,6 +13,10 @@
  * - No backend field names leak into components.
  */
 
+import type { ConstraintTrace } from "../../evaluation/evaluation_report_types";
+
+export type { ConstraintTrace };
+
 export type UiCandidateStatus = "LAWFUL" | "DEGRADED" | "INVALID";
 export type UiMarginLabel = "HIGH" | "MODERATE" | "LOW" | "FAILED";
 
@@ -30,6 +34,13 @@ export interface CandidateEvaluationCardViewModel {
 
   reason: string;
   adjustments: string[];
+
+  /**
+   * Proof trace for the decisive violated constraint.
+   * Present when the evaluation was driven by the formal constraint algebra.
+   * Displayed in the expandable "View proof trace" section of the card.
+   */
+  trace?: ConstraintTrace | null;
 }
 
 export interface EvaluationResultViewModel {

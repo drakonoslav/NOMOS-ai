@@ -1,5 +1,6 @@
 import React from "react";
 import { CandidateEvaluationCardViewModel } from "../../mappers/evaluation_view_models";
+import { ConstraintTracePanel } from "./ConstraintTracePanel";
 
 export interface CandidateEvaluationCardProps {
   card: CandidateEvaluationCardViewModel;
@@ -55,6 +56,12 @@ export function CandidateEvaluationCard({ card }: CandidateEvaluationCardProps) 
               <li key={i}>{adjustment}</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {card.trace && (
+        <div className="candidate-evaluation-card__trace">
+          <ConstraintTracePanel trace={card.trace} />
         </div>
       )}
     </div>

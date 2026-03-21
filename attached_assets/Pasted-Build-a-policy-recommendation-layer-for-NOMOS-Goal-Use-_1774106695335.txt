@@ -1,0 +1,84 @@
+Build a policy recommendation layer for NOMOS.
+
+Goal:
+Use counterfactual policy bench evidence to generate explicit policy recommendations without auto-promoting any policy.
+
+This layer is advisory only.
+It must not change active policy assignments automatically.
+
+Create:
+- src/audit/policy_recommendation_types.ts
+- src/audit/policy_recommendation.ts
+- src/ui/components/audit/PolicyRecommendationPanel.tsx
+
+Requirements:
+
+1. Add canonical recommendation types.
+
+interface PolicyRecommendation {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  recommendedPolicyVersionId: string | null;
+  candidatePolicyVersionIds: string[];
+
+  basis: {
+    exactMatchRate: number | null;
+    directionMatchRate: number | null;
+    tooAggressiveRate: number | null;
+    tooWeakRate: number | null;
+    unresolvedRate: number | null;
+  };
+
+  rationaleLines: string[];
+  tradeoffLines: string[];
+
+  confidence: "low" | "moderate" | "high";
+  recommendationStrength: "weak" | "moderate" | "strong";
+}
+
+interface PolicyRecommendationReport {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+  recommendations: PolicyRecommendation[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- rankPoliciesFromBench(benchReport)
+- buildPolicyRecommendation(domain, benchReport)
+- buildPolicyRecommendationReport(domain, benchReport)
+
+3. Recommendation rules:
+- choose best policy by weighted evidence, not one metric only
+- prefer higher exact-match rate
+- prefer acceptable direction-match rate
+- penalize too-aggressive behavior
+- penalize too-weak behavior
+- penalize high unresolved rate
+- if policies are too close, recommendation strength should be weak or moderate
+- if history is shallow, confidence must be low
+
+4. Example rationale lines:
+- "Policy v3 is recommended for nutrition because it achieved the best exact-match rate with acceptable aggressiveness."
+- "Policy v2 remains competitive on direction-match but has a higher unresolved rate."
+- "Recommendation confidence is moderate because the evaluation window is limited."
+
+5. Example tradeoff lines:
+- "Policy v3 is slightly more conservative than v2."
+- "Policy v2 has lower aggressiveness but weaker exact-match performance."
+- "Policy v1 performs better under shallow-history cases but worse overall."
+
+6. UI:
+Create PolicyRecommendationPanel showing:
+- recommended policy by domain
+- recommendation strength
+- confidence
+- rationale lines
+- tradeoff lines
+- comparison summary
+
+7. Keep everything deterministic.
+8. Do not auto-promote policies from this layer.
+9. Recommendations must remain advisory and visibly separate from active governance state.
+
+Success condition:
+NOMOS can recommend a policy version for a domain based on bench evidence, while leaving final promotion/rollback decisions to manual governance.

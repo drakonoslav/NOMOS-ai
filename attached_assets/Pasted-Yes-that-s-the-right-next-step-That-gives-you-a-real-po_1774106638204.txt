@@ -1,0 +1,172 @@
+Yes — that’s the right next step.
+
+That gives you a real policy bench instead of isolated anecdotes.
+
+You’d be able to ask:
+	•	across 50 nutrition runs, which policy had the best exact-match rate?
+	•	which policy was too aggressive most often?
+	•	which policy handled shallow history best?
+	•	which policy overused uncertainty?
+
+That is how NOMOS starts behaving like a serious experimental system.
+
+What to tell Replit
+
+Build a counterfactual policy bench for NOMOS.
+
+Goal:
+Replay a whole set of saved runs across multiple frozen policy versions and compare policy behavior at dataset scale.
+
+This is batch replay and aggregate comparison, not just one-run replay.
+
+Create:
+- src/audit/policy_bench_types.ts
+- src/audit/counterfactual_policy_bench.ts
+- src/ui/components/audit/PolicyBenchPanel.tsx
+
+Requirements:
+
+1. Add canonical bench types.
+
+interface PolicyBenchRequest {
+  auditRecordIds: string[];
+  policyVersionIds: string[];
+  domain?: "nutrition" | "training" | "schedule" | "generic" | null;
+}
+
+interface PolicyBenchRunResult {
+  auditRecordId: string;
+  policyVersionId: string;
+
+  predictedVariable: string | null;
+  confidence: "low" | "moderate" | "high";
+  riskDirection: "decreasing" | "stable" | "rising";
+
+  actualNextVariable: string | null;
+  actualRiskDirection: "decreasing" | "stable" | "rising" | null;
+
+  exactMatch: boolean;
+  directionMatch: boolean;
+
+  calibrationClass:
+    | "well_calibrated"
+    | "too_aggressive"
+    | "too_weak"
+    | "unresolved";
+}
+
+interface PolicyBenchMetrics {
+  policyVersionId: string;
+
+  totalRuns: number;
+  resolvedRuns: number;
+
+  exactMatchRate: number | null;
+  directionMatchRate: number | null;
+
+  tooAggressiveRate: number | null;
+  tooWeakRate: number | null;
+  unresolvedRate: number | null;
+
+  lowConfidenceRate: number | null;
+  moderateConfidenceRate: number | null;
+  highConfidenceRate: number | null;
+}
+
+interface PolicyBenchReport {
+  request: PolicyBenchRequest;
+  metricsByPolicy: PolicyBenchMetrics[];
+  bestByExactMatch: string | null;
+  bestByDirectionMatch: string | null;
+  lowestAggressiveRate: string | null;
+  lowestUnresolvedRate: string | null;
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- runCounterfactualBench(request, auditRecords, frozenPolicies)
+- scoreBenchMetrics(runResults)
+- buildPolicyBenchReport(request, runResults)
+
+3. Bench rules:
+- replay each selected audit record under each selected policy
+- use the same canonical declaration and same historical context rules for each replay
+- compare replayed prediction to actual later outcome when available
+- aggregate metrics by policy version
+
+4. Required aggregate metrics:
+- exact-match rate
+- direction-match rate
+- too-aggressive rate
+- too-weak rate
+- unresolved rate
+- confidence distribution
+
+5. Example summary lines:
+- "Policy v3 has the strongest exact-match rate across the selected nutrition runs."
+- "Policy v2 shows the lowest over-aggressive forecast rate."
+- "Policy v1 produces the highest unresolved rate under shallow history."
+
+6. UI:
+Create PolicyBenchPanel showing:
+- selected runs count
+- selected policies
+- metrics table by policy
+- best performer by key metric
+- summary lines
+
+7. Keep everything deterministic.
+8. Do not auto-promote a winning policy from bench results.
+9. Bench is analysis only.
+
+Success condition:
+NOMOS can replay many saved runs under multiple policies and compare policy performance at dataset scale.
+
+Why this matters
+
+Single-run replay tells you:
+	•	how policies differ on one case
+
+The bench tells you:
+	•	how policies behave systematically
+
+That’s the difference between:
+	•	curiosity
+and
+	•	evidence
+
+What this should eventually let NOMOS say
+
+Examples:
+	•	“Policy v3 achieved the highest exact-match rate across 42 nutrition runs.”
+	•	“Policy v2 reduced over-aggressive forecasts but increased unresolved outcomes.”
+	•	“Policy v1 was strongest on direction-match but weakest on confidence calibration.”
+	•	“Policy v3 appears most conservative under shallow-history conditions.”
+
+That’s the right level of judgment.
+
+The key discipline
+
+Do not let the bench change policy automatically yet.
+
+First:
+	•	replay
+	•	measure
+	•	compare
+	•	summarize
+
+Only after that should you consider assisted promotion.
+
+What comes after this
+
+After the counterfactual policy bench, the strongest next step is:
+
+policy recommendation layer
+
+Not auto-promotion.
+
+A layer that says:
+	•	based on bench evidence, v3 is recommended for nutrition
+	•	rationale: best exact-match, acceptable aggressiveness, lower unresolved rate
+
+That keeps NOMOS governed by evidence without making it self-authorizing.

@@ -1,0 +1,126 @@
+Yes — that’s the right next step.
+
+That closes the governance loop so NOMOS can later answer:
+	•	what policy was active
+	•	what policy was recommended
+	•	why a human changed or did not change it
+	•	what gains/tradeoffs were expected
+	•	what actually happened after
+
+That is the full chain of accountable policy governance.
+
+What to tell Replit
+
+Build governance audit trail completion for NOMOS.
+
+Goal:
+Every manual policy promotion or rollback must store the full decision context so governance actions are historically explainable and auditable.
+
+Create:
+- src/audit/governance_audit_types.ts
+- src/audit/governance_audit_trail.ts
+- update policy governance storage
+- update PolicyGovernancePanel.tsx
+
+Requirements:
+
+1. Add canonical governance audit types.
+
+interface GovernanceAuditRecord {
+  actionId: string;
+  timestamp: string;
+
+  domain: "nutrition" | "training" | "schedule" | "generic";
+  action: "promote" | "rollback";
+
+  currentPolicyVersionId: string | null;
+  recommendedPolicyVersionId: string | null;
+  chosenPolicyVersionId: string;
+
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+
+  recommendationStrength: "weak" | "moderate" | "strong";
+  recommendationConfidence: "low" | "moderate" | "high";
+
+  humanReason: string;
+
+  benchEvidenceSummary: string[];
+  recommendationSummary: string[];
+}
+
+2. Build deterministic functions:
+- buildGovernanceAuditRecord(...)
+- saveGovernanceAuditRecord(record)
+- listGovernanceAuditRecords(domain?)
+- getGovernanceAuditRecord(actionId)
+
+3. Promotion/rollback flow:
+When a human promotes or rolls back a policy, require:
+- current policy
+- recommended policy
+- expected gains
+- expected tradeoffs
+- expected risks
+- human-entered reason
+
+4. Persist all of the above in the governance audit trail.
+Do not store only the final chosen policy.
+
+5. UI:
+Update PolicyGovernancePanel to require a reason field before commit.
+Show a governance audit log with:
+- timestamp
+- domain
+- action
+- from policy
+- to policy
+- human reason
+
+6. Keep everything deterministic.
+7. Do not auto-generate human reasons.
+8. Do not mutate historical governance audit records.
+
+Success condition:
+Every policy governance action is saved with full decision context, not just the result.
+
+Why this matters
+
+Once this exists, NOMOS can support questions like:
+	•	Why was v3 promoted for nutrition?
+	•	What was expected to improve?
+	•	What tradeoffs were accepted?
+	•	Was the promotion made under weak or strong evidence?
+	•	Did later calibration justify the decision?
+
+That is exactly what a serious governed system should be able to answer.
+
+What the stored record should capture
+
+At minimum:
+	•	current policy at decision time
+	•	recommended policy
+	•	chosen policy
+	•	expected gains
+	•	expected tradeoffs
+	•	expected risks
+	•	recommendation strength
+	•	recommendation confidence
+	•	human reason
+
+That gives you both:
+	•	machine-side rationale
+	•	human-side accountability
+
+What comes after this
+
+After governance audit trail completion, the strongest next step is:
+
+post-governance outcome review
+
+So NOMOS can later compare:
+	•	what gains were expected
+	•	what gains actually occurred after promotion or rollback
+
+That would let governance itself become evaluable.

@@ -120,6 +120,7 @@ function mapReportCandidateToCard(
     marginLabel: marginLabelFromScore(candidate.margin ?? 0) as UiMarginLabel,
     reason: cleanPhrase(candidate.summaryReason) ?? "",
     adjustments: candidate.adjustments.map((a) => cleanPhrase(a) ?? a),
+    trace: candidate.decisiveConstraintTrace ?? null,
   };
 }
 

@@ -126,6 +126,8 @@ function buildCandidateReport(
     constraintEvaluations,
     summaryReason: "",
     adjustments: [],
+    // Pass through algebra-level trace if provided by the evaluation source
+    decisiveConstraintTrace: candidate.decisiveConstraintTrace ?? null,
   };
 
   // Decisive variable — from highest-priority violated constraint, or the first

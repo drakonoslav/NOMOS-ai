@@ -869,6 +869,125 @@ textarea {
 .margin-low      { color: #fb923c; }
 .margin-failed   { color: #f87171; }
 
+/* =========================================================
+   Constraint trace panel
+   Expandable proof trace for candidate evaluation cards
+   ========================================================= */
+
+.candidate-evaluation-card__trace {
+  margin-top: var(--nm-space-4);
+  padding-top: var(--nm-space-3);
+  border-top: 1px solid var(--nm-border);
+}
+
+.constraint-trace-panel {
+  width: 100%;
+}
+
+.constraint-trace-panel__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--nm-space-2);
+  background: transparent;
+  border: 1px solid var(--nm-border);
+  border-radius: var(--nm-radius-xs);
+  color: var(--nm-text-secondary);
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: var(--nm-space-2) var(--nm-space-3);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.constraint-trace-panel__toggle:hover {
+  background: var(--nm-surface-2);
+  color: var(--nm-text-primary);
+  border-color: var(--nm-border-strong);
+}
+
+.constraint-trace-panel__toggle-icon {
+  font-size: 8px;
+  opacity: 0.6;
+}
+
+.constraint-trace-panel__content {
+  margin-top: var(--nm-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-4);
+}
+
+.constraint-trace-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.constraint-trace-panel__section-label {
+  font-family: var(--nm-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.constraint-trace-panel__list {
+  margin: 0;
+  padding-left: var(--nm-space-5);
+  font-size: var(--nm-text-sm);
+  color: var(--nm-text-secondary);
+  line-height: var(--nm-line-loose);
+  list-style: disc;
+}
+
+.constraint-trace-panel__list--proof {
+  color: var(--nm-text-primary);
+}
+
+.constraint-trace-panel__list--state {
+  color: var(--nm-text-secondary);
+}
+
+.constraint-trace-panel__proof-conclusion {
+  color: var(--nm-text-primary);
+  font-weight: 600;
+}
+
+.constraint-trace-panel__meal-label {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+}
+
+.constraint-trace-panel__none {
+  font-style: italic;
+  color: var(--nm-text-muted);
+}
+
+.constraint-trace-panel__scalar {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-sm);
+  color: var(--nm-text-secondary);
+}
+
+.constraint-trace-panel__json {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-secondary);
+  background: var(--nm-surface-2);
+  border-radius: var(--nm-radius-xs);
+  padding: var(--nm-space-3);
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: var(--nm-line-loose);
+}
+
 /* Summary panel sub-label */
 .evaluation-result-panel__summary-value--mono {
   font-family: var(--nm-font-mono);

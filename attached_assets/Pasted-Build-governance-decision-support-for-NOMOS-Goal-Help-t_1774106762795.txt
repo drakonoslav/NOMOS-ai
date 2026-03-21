@@ -1,0 +1,84 @@
+Build governance decision support for NOMOS.
+
+Goal:
+Help the human compare the current active policy against the recommended policy before promotion or rollback.
+
+This layer is advisory only.
+It must not execute governance changes automatically.
+
+Create:
+- src/audit/governance_decision_support_types.ts
+- src/audit/governance_decision_support.ts
+- src/ui/components/audit/GovernanceDecisionSupportPanel.tsx
+
+Requirements:
+
+1. Add canonical decision-support types.
+
+interface GovernanceDecisionSupport {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  currentActivePolicyVersionId: string | null;
+  recommendedPolicyVersionId: string | null;
+
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+
+  recommendationStrength: "weak" | "moderate" | "strong";
+  confidence: "low" | "moderate" | "high";
+
+  promoteSuggested: boolean;
+  rollbackSuggested: boolean;
+
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildGovernanceDecisionSupport(currentPolicy, recommendedPolicy, benchReport, recommendationReport)
+- computeExpectedGains(...)
+- computeExpectedTradeoffs(...)
+- computeExpectedRisks(...)
+
+3. Decision-support rules:
+- compare active policy vs recommended policy on:
+  - exact-match rate
+  - direction-match rate
+  - too-aggressive rate
+  - too-weak rate
+  - unresolved rate
+- expected gains should reflect likely measurable improvement
+- expected tradeoffs should reflect likely measurable cost
+- expected risks should reflect uncertainty, shallow evidence, or mixed bench results
+- if evidence is weak or too close, promoteSuggested must remain false
+
+4. Example expected gains:
+- "Exact-match performance is likely to improve."
+- "Over-aggressive forecasts are likely to decrease."
+- "Unresolved prediction rate may decline."
+
+5. Example expected tradeoffs:
+- "Confidence outputs may become slightly more conservative."
+- "Direction-match gain may come with lower escalation sensitivity."
+
+6. Example expected risks:
+- "Bench evidence is limited to a shallow nutrition window."
+- "Policy differences are modest; practical gains may be small."
+
+7. UI:
+Create GovernanceDecisionSupportPanel showing:
+- current active policy
+- recommended policy
+- expected gains
+- expected tradeoffs
+- expected risks
+- recommendation strength
+- confidence
+- suggestion flags
+
+8. Keep everything deterministic.
+9. Do not trigger promotion or rollback here.
+10. This panel must remain separate from the actual governance action buttons.
+
+Success condition:
+NOMOS can help a human understand whether promoting or rolling back a policy is justified before any governance action is taken.

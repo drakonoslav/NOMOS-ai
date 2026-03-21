@@ -1,0 +1,72 @@
+Build run replay under alternate policy for NOMOS.
+
+Goal:
+Allow the same canonical declaration and audit context to be re-evaluated under different frozen policy versions, so policy comparison becomes experimentally testable on the same input.
+
+Create:
+- src/audit/policy_replay_types.ts
+- src/audit/policy_replay.ts
+- src/ui/components/audit/PolicyReplayPanel.tsx
+
+Requirements:
+
+1. Add canonical replay types.
+
+interface PolicyReplayRequest {
+  canonicalDeclaration: string;
+  intent: "NUTRITION_AUDIT" | "TRAINING_AUDIT" | "SCHEDULE_AUDIT" | "GENERIC_CONSTRAINT_TASK";
+  baselineAuditRecordId?: string | null;
+  replayPolicyVersionIds: string[];
+}
+
+interface PolicyReplayResult {
+  policyVersionId: string;
+  predictedVariable: string | null;
+  confidence: "low" | "moderate" | "high";
+  riskDirection: "decreasing" | "stable" | "rising";
+  explanationLines: string[];
+}
+
+interface PolicyReplayComparison {
+  canonicalDeclarationHash: string;
+  results: PolicyReplayResult[];
+  differingFields: string[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- replayUnderPolicy(request, frozenPolicySnapshot, auditContext)
+- buildPolicyReplayComparison(request, frozenPolicies, auditContext)
+- diffReplayResults(results)
+
+3. Replay rules:
+- same canonical declaration for every replay
+- same intent for every replay
+- same audit history/calibration context unless explicitly varied later
+- only policy snapshot changes
+
+4. Persist replay metadata:
+- canonical declaration hash
+- replayed policy version ids
+- comparison result
+
+5. UI:
+Create PolicyReplayPanel showing:
+- selected canonical declaration / source run
+- chosen alternate policy versions
+- replay result per policy
+- differing fields across replay outputs
+- summary lines
+
+6. Differing fields should include:
+- predictedVariable
+- confidence
+- riskDirection
+- explanation changes
+
+7. Keep everything deterministic.
+8. Do not mutate historical audit records during replay.
+9. Replay is experimental analysis only, not active governance.
+
+Success condition:
+NOMOS can replay the same run under multiple frozen policies and show exactly how the outputs differ.
