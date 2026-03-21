@@ -1,0 +1,585 @@
+Yes — that is the right next step.
+
+Generic textareas are good for rescue, but field-aware controls are what make NOMOS feel precise instead of fragile.
+
+You want the system to stop asking the user to “write better” and instead let them declare better.
+
+What to tell Replit
+
+Build field-aware controls for the NOMOS edit-in-place bridge.
+
+Goal:
+Replace the generic textarea editor for known missing fields with structured controls that reduce ambiguity and patch the compiled draft deterministically.
+
+Create:
+- src/ui/components/compiler/FieldAwareEditor.tsx
+- src/ui/components/compiler/editors/TargetMacrosEditor.tsx
+- src/ui/components/compiler/editors/CorrectionModeEditor.tsx
+- src/ui/components/compiler/editors/FoodSourceTruthEditor.tsx
+- src/ui/components/compiler/editors/LockedPlacementsEditor.tsx
+- update MissingFieldEditor.tsx to route to field-aware editors first
+- update draft_patcher.ts to accept structured payloads where needed
+
+Requirements:
+
+1. Field-aware editor routing
+For these field keys, use dedicated editors instead of generic textarea:
+- target_macros_or_goal
+- correction_mode
+- food_source_truth_or_labels
+- locked_food_placements
+- objective
+- hard_constraints
+
+2. TargetMacrosEditor
+Render numeric inputs:
+- calories
+- protein
+- carbs
+- fat
+On save, patch the draft with a normalized target string such as:
+"2695 / 174p / 331c / 54f"
+
+3. CorrectionModeEditor
+Render dropdown options:
+- audit_only
+- audit_and_correct
+- derive_global_bias
+On save, patch candidates or mode metadata deterministically.
+
+4. FoodSourceTruthEditor
+Render checklist items:
+- whey label attached
+- flax label attached
+- oats label attached
+- dextrin label attached
+- yogurt label attached
+- banana estimated
+- egg estimated
+On save, patch STATE / CONSTRAINTS / UNCERTAINTIES deterministically.
+
+5. LockedPlacementsEditor
+Render toggle list:
+- preserve meal order
+- preserve meal count
+- preserve protein placement by meal
+- preserve whey placement
+- preserve meal dispersal
+On save, patch CONSTRAINTS deterministically.
+
+6. Generic textarea fallback
+If no dedicated editor exists for a field key, use the existing generic textarea editor.
+
+7. Do not use LLM logic in editors.
+8. All patch behavior must remain deterministic.
+
+Success condition:
+Known missing fields can be repaired through explicit structured controls instead of freeform typing.
+
+Control design
+
+Here’s the clean mapping you want:
+
+target_macros_or_goal
+
+Use 4 numeric inputs:
+	•	Calories
+	•	Protein
+	•	Carbs
+	•	Fat
+
+Save as:
+
+2695 / 174p / 331c / 54f
+
+correction_mode
+
+Use dropdown:
+	•	Audit only
+	•	Audit + minimal correction
+	•	Derive global bias
+
+Save as mode enum, then patch candidate text or draft metadata.
+
+food_source_truth_or_labels
+
+Use checklist:
+	•	Whey label attached
+	•	Flax label attached
+	•	Oat label attached
+	•	Dextrin label attached
+	•	Yogurt label attached
+	•	Banana estimated
+	•	Egg estimated
+
+This is much better than asking the user to retype source truth.
+
+locked_food_placements
+
+Use toggles:
+	•	Preserve meal order
+	•	Preserve meal count
+	•	Preserve protein placement by meal
+	•	Preserve whey placement
+	•	Preserve meal dispersal
+
+That directly encodes your real non-negotiables.
+
+⸻
+
+FieldAwareEditor.tsx
+
+import React from "react";
+import { TargetMacrosEditor } from "./editors/TargetMacrosEditor";
+import { CorrectionModeEditor } from "./editors/CorrectionModeEditor";
+import { FoodSourceTruthEditor } from "./editors/FoodSourceTruthEditor";
+import { LockedPlacementsEditor } from "./editors/LockedPlacementsEditor";
+import { MissingFieldEditor } from "./MissingFieldEditor";
+
+export interface FieldAwareEditorProps {
+  fieldKey: string;
+  onSave: (value: unknown) => void;
+  onCancel: () => void;
+}
+
+export function FieldAwareEditor({
+  fieldKey,
+  onSave,
+  onCancel,
+}: FieldAwareEditorProps) {
+  switch (fieldKey) {
+    case "target_macros_or_goal":
+      return <TargetMacrosEditor onSave={onSave} onCancel={onCancel} />;
+
+    case "correction_mode":
+      return <CorrectionModeEditor onSave={onSave} onCancel={onCancel} />;
+
+    case "food_source_truth_or_labels":
+      return <FoodSourceTruthEditor onSave={onSave} onCancel={onCancel} />;
+
+    case "locked_food_placements":
+      return <LockedPlacementsEditor onSave={onSave} onCancel={onCancel} />;
+
+    default:
+      return (
+        <MissingFieldEditor
+          fieldKey={fieldKey}
+          onSave={(value) => onSave(value)}
+          onCancel={onCancel}
+        />
+      );
+  }
+}
+
+
+⸻
+
+TargetMacrosEditor.tsx
+
+import React, { useState } from "react";
+
+export function TargetMacrosEditor({
+  onSave,
+  onCancel,
+}: {
+  onSave: (value: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    normalized: string;
+  }) => void;
+  onCancel: () => void;
+}) {
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+
+  const valid =
+    calories !== "" && protein !== "" && carbs !== "" && fat !== "";
+
+  return (
+    <div className="nm-structured-editor">
+      <div className="nm-structured-editor__title">Target Macros</div>
+
+      <div className="nm-form-grid">
+        <label>
+          <span>Calories</span>
+          <input value={calories} onChange={(e) => setCalories(e.target.value)} type="number" />
+        </label>
+        <label>
+          <span>Protein</span>
+          <input value={protein} onChange={(e) => setProtein(e.target.value)} type="number" />
+        </label>
+        <label>
+          <span>Carbs</span>
+          <input value={carbs} onChange={(e) => setCarbs(e.target.value)} type="number" />
+        </label>
+        <label>
+          <span>Fat</span>
+          <input value={fat} onChange={(e) => setFat(e.target.value)} type="number" />
+        </label>
+      </div>
+
+      <div className="nm-missing-editor__actions">
+        <button type="button" className="nm-btn nm-btn--secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          disabled={!valid}
+          onClick={() =>
+            onSave({
+              calories: Number(calories),
+              protein: Number(protein),
+              carbs: Number(carbs),
+              fat: Number(fat),
+              normalized: `${calories} / ${protein}p / ${carbs}c / ${fat}f`,
+            })
+          }
+        >
+          Save Field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+CorrectionModeEditor.tsx
+
+import React, { useState } from "react";
+
+export function CorrectionModeEditor({
+  onSave,
+  onCancel,
+}: {
+  onSave: (value: {
+    mode: "audit_only" | "audit_and_correct" | "derive_global_bias";
+    label: string;
+  }) => void;
+  onCancel: () => void;
+}) {
+  const [mode, setMode] = useState<"audit_only" | "audit_and_correct" | "derive_global_bias">(
+    "audit_only"
+  );
+
+  const labels = {
+    audit_only: "Audit only",
+    audit_and_correct: "Audit + minimal correction",
+    derive_global_bias: "Derive global bias",
+  };
+
+  return (
+    <div className="nm-structured-editor">
+      <div className="nm-structured-editor__title">Correction Mode</div>
+
+      <label>
+        <span>Mode</span>
+        <select value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
+          <option value="audit_only">Audit only</option>
+          <option value="audit_and_correct">Audit + minimal correction</option>
+          <option value="derive_global_bias">Derive global bias</option>
+        </select>
+      </label>
+
+      <div className="nm-missing-editor__actions">
+        <button type="button" className="nm-btn nm-btn--secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          onClick={() => onSave({ mode, label: labels[mode] })}
+        >
+          Save Field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+FoodSourceTruthEditor.tsx
+
+import React, { useState } from "react";
+
+type FoodSourceState = {
+  whey: boolean;
+  flax: boolean;
+  oats: boolean;
+  dextrin: boolean;
+  yogurt: boolean;
+  bananaEstimated: boolean;
+  eggEstimated: boolean;
+};
+
+export function FoodSourceTruthEditor({
+  onSave,
+  onCancel,
+}: {
+  onSave: (value: FoodSourceState) => void;
+  onCancel: () => void;
+}) {
+  const [state, setState] = useState<FoodSourceState>({
+    whey: true,
+    flax: true,
+    oats: true,
+    dextrin: true,
+    yogurt: true,
+    bananaEstimated: true,
+    eggEstimated: true,
+  });
+
+  function toggle<K extends keyof FoodSourceState>(key: K) {
+    setState((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  return (
+    <div className="nm-structured-editor">
+      <div className="nm-structured-editor__title">Food Source Truth</div>
+
+      <div className="nm-checkbox-list">
+        <label><input type="checkbox" checked={state.whey} onChange={() => toggle("whey")} /> Whey label attached</label>
+        <label><input type="checkbox" checked={state.flax} onChange={() => toggle("flax")} /> Flax label attached</label>
+        <label><input type="checkbox" checked={state.oats} onChange={() => toggle("oats")} /> Oat label attached</label>
+        <label><input type="checkbox" checked={state.dextrin} onChange={() => toggle("dextrin")} /> Dextrin label attached</label>
+        <label><input type="checkbox" checked={state.yogurt} onChange={() => toggle("yogurt")} /> Yogurt label attached</label>
+        <label><input type="checkbox" checked={state.bananaEstimated} onChange={() => toggle("bananaEstimated")} /> Banana estimated</label>
+        <label><input type="checkbox" checked={state.eggEstimated} onChange={() => toggle("eggEstimated")} /> Egg estimated</label>
+      </div>
+
+      <div className="nm-missing-editor__actions">
+        <button type="button" className="nm-btn nm-btn--secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="nm-btn nm-btn--primary" onClick={() => onSave(state)}>
+          Save Field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+LockedPlacementsEditor.tsx
+
+import React, { useState } from "react";
+
+type LockedPlacementState = {
+  preserveMealOrder: boolean;
+  preserveMealCount: boolean;
+  preserveProteinPlacement: boolean;
+  preserveWheyPlacement: boolean;
+  preserveMealDispersal: boolean;
+};
+
+export function LockedPlacementsEditor({
+  onSave,
+  onCancel,
+}: {
+  onSave: (value: LockedPlacementState) => void;
+  onCancel: () => void;
+}) {
+  const [state, setState] = useState<LockedPlacementState>({
+    preserveMealOrder: true,
+    preserveMealCount: true,
+    preserveProteinPlacement: true,
+    preserveWheyPlacement: true,
+    preserveMealDispersal: true,
+  });
+
+  function toggle<K extends keyof LockedPlacementState>(key: K) {
+    setState((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  return (
+    <div className="nm-structured-editor">
+      <div className="nm-structured-editor__title">Locked Placements</div>
+
+      <div className="nm-checkbox-list">
+        <label><input type="checkbox" checked={state.preserveMealOrder} onChange={() => toggle("preserveMealOrder")} /> Preserve meal order</label>
+        <label><input type="checkbox" checked={state.preserveMealCount} onChange={() => toggle("preserveMealCount")} /> Preserve meal count</label>
+        <label><input type="checkbox" checked={state.preserveProteinPlacement} onChange={() => toggle("preserveProteinPlacement")} /> Preserve protein placement by meal</label>
+        <label><input type="checkbox" checked={state.preserveWheyPlacement} onChange={() => toggle("preserveWheyPlacement")} /> Preserve whey placement</label>
+        <label><input type="checkbox" checked={state.preserveMealDispersal} onChange={() => toggle("preserveMealDispersal")} /> Preserve meal dispersal</label>
+      </div>
+
+      <div className="nm-missing-editor__actions">
+        <button type="button" className="nm-btn nm-btn--secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="nm-btn nm-btn--primary" onClick={() => onSave(state)}>
+          Save Field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+Patch draft_patcher.ts
+
+Add support for structured payloads:
+
+case "target_macros_or_goal": {
+  if (typeof value === "object" && value && "normalized" in value) {
+    const v = value as { normalized: string };
+    next.objective = replaceOrAppend(next.objective, `Target macros: ${v.normalized}`);
+    next.state = replaceOrAppend(next.state, "Target macro blocks were detected.");
+    next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+  } else if (typeof value === "string" && value.trim()) {
+    next.objective = replaceOrAppend(next.objective, value.trim());
+    next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+  }
+  break;
+}
+
+case "correction_mode": {
+  if (typeof value === "object" && value && "label" in value) {
+    const v = value as { label: string };
+    next.candidates = [...next.candidates, { id: "USER", text: v.label }];
+    next.missingOptionalFields = removeKey(next.missingOptionalFields, fieldKey);
+  }
+  break;
+}
+
+case "food_source_truth_or_labels": {
+  if (typeof value === "object" && value) {
+    next.state = replaceOrAppend(next.state, "Food-label or source-truth references were detected.");
+    next.constraints = replaceOrAppend(
+      next.constraints,
+      "Label truth overrides food assumptions where labels are provided."
+    );
+    next.uncertainties = replaceOrAppend(
+      next.uncertainties,
+      "Banana and egg values may remain estimated unless separately grounded."
+    );
+    next.missingRequiredFields = removeKey(next.missingRequiredFields, fieldKey);
+  }
+  break;
+}
+
+case "locked_food_placements": {
+  if (typeof value === "object" && value) {
+    next.constraints = replaceOrAppend(next.constraints, "Protein placement should remain fixed unless explicitly released.");
+    next.constraints = replaceOrAppend(next.constraints, "Meal order and dispersal should remain fixed unless explicitly released.");
+    next.missingOptionalFields = removeKey(next.missingOptionalFields, fieldKey);
+  }
+  break;
+}
+
+
+⸻
+
+Small UI change
+
+Update FieldPatchPanel.tsx to use FieldAwareEditor instead of MissingFieldEditor.
+
+import React from "react";
+import { FieldAwareEditor } from "./FieldAwareEditor";
+
+export interface FieldPatchPanelProps {
+  activeField: string | null;
+  onSave: (fieldKey: string, value: unknown) => void;
+  onCancel: () => void;
+}
+
+export function FieldPatchPanel({
+  activeField,
+  onSave,
+  onCancel,
+}: FieldPatchPanelProps) {
+  if (!activeField) return null;
+
+  return (
+    <div className="nm-field-patch-panel">
+      <FieldAwareEditor
+        fieldKey={activeField}
+        onSave={(value) => onSave(activeField, value)}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
+
+⸻
+
+CSS additions
+
+.nm-structured-editor {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--nm-surface, #111);
+}
+
+.nm-structured-editor__title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.nm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nm-form-grid label,
+.nm-structured-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nm-form-grid input,
+.nm-structured-editor select {
+  padding: 10px;
+  border: 1px solid var(--nm-border);
+  border-radius: 8px;
+  background: var(--nm-surface-2, #0d0d0d);
+  color: inherit;
+}
+
+.nm-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nm-checkbox-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+⸻
+
+Why this is the strongest next step
+
+Now NOMOS stops relying on:
+	•	vague text repair
+	•	repeated user rewriting
+	•	hidden assumptions
+
+And starts using:
+	•	explicit declaration controls
+	•	deterministic patching
+	•	lower ambiguity inputs
+
+That is exactly how a system like this becomes better than a generic LLM workflow.
+
+The next strongest step after this is a compiled draft serializer, so once the user patches fields through the UI, NOMOS can regenerate a clean canonical declaration block for storage, audit history, and evaluation.

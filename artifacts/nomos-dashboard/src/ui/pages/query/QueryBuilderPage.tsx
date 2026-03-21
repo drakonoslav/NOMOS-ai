@@ -14,10 +14,12 @@ import { MissingInfoPanel } from "../../components/query/MissingInfoPanel";
 import { EvaluationLaunchPanel } from "../../components/query/EvaluationLaunchPanel";
 import { EvaluationResultPanel } from "../../components/evaluation/EvaluationResultPanel";
 import { CompiledDraftPanel } from "../../components/compiler/CompiledDraftPanel";
+import { FieldPatchPanel } from "../../components/compiler/FieldPatchPanel";
 
 import { autoCompile, StructuredDraft } from "../../../compiler/auto_compiler";
 import { IntentType } from "../../../compiler/domain_templates";
 import { detectIntent } from "../../../compiler/intent_detector";
+import { patchDraftField, revalidateDraft } from "../../../compiler/draft_patcher";
 
 import "./query-builder.css";
 
@@ -69,6 +71,8 @@ interface AutoCompileState {
   hasCompiled: boolean;
   isConfirmed: boolean;
   draft: StructuredDraft | null;
+  patchedDraft: StructuredDraft | null;
+  activeField: string | null;
   isEvaluating: boolean;
   evaluationResult?: EvaluationResult;
   evaluationError?: string;
@@ -81,6 +85,8 @@ function buildEmptyAutoState(): AutoCompileState {
     hasCompiled: false,
     isConfirmed: false,
     draft: null,
+    patchedDraft: null,
+    activeField: null,
     isEvaluating: false,
     evaluationResult: undefined,
     evaluationError: undefined,
@@ -341,6 +347,8 @@ export function QueryBuilderPage() {
       hasCompiled: false,
       isConfirmed: false,
       draft: null,
+      patchedDraft: null,
+      activeField: null,
       evaluationResult: undefined,
       evaluationError: undefined,
     }));
@@ -353,6 +361,8 @@ export function QueryBuilderPage() {
       hasCompiled: false,
       isConfirmed: false,
       draft: null,
+      patchedDraft: null,
+      activeField: null,
       evaluationResult: undefined,
       evaluationError: undefined,
     }));
@@ -368,6 +378,8 @@ export function QueryBuilderPage() {
       hasCompiled: false,
       isConfirmed: false,
       draft: null,
+      patchedDraft: null,
+      activeField: null,
     }));
   }
 
@@ -379,13 +391,43 @@ export function QueryBuilderPage() {
       hasCompiled: true,
       isConfirmed: false,
       draft: result.draft,
+      patchedDraft: null,
+      activeField: null,
       evaluationResult: undefined,
       evaluationError: undefined,
     }));
   }
 
+  function handleFixField(fieldKey: string) {
+    setAutoState((prev) => ({
+      ...prev,
+      activeField: fieldKey,
+      isConfirmed: false,
+    }));
+  }
+
+  function handleSaveField(fieldKey: string, value: unknown) {
+    const baseDraft = autoState.patchedDraft ?? autoState.draft;
+    if (!baseDraft) return;
+    const patched = patchDraftField(baseDraft, fieldKey, value);
+    const revalidated = revalidateDraft(patched, autoState.intent);
+    setAutoState((prev) => ({
+      ...prev,
+      patchedDraft: revalidated,
+      activeField: null,
+      evaluationResult: undefined,
+      evaluationError: undefined,
+    }));
+  }
+
+  function handleCancelFieldEdit() {
+    setAutoState((prev) => ({ ...prev, activeField: null }));
+  }
+
+  const effectiveDraft = autoState.patchedDraft ?? autoState.draft;
+
   function handleAutoConfirm() {
-    if (!autoState.draft?.isEvaluable) return;
+    if (!effectiveDraft?.isEvaluable) return;
     setAutoState((prev) => ({ ...prev, isConfirmed: true }));
   }
 
@@ -399,11 +441,11 @@ export function QueryBuilderPage() {
   }
 
   async function handleAutoEvaluate() {
-    if (!autoState.draft || !autoState.draft.isEvaluable || !autoState.isConfirmed)
+    if (!effectiveDraft || !effectiveDraft.isEvaluable || !autoState.isConfirmed)
       return;
 
     const query = compiledDraftToNomosQuery(
-      autoState.draft,
+      effectiveDraft,
       autoState.rawInput
     );
 
@@ -526,19 +568,26 @@ export function QueryBuilderPage() {
           </div>
 
           <CompiledDraftPanel
-            draft={autoState.draft}
+            draft={effectiveDraft}
             isConfirmed={autoState.isConfirmed}
             onConfirm={handleAutoConfirm}
             onRevise={handleAutoRevise}
+            onFixField={handleFixField}
           />
 
-          {autoState.draft && (
+          <FieldPatchPanel
+            activeField={autoState.activeField}
+            onSave={handleSaveField}
+            onCancel={handleCancelFieldEdit}
+          />
+
+          {effectiveDraft && (
             <div className="nm-query-evaluate">
               <button
                 type="button"
                 className="nm-btn nm-btn--primary"
                 disabled={
-                  !autoState.draft.isEvaluable ||
+                  !effectiveDraft.isEvaluable ||
                   !autoState.isConfirmed ||
                   autoState.isEvaluating
                 }
@@ -547,13 +596,13 @@ export function QueryBuilderPage() {
                 {autoState.isEvaluating ? "Evaluating…" : "Evaluate"}
               </button>
 
-              {!autoState.draft.isEvaluable && autoState.hasCompiled && (
+              {!effectiveDraft.isEvaluable && autoState.hasCompiled && (
                 <div className="nm-query-evaluate__note">
                   Evaluation blocked until required fields are present.
                 </div>
               )}
 
-              {autoState.draft.isEvaluable && !autoState.isConfirmed && (
+              {effectiveDraft.isEvaluable && !autoState.isConfirmed && (
                 <div className="nm-query-evaluate__note">
                   Confirm the compiled draft before evaluation.
                 </div>

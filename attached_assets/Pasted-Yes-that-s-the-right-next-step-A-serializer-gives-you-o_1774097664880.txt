@@ -1,0 +1,443 @@
+Yes — that’s the right next step.
+
+A serializer gives you one canonical artifact:
+
+messy input → compiled draft → field patches → canonical declaration block
+
+That block becomes:
+	•	what NOMOS evaluates
+	•	what NOMOS stores
+	•	what NOMOS diffs later
+	•	what NOMOS can re-open without ambiguity
+
+Without this, your UI state is useful but fragile.
+
+⸻
+
+Message to Replit
+
+Build the compiled draft serializer for NOMOS.
+
+Goal:
+Once a user patches fields through the UI, NOMOS must regenerate a clean canonical declaration block for:
+- storage
+- audit history
+- later reopening
+- deterministic evaluation
+
+Create:
+- src/compiler/draft_serializer.ts
+- optionally src/compiler/serialized_types.ts
+- update QueryBuilderPage.tsx so the current compiled draft can be serialized after patching or confirmation
+
+Requirements:
+
+1. Serializer input:
+- StructuredDraft
+
+2. Serializer output:
+- canonical text block with sections in this exact order:
+  STATE
+  CONSTRAINTS
+  UNCERTAINTIES
+  CANDIDATES
+  OBJECTIVE
+
+3. Serialization rules:
+- preserve section order exactly
+- omit empty sections only if completely empty
+- keep one bullet per line for STATE / CONSTRAINTS / UNCERTAINTIES / OBJECTIVE
+- render CANDIDATES as:
+  A: ...
+  B: ...
+- normalize whitespace
+- do not include UI-only metadata in the canonical block
+- do not include warnings, notes, or missing fields in the canonical declaration block
+
+4. Add a second serializer output for storage metadata:
+- intent
+- title
+- isEvaluable
+- canonicalText
+- timestamp-ready shape (no actual clock logic required yet)
+
+5. Add deterministic helper functions:
+- serializeDraft(draft)
+- serializeDraftSection(title, items)
+- serializeCandidates(candidates)
+- buildSerializedDraftRecord(draft)
+
+6. Update QueryBuilderPage.tsx so the current compiled/patched draft can be displayed or logged as canonical text after confirmation.
+
+7. This serializer must be deterministic and stable so the same draft always produces the same canonical text.
+
+Success condition:
+After field patching, NOMOS can emit one clean canonical declaration block that becomes the single source of truth for evaluation and audit history.
+
+
+⸻
+
+draft_serializer.ts
+
+import { StructuredDraft, CompiledCandidate } from "./auto_compiler";
+
+export interface SerializedDraftRecord {
+  intent: string;
+  title: string;
+  isEvaluable: boolean;
+  canonicalText: string;
+}
+
+export function serializeDraft(draft: StructuredDraft): string {
+  const sections: string[] = [];
+
+  const state = serializeDraftSection("STATE", draft.state);
+  const constraints = serializeDraftSection("CONSTRAINTS", draft.constraints);
+  const uncertainties = serializeDraftSection("UNCERTAINTIES", draft.uncertainties);
+  const candidates = serializeCandidates(draft.candidates);
+  const objective = serializeDraftSection("OBJECTIVE", draft.objective);
+
+  if (state) sections.push(state);
+  if (constraints) sections.push(constraints);
+  if (uncertainties) sections.push(uncertainties);
+  if (candidates) sections.push(candidates);
+  if (objective) sections.push(objective);
+
+  return normalizeSerializedText(sections.join("\n\n"));
+}
+
+export function serializeDraftSection(
+  title: string,
+  items: string[]
+): string {
+  const cleaned = normalizeLines(items);
+  if (cleaned.length === 0) return "";
+
+  return [
+    `${title}:`,
+    ...cleaned.map((item) => `- ${item}`),
+  ].join("\n");
+}
+
+export function serializeCandidates(
+  candidates: CompiledCandidate[]
+): string {
+  const cleaned = dedupeCandidates(candidates);
+  if (cleaned.length === 0) return "";
+
+  return [
+    "CANDIDATES:",
+    ...cleaned.map((candidate) => `${candidate.id}: ${normalizeInline(candidate.text)}`),
+  ].join("\n");
+}
+
+export function buildSerializedDraftRecord(
+  draft: StructuredDraft
+): SerializedDraftRecord {
+  return {
+    intent: draft.intent,
+    title: draft.title,
+    isEvaluable: draft.isEvaluable,
+    canonicalText: serializeDraft(draft),
+  };
+}
+
+function normalizeSerializedText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function normalizeLines(lines: string[]): string[] {
+  return [...new Set(
+    lines
+      .map((line) => normalizeInline(line))
+      .filter(Boolean)
+  )];
+}
+
+function normalizeInline(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function dedupeCandidates(
+  candidates: CompiledCandidate[]
+): CompiledCandidate[] {
+  const seen = new Set<string>();
+  const out: CompiledCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const normalized = {
+      id: normalizeInline(candidate.id),
+      text: normalizeInline(candidate.text),
+    };
+
+    const key = `${normalized.id}:${normalized.text}`.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(normalized);
+  }
+
+  return out;
+}
+
+
+⸻
+
+Optional serialized_types.ts
+
+export interface SerializedDraftRecord {
+  intent: string;
+  title: string;
+  isEvaluable: boolean;
+  canonicalText: string;
+}
+
+If you use this file, import it into draft_serializer.ts instead of redefining the interface.
+
+⸻
+
+QueryBuilderPage.tsx update
+
+Add serializer display after confirmation.
+
+import React, { useMemo, useState } from "react";
+import { autoCompile, StructuredDraft } from "../../../compiler/auto_compiler";
+import { IntentType } from "../../../compiler/domain_templates";
+import { patchDraftField, revalidateDraft } from "../../../compiler/draft_patcher";
+import { buildSerializedDraftRecord } from "../../../compiler/draft_serializer";
+import { CompiledDraftPanel } from "../components/compiler/CompiledDraftPanel";
+import { FieldPatchPanel } from "../components/compiler/FieldPatchPanel";
+
+export function QueryBuilderPage() {
+  const [rawInput, setRawInput] = useState("");
+  const [intent, setIntent] = useState<IntentType>("NUTRITION_AUDIT");
+  const [hasCompiled, setHasCompiled] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [patchedDraft, setPatchedDraft] = useState<StructuredDraft | null>(null);
+  const [activeField, setActiveField] = useState<string | null>(null);
+
+  const compileResult = useMemo(() => {
+    if (!hasCompiled || !rawInput.trim()) return null;
+    return autoCompile(rawInput, intent);
+  }, [rawInput, intent, hasCompiled]);
+
+  const draft = patchedDraft ?? compileResult?.draft ?? null;
+
+  const serializedRecord = useMemo(() => {
+    if (!draft || !isConfirmed) return null;
+    return buildSerializedDraftRecord(draft);
+  }, [draft, isConfirmed]);
+
+  function handleCompile() {
+    setHasCompiled(true);
+    setIsConfirmed(false);
+    setPatchedDraft(null);
+    setActiveField(null);
+  }
+
+  function handleRevise() {
+    setIsConfirmed(false);
+  }
+
+  function handleConfirm() {
+    if (!draft?.isEvaluable) return;
+    setIsConfirmed(true);
+  }
+
+  function handleEvaluate() {
+    if (!draft || !draft.isEvaluable || !isConfirmed) return;
+
+    const canonical = buildSerializedDraftRecord(draft);
+    console.log("Evaluating canonical draft:", canonical);
+  }
+
+  function handleFixField(fieldKey: string) {
+    setActiveField(fieldKey);
+    setIsConfirmed(false);
+  }
+
+  function handleSaveField(fieldKey: string, value: unknown) {
+    if (!draft) return;
+    const patched = patchDraftField(draft, fieldKey, value);
+    const revalidated = revalidateDraft(patched, intent);
+    setPatchedDraft(revalidated);
+    setActiveField(null);
+  }
+
+  function handleCancelFieldEdit() {
+    setActiveField(null);
+  }
+
+  return (
+    <div className="nm-query-page">
+      <div className="nm-query-page__header">
+        <div className="nm-query-page__title">Query Builder</div>
+        <div className="nm-query-page__subtitle">
+          Raw request → compiled declaration → confirmation → evaluation
+        </div>
+      </div>
+
+      <div className="nm-query-controls">
+        <label className="nm-query-controls__field">
+          <span>Intent</span>
+          <select
+            value={intent}
+            onChange={(e) => {
+              setIntent(e.target.value as IntentType);
+              setHasCompiled(false);
+              setIsConfirmed(false);
+              setPatchedDraft(null);
+              setActiveField(null);
+            }}
+          >
+            <option value="NUTRITION_AUDIT">Nutrition Audit</option>
+            <option value="TRAINING_AUDIT">Training Audit</option>
+            <option value="SCHEDULE_AUDIT">Schedule Audit</option>
+            <option value="GENERIC_CONSTRAINT_TASK">Generic Constraint Task</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="nm-query-input-panel">
+        <div className="nm-query-input-panel__title">RAW INPUT</div>
+        <textarea
+          className="nm-query-textarea"
+          value={rawInput}
+          onChange={(e) => {
+            setRawInput(e.target.value);
+            setHasCompiled(false);
+            setIsConfirmed(false);
+            setPatchedDraft(null);
+            setActiveField(null);
+          }}
+          placeholder="Paste or write the raw request here..."
+        />
+        <div className="nm-query-input-panel__actions">
+          <button
+            type="button"
+            className="nm-btn nm-btn--primary"
+            onClick={handleCompile}
+            disabled={!rawInput.trim()}
+          >
+            Compile
+          </button>
+        </div>
+      </div>
+
+      <CompiledDraftPanel
+        draft={draft}
+        isConfirmed={isConfirmed}
+        onConfirm={handleConfirm}
+        onRevise={handleRevise}
+        onFixField={handleFixField}
+      />
+
+      <FieldPatchPanel
+        activeField={activeField}
+        onSave={handleSaveField}
+        onCancel={handleCancelFieldEdit}
+      />
+
+      {serializedRecord && (
+        <div className="nm-serialized-panel">
+          <div className="nm-serialized-panel__title">CANONICAL DECLARATION</div>
+          <pre className="nm-serialized-panel__body">
+            {serializedRecord.canonicalText}
+          </pre>
+        </div>
+      )}
+
+      <div className="nm-query-evaluate">
+        <button
+          type="button"
+          className="nm-btn nm-btn--primary"
+          disabled={!draft?.isEvaluable || !isConfirmed}
+          onClick={handleEvaluate}
+        >
+          Evaluate
+        </button>
+
+        {!draft?.isEvaluable && hasCompiled && (
+          <div className="nm-query-evaluate__note">
+            Evaluation blocked until required fields are present.
+          </div>
+        )}
+
+        {draft?.isEvaluable && !isConfirmed && (
+          <div className="nm-query-evaluate__note">
+            Confirm the compiled draft before evaluation.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+CSS additions
+
+.nm-serialized-panel {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+}
+
+.nm-serialized-panel__title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.nm-serialized-panel__body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--nm-surface-2, #0d0d0d);
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+
+⸻
+
+Why this matters
+
+This gives NOMOS a single source of truth artifact.
+
+That means:
+	•	evaluation runs against canonical structure, not UI fragments
+	•	storage can save one stable declaration block
+	•	audits can diff one artifact against another
+	•	re-opening a past run becomes deterministic
+
+That is how NOMOS starts feeling like a real system, not just a front-end flow.
+
+The strongest next step after this
+
+After serialization, the strongest next step is:
+
+audit-history persistence
+
+Store:
+	•	canonical declaration
+	•	compile result
+	•	patched draft state
+	•	evaluation result
+	•	timestamp
+	•	diffable version id
+
+That would let NOMOS finally build a real memory of decisions.

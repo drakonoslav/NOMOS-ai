@@ -2435,3 +2435,155 @@ textarea {
   font-size: 13px;
   color: var(--nm-text-muted);
 }
+
+/* =========================================================
+   Edit-in-place bridge — missing field editors
+   ========================================================= */
+
+/* Row in missing field list — label + Fix button side by side */
+.nm-compiled-meta__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Fix link button */
+.nm-fix-link {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--nm-accent, #7aa2ff);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0;
+  line-height: 1.4;
+}
+
+.nm-fix-link:hover {
+  text-decoration: underline;
+}
+
+/* Outer wrapper that renders below the compiled panel */
+.nm-field-patch-panel {
+  margin-top: 16px;
+}
+
+/* Generic textarea editor */
+.nm-missing-editor {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-missing-editor__title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-missing-editor__input {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--nm-border);
+  background: var(--nm-surface-2, #0d0d0d);
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.nm-missing-editor__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* Structured field editor (macros, mode, checklist, toggles) */
+.nm-structured-editor {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--nm-surface, #111);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nm-structured-editor__title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+/* 2-column grid for numeric inputs */
+.nm-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nm-form-grid label,
+.nm-structured-editor > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.nm-form-grid label span,
+.nm-structured-editor > label span {
+  color: var(--nm-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.nm-form-grid input,
+.nm-structured-editor select {
+  padding: 10px;
+  border: 1px solid var(--nm-border);
+  border-radius: 8px;
+  background: var(--nm-surface-2, #0d0d0d);
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Checklist / toggle list */
+.nm-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-checkbox-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.nm-checkbox-list input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--nm-accent, #7aa2ff);
+}

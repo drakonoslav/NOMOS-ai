@@ -6,6 +6,7 @@ export interface CompiledDraftPanelProps {
   isConfirmed: boolean;
   onConfirm: () => void;
   onRevise: () => void;
+  onFixField: (fieldKey: string) => void;
 }
 
 function SectionList({
@@ -51,10 +52,14 @@ function FieldList({
   title,
   items,
   tone,
+  clickable,
+  onFixField,
 }: {
   title: string;
   items: string[];
   tone: "required" | "optional" | "warning" | "note";
+  clickable?: boolean;
+  onFixField?: (fieldKey: string) => void;
 }) {
   if (!items || items.length === 0) return null;
 
@@ -63,7 +68,18 @@ function FieldList({
       <div className="nm-compiled-meta__title">{title}</div>
       <ul className="nm-compiled-meta__list">
         {items.map((item, i) => (
-          <li key={`${title}-${i}`}>{item}</li>
+          <li key={`${title}-${i}`} className="nm-compiled-meta__item">
+            <span>{item}</span>
+            {clickable && onFixField && (
+              <button
+                type="button"
+                className="nm-fix-link"
+                onClick={() => onFixField(item)}
+              >
+                Fix
+              </button>
+            )}
+          </li>
         ))}
       </ul>
     </div>
@@ -75,6 +91,7 @@ export function CompiledDraftPanel({
   isConfirmed,
   onConfirm,
   onRevise,
+  onFixField,
 }: CompiledDraftPanelProps) {
   if (!draft) return null;
 
@@ -109,12 +126,16 @@ export function CompiledDraftPanel({
             title="MISSING REQUIRED FIELDS"
             items={draft.missingRequiredFields}
             tone="required"
+            clickable
+            onFixField={onFixField}
           />
 
           <FieldList
             title="MISSING OPTIONAL FIELDS"
             items={draft.missingOptionalFields}
             tone="optional"
+            clickable
+            onFixField={onFixField}
           />
 
           <FieldList title="WARNINGS" items={draft.warnings} tone="warning" />
