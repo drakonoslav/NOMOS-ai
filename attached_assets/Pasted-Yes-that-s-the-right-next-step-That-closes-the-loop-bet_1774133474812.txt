@@ -1,0 +1,108 @@
+Yes — that’s the right next step.
+
+That closes the loop between:
+	•	symbolic execution
+	•	proof trace
+	•	visual inspection
+
+So the proof is no longer just text. It becomes interactive evidence.
+
+What to tell Replit
+
+Build proof-to-UI graph highlighting for NOMOS.
+
+Goal:
+Allow clicking a graph proof trace step to highlight the exact graph elements involved in that step, including:
+- selected nodes
+- excluded nodes
+- anchor/window nodes
+- aggregate source nodes
+
+This makes graph-native proof trace visually auditable.
+
+Create:
+- src/ui/graph/graph_highlight_types.ts
+- src/ui/graph/graph_highlight_state.ts
+- src/ui/components/graph/OperandGraphView.tsx
+- update GraphProofTracePanel.tsx
+- src/tests/graph_highlight_mapping_test.ts
+
+Requirements:
+
+1. Add canonical highlight types.
+
+interface GraphHighlightState {
+  activeProofStepId: string | null;
+
+  selectedNodeIds: string[];
+  excludedNodeIds: string[];
+  anchorNodeIds: string[];
+  windowNodeIds: string[];
+  aggregateSourceNodeIds: string[];
+}
+
+2. Extend GraphProofStep to support UI highlighting metadata:
+- selectedNodeIds
+- excludedNodeIds
+- anchorNodeIds
+- windowNodeIds
+- aggregateSourceNodeIds
+
+3. Build deterministic helper:
+- buildHighlightStateFromProofStep(step)
+
+4. Update GraphProofTracePanel:
+- each proof step should be clickable
+- clicking a step sets active highlight state
+- active step remains visibly selected
+
+5. Build OperandGraphView:
+- render graph nodes/edges
+- highlight selected nodes distinctly
+- highlight excluded nodes distinctly
+- highlight anchor/window nodes distinctly
+- highlight aggregate source nodes distinctly
+
+6. Highlight behavior:
+- selected nodes = primary highlight
+- excluded nodes = muted/error highlight
+- anchor/window nodes = contextual highlight
+- aggregate source nodes = emphasized quantitative highlight
+
+7. Keep the mapping deterministic.
+8. Do not use LLM generation.
+9. Proof step highlighting must reflect actual ids from graph execution, not inferred visual guesses.
+
+Success condition:
+Clicking any proof step in NOMOS highlights the exact graph nodes and structures involved in that step.
+
+Why this matters
+
+This gives you:
+	•	text proof
+	•	graph proof
+	•	visual traceability
+
+So instead of reading:
+	•	“Excluded oats node because it is tagged slow”
+
+you can click that line and see:
+	•	oats highlighted as excluded
+	•	lifting highlighted as anchor
+	•	60-minute window highlighted as context
+
+That is exactly what a serious reasoning interface should do.
+
+What comes after this
+
+After proof-to-UI graph highlighting, the strongest next step is:
+
+graph interaction back-propagation
+
+So clicking a node in the graph can show:
+	•	which proof steps used it
+	•	which constraints touched it
+	•	which candidates it belongs to
+	•	whether it was selected or excluded
+
+That would make the graph and proof fully bidirectional.

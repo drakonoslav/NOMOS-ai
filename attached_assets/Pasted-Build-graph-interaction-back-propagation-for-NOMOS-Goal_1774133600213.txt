@@ -1,0 +1,99 @@
+Build graph interaction back-propagation for NOMOS.
+
+Goal:
+When a user clicks a node in the graph, NOMOS should show:
+- which proof steps used it
+- which constraints touched it
+- which candidates it belongs to
+- whether it was selected or excluded in each relevant proof step
+
+This makes graph inspection and proof inspection fully bidirectional.
+
+Create:
+- src/ui/graph/graph_backprop_types.ts
+- src/ui/graph/graph_backprop_index.ts
+- src/ui/components/graph/GraphNodeDetailPanel.tsx
+- update OperandGraphView.tsx
+- update GraphProofTracePanel.tsx
+- src/tests/graph_backprop_index_test.ts
+
+Requirements:
+
+1. Add canonical types.
+
+interface NodeProofReference {
+  constraintId: string;
+  proofTraceId: string;
+  proofStepId: string;
+  proofStepLabel: string;
+
+  roleInStep:
+    | "selected"
+    | "excluded"
+    | "anchor"
+    | "window"
+    | "aggregate_source";
+}
+
+interface NodeConstraintReference {
+  constraintId: string;
+  constraintLabel: string;
+}
+
+interface NodeCandidateReference {
+  candidateId: string;
+  candidateLabel: string;
+}
+
+interface GraphNodeBackpropRecord {
+  nodeId: string;
+
+  proofReferences: NodeProofReference[];
+  constraintReferences: NodeConstraintReference[];
+  candidateReferences: NodeCandidateReference[];
+
+  summaryLines: string[];
+}
+
+2. Build deterministic indexing:
+- buildGraphBackpropIndex(graph, proofTraces, constraintResults)
+- getNodeBackpropRecord(nodeId, index)
+
+3. Indexing rules:
+- if a node appears in selectedNodeIds of a proof step -> selected
+- if a node appears in excludedNodeIds -> excluded
+- if a node appears in anchorNodeIds -> anchor
+- if a node appears in windowNodeIds -> window
+- if a node appears in aggregateSourceNodeIds -> aggregate_source
+
+4. Candidate linkage:
+If graph node is connected by BELONGS_TO_CANDIDATE, surface candidate references.
+
+5. Constraint linkage:
+If node is involved in any proof trace for a constraint, surface that constraint.
+
+6. UI:
+Create GraphNodeDetailPanel showing:
+- node label / id
+- candidate memberships
+- touched constraints
+- proof step references
+- whether node was selected or excluded in each step
+- summary lines
+
+7. Graph interaction:
+- clicking a node opens GraphNodeDetailPanel
+- selecting a proof step still highlights graph as before
+- selecting a node should optionally highlight the related proof steps in the proof panel
+
+8. Summary line examples:
+- "This node was selected in 2 proof steps and excluded in 1."
+- "This node belongs to candidate D."
+- "This node participated in the slow-carb window constraint."
+
+9. Keep everything deterministic.
+10. Do not use LLM generation.
+11. Do not infer references that are not present in graph/proof data.
+
+Success condition:
+Clicking any node in the graph shows exactly how that node participated in proof execution, constraint evaluation, and candidate structure.

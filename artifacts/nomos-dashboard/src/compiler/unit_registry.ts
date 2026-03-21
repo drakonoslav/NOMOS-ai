@@ -1,37 +1,43 @@
 /**
  * unit_registry.ts
  *
- * Registry of recognized units for the quantified entity extractor.
+ * Master registry of recognized measurement units for the NOMOS parser layer.
  *
  * Design constraints:
- *   - All aliases are lowercase for case-insensitive matching in the extractor.
- *   - Longer aliases appear before shorter ones within each UnitRecord so that
- *     the generated regex prefers "grams" over "g" on an exact token boundary.
- *   - The canonical field is the normalized short form used in normalizedUnit.
- *   - The category determines how category inference works downstream:
- *       mass     → evidence for food/supplement/load (decided by entity label)
- *       volume   → evidence for food/fluid/supplement
- *       count    → evidence for countable_item (if unit = entity label)
- *       time     → evidence for duration
- *       training → evidence for countable_item
+ *   - All aliases are lowercase for case-insensitive matching.
+ *   - Longer aliases appear before shorter ones so the generated regex
+ *     prefers "grams" over "gram" over "g" on an exact token boundary.
+ *   - `canonical` is the normalized short form used in normalizedUnit.
+ *   - `category` drives downstream category inference — it is NOT a gate
+ *     on extraction.  Unknown nouns are preserved open-vocabulary.
+ *   - `isSelfEntity` = true means the unit surface form IS the entity label
+ *     (e.g. "2 eggs" → entity label = "egg").
+ *
+ * Categories:
+ *   mass     → evidence for food / supplement / load (resolved by entity label)
+ *   volume   → evidence for food / fluid / supplement
+ *   count    → evidence for countable_item
+ *   time     → evidence for duration
+ *   distance → evidence for spatial / distance
+ *   training → evidence for countable_item (reps/sets/laps/steps)
  */
 
 /* =========================================================
    Types
    ========================================================= */
 
-export type UnitCategory = "mass" | "volume" | "count" | "time" | "training";
+export type UnitCategory =
+  | "mass"
+  | "volume"
+  | "count"
+  | "time"
+  | "distance"
+  | "training";
 
 export interface UnitRecord {
-  /** Normalized short form, e.g. "g", "ml", "rep". */
   canonical: string;
   category: UnitCategory;
-  /** All recognized surface forms, longest first. */
   aliases: readonly string[];
-  /**
-   * True when the unit is itself the entity name (egg, banana, etc.).
-   * When true and no noun follows, the entity label defaults to `canonical`.
-   */
   isSelfEntity?: boolean;
 }
 
@@ -40,42 +46,72 @@ export interface UnitRecord {
    ========================================================= */
 
 export const UNIT_REGISTRY: readonly UnitRecord[] = [
-  // ── Mass ────────────────────────────────────────────────────────────────────
-  { canonical: "g",  category: "mass",     aliases: ["grams", "gram", "g"] },
-  { canonical: "kg", category: "mass",     aliases: ["kg"] },
-  { canonical: "mg", category: "mass",     aliases: ["mg"] },
-  { canonical: "lb", category: "mass",     aliases: ["lbs", "lb"] },
-  { canonical: "oz", category: "mass",     aliases: ["oz"] },
 
-  // ── Volume ──────────────────────────────────────────────────────────────────
-  { canonical: "ml",        category: "volume", aliases: ["ml", "ml"] },
-  { canonical: "ml",        category: "volume", aliases: ["mL"] },
-  { canonical: "l",         category: "volume", aliases: ["L", "l"] },
-  { canonical: "cup",       category: "volume", aliases: ["cups", "cup"] },
-  { canonical: "tbsp",      category: "volume", aliases: ["tbsp"] },
-  { canonical: "tsp",       category: "volume", aliases: ["tsp"] },
-  { canonical: "scoop",     category: "volume", aliases: ["scoops", "scoop"] },
-  { canonical: "container", category: "volume", aliases: ["containers", "container"] },
+  // ── Mass ──────────────────────────────────────────────────────────────────
+  { canonical: "mcg", category: "mass", aliases: ["micrograms", "microgram", "mcg", "μg"] },
+  { canonical: "mg",  category: "mass", aliases: ["milligrams", "milligram", "mg"] },
+  { canonical: "g",   category: "mass", aliases: ["grams", "gram", "g"] },
+  { canonical: "kg",  category: "mass", aliases: ["kilograms", "kilogram", "kg"] },
+  { canonical: "oz",  category: "mass", aliases: ["ounces", "ounce", "oz"] },
+  { canonical: "lb",  category: "mass", aliases: ["pounds", "pound", "lbs", "lb"] },
+  { canonical: "ton", category: "mass", aliases: ["tonnes", "tonne", "tons", "ton"] },
 
-  // ── Count ───────────────────────────────────────────────────────────────────
-  { canonical: "unit",    category: "count", aliases: ["units",    "unit"] },
-  { canonical: "capsule", category: "count", aliases: ["capsules", "capsule"] },
-  { canonical: "tablet",  category: "count", aliases: ["tablets",  "tablet"] },
-  { canonical: "serving", category: "count", aliases: ["servings", "serving"] },
-  { canonical: "piece",   category: "count", aliases: ["pieces",   "piece"] },
-  // Self-entity count units (the unit IS the entity)
+  // ── Volume ────────────────────────────────────────────────────────────────
+  { canonical: "ml",  category: "volume", aliases: ["milliliters", "milliliter", "mL", "ml"] },
+  { canonical: "l",   category: "volume", aliases: ["liters", "liter", "L", "l"] },
+  { canonical: "tsp", category: "volume", aliases: ["teaspoons", "teaspoon", "tsp"] },
+  { canonical: "tbsp",category: "volume", aliases: ["tablespoons", "tablespoon", "tbsp"] },
+  { canonical: "cup", category: "volume", aliases: ["cups", "cup"] },
+  { canonical: "pint",category: "volume", aliases: ["pints", "pint"] },
+  { canonical: "qt",  category: "volume", aliases: ["quarts", "quart", "qt"] },
+  { canonical: "gal", category: "volume", aliases: ["gallons", "gallon", "gal"] },
+
+  // ── Count / discrete ──────────────────────────────────────────────────────
+  { canonical: "unit",      category: "count", aliases: ["units",      "unit"] },
+  { canonical: "item",      category: "count", aliases: ["items",      "item"] },
+  { canonical: "piece",     category: "count", aliases: ["pieces",     "piece"] },
+  { canonical: "serving",   category: "count", aliases: ["servings",   "serving"] },
+  { canonical: "scoop",     category: "count", aliases: ["scoops",     "scoop"] },
+  { canonical: "container", category: "count", aliases: ["containers", "container"] },
+  { canonical: "capsule",   category: "count", aliases: ["capsules",   "capsule"] },
+  { canonical: "tablet",    category: "count", aliases: ["tablets",    "tablet"] },
+  { canonical: "bottle",    category: "count", aliases: ["bottles",    "bottle"] },
+  { canonical: "drop",      category: "count", aliases: ["drops",      "drop"] },
+  { canonical: "packet",    category: "count", aliases: ["packets",    "packet"] },
+  { canonical: "can",       category: "count", aliases: ["cans",       "can"] },
+  // Self-entity count units (unit surface IS the entity label)
   { canonical: "egg",    category: "count", aliases: ["eggs",    "egg"],    isSelfEntity: true },
   { canonical: "banana", category: "count", aliases: ["bananas", "banana"], isSelfEntity: true },
 
-  // ── Time ────────────────────────────────────────────────────────────────────
-  { canonical: "s",   category: "time", aliases: ["seconds", "second"] },
-  { canonical: "min", category: "time", aliases: ["minutes", "minute"] },
-  { canonical: "hr",  category: "time", aliases: ["hours",   "hour"] },
-  { canonical: "d",   category: "time", aliases: ["days",    "day"] },
+  // ── Time ──────────────────────────────────────────────────────────────────
+  { canonical: "s",           category: "time", aliases: ["seconds",     "second"] },
+  { canonical: "min",         category: "time", aliases: ["minutes",     "minute",  "min"] },
+  { canonical: "hr",          category: "time", aliases: ["hours",       "hour",    "hr"] },
+  { canonical: "d",           category: "time", aliases: ["days",        "day"] },
+  { canonical: "wk",          category: "time", aliases: ["weeks",       "week",    "wk"] },
+  { canonical: "mo",          category: "time", aliases: ["months",      "month",   "mo"] },
+  { canonical: "yr",          category: "time", aliases: ["years",       "year",    "yr"] },
+  { canonical: "decade",      category: "time", aliases: ["decades",     "decade"] },
+  { canonical: "century",     category: "time", aliases: ["centuries",   "century"] },
+  { canonical: "millennium",  category: "time", aliases: ["millennia",   "millennium"] },
+  { canonical: "era",         category: "time", aliases: ["eras",        "era"] },
+  { canonical: "eon",         category: "time", aliases: ["eons",        "eon"] },
 
-  // ── Training ────────────────────────────────────────────────────────────────
-  { canonical: "rep", category: "training", aliases: ["reps", "rep"] },
-  { canonical: "set", category: "training", aliases: ["sets", "set"] },
+  // ── Distance ──────────────────────────────────────────────────────────────
+  { canonical: "mm",  category: "distance", aliases: ["millimeters", "millimeter", "mm"] },
+  { canonical: "cm",  category: "distance", aliases: ["centimeters", "centimeter", "cm"] },
+  { canonical: "m",   category: "distance", aliases: ["meters",      "meter",      "m"] },
+  { canonical: "km",  category: "distance", aliases: ["kilometers",  "kilometer",  "km"] },
+  { canonical: "in",  category: "distance", aliases: ["inches",      "inch",       "in"] },
+  { canonical: "ft",  category: "distance", aliases: ["feet",        "foot",       "ft"] },
+  { canonical: "yd",  category: "distance", aliases: ["yards",       "yard",       "yd"] },
+  { canonical: "mi",  category: "distance", aliases: ["miles",       "mile",       "mi"] },
+
+  // ── Training / motion ────────────────────────────────────────────────────
+  { canonical: "rep",  category: "training", aliases: ["reps",  "rep"] },
+  { canonical: "set",  category: "training", aliases: ["sets",  "set"] },
+  { canonical: "lap",  category: "training", aliases: ["laps",  "lap"] },
+  { canonical: "step", category: "training", aliases: ["steps", "step"] },
 ];
 
 /* =========================================================
@@ -84,21 +120,22 @@ export const UNIT_REGISTRY: readonly UnitRecord[] = [
 
 /**
  * Flat map of alias (lowercase) → UnitRecord.
- * Built once at module load time.
+ * Built once at module load time.  First writer wins (registry order resolves
+ * conflicts between records sharing an alias).
  */
 const ALIAS_MAP = new Map<string, UnitRecord>();
 for (const record of UNIT_REGISTRY) {
   for (const alias of record.aliases) {
-    // First writer wins; registry ordering resolves conflicts.
-    if (!ALIAS_MAP.has(alias.toLowerCase())) {
-      ALIAS_MAP.set(alias.toLowerCase(), record);
+    const key = alias.toLowerCase();
+    if (!ALIAS_MAP.has(key)) {
+      ALIAS_MAP.set(key, record);
     }
   }
 }
 
 /**
  * Resolve a surface form (any casing) to its UnitRecord.
- * Returns undefined if the alias is not registered.
+ * Returns undefined if the alias is not in the registry.
  */
 export function resolveUnit(alias: string): UnitRecord | undefined {
   return ALIAS_MAP.get(alias.toLowerCase());
@@ -106,16 +143,15 @@ export function resolveUnit(alias: string): UnitRecord | undefined {
 
 /**
  * Build a regex-ready alternation string of all unit aliases, sorted
- * longest-first to prevent partial matches (e.g. "grams" before "g").
+ * longest-first so the regex engine prefers longer tokens (e.g. "grams"
+ * before "gram" before "g").
  *
- * The result is suitable for embedding directly into a RegExp constructor:
- *   new RegExp(`(\\d+)\\s*(${buildUnitRegexPattern()})\\b`, "gi")
+ *   new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(${buildUnitRegexPattern()})\\b`, "gi")
  */
 export function buildUnitRegexPattern(): string {
   const allAliases = UNIT_REGISTRY.flatMap((r) =>
     r.aliases.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
   );
-  // Deduplicate while preserving first-seen order; then sort longest-first.
   const seen = new Set<string>();
   const unique: string[] = [];
   for (const a of allAliases) {
