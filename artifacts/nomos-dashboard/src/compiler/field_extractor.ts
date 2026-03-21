@@ -1,4 +1,25 @@
 import { IntentType } from "./domain_templates";
+import {
+  NutritionParseResult,
+  parseNutritionPrompt,
+  parseAllNutritionTargetBlocks,
+  buildDetectedTargetBlocksByPhase,
+} from "./nutrition_parser";
+
+// Re-export nutrition types and functions so downstream code and tests can
+// import them from either field_extractor or nutrition_parser.
+export type {
+  NutritionTargetBlock,
+  ParsedNutritionTargetBlock,
+  NutritionPhase,
+  NutritionParseResult,
+} from "./nutrition_parser";
+export {
+  parseNutritionTargetBlock,
+  parseAllNutritionTargetBlocks,
+  buildDetectedTargetBlocksByPhase,
+  KNOWN_PHASES,
+} from "./nutrition_parser";
 
 export interface ExtractedTarget {
   calories?: number;
@@ -22,18 +43,6 @@ export interface ParsedFoodItem {
 export interface ParsedMealBlock {
   mealNumber: number;
   foods: ParsedFoodItem[];
-}
-
-export interface NutritionTargetBlock {
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-}
-
-export interface ParsedNutritionTargetBlock {
-  phaseName: string | null;
-  block: NutritionTargetBlock;
 }
 
 export interface DetectedStructure {
@@ -139,36 +148,91 @@ export function extractFields(
 ): ExtractedFields {
   const normalized = normalizeInput(rawInput);
 
+  // ── Generic extraction (runs for all intents) ─────────────────────────────
   const stateLines = extractBulletedSection(normalized, "STATE");
   const uncertainties = extractBulletedSection(normalized, "UNCERTAINTIES");
   const constraints = extractConstraintLines(normalized);
   const candidates = extractCandidates(normalized);
   const objective = extractObjective(normalized);
   const targets = extractTargets(normalized);
-  const nutritionTargetBlocks = parseAllNutritionTargetBlocks(normalized);
 
   const detectedFoods = detectFoods(normalized);
   const detectedPhases = detectPhases(normalized);
 
-  const hasMealSystem = detectMealSystem(normalized, detectedPhases);
+  let hasMealSystem = detectMealSystem(normalized, detectedPhases);
   const mealSystemText = hasMealSystem
     ? extractMealSystemText(normalized)
     : undefined;
 
   const labelsMentioned = detectLabels(normalized);
-  const hasLabels = labelsMentioned.length > 0;
+  let hasLabels = labelsMentioned.length > 0;
 
-  const hasTargets = targets.length > 0 || nutritionTargetBlocks.length > 0;
+  let nutritionTargetBlocks = parseAllNutritionTargetBlocks(normalized);
+  let hasTargets = targets.length > 0 || nutritionTargetBlocks.length > 0;
   const hasConstraints = constraints.length > 0;
   const hasCandidates = candidates.length > 0;
   const hasObjective = objective !== undefined;
+  let parsedMealBlocks = parseMealBlocks(normalized);
 
+  // ── Structured nutrition parser (NUTRITION_AUDIT + phase plan gate) ────────
+  //
+  // When intent is NUTRITION_AUDIT and the input contains a PHASE: declaration
+  // or PHASE PLANS: block, the generic heuristic path is bypassed for all
+  // nutrition-specific fields. The structured parser walks:
+  //
+  //   FOOD_SOURCE_TRUTH → ESTIMATED_DEFAULTS → PHASE blocks
+  //     → TARGET_MACRO_BLOCK → MEALS
+  //
+  // Results override the generic extraction for: hasMealSystem, hasTargets,
+  // hasLabels, parsedMealBlocks, nutritionTargetBlocks.
+
+  const hasPhasePlan =
+    /^\s*PHASE\s*:/im.test(normalized) ||
+    /PHASE PLANS\s*:/i.test(normalized);
+
+  let nutritionParseResult: NutritionParseResult | null = null;
+
+  if (intent === "NUTRITION_AUDIT" && hasPhasePlan) {
+    nutritionParseResult = parseNutritionPrompt(normalized);
+
+    if (nutritionParseResult.hasTargets) hasTargets = true;
+    if (nutritionParseResult.hasMeals) hasMealSystem = true;
+    if (nutritionParseResult.hasFoodSourceTruth) hasLabels = true;
+
+    // Override target blocks — structured parser is authoritative
+    if (nutritionParseResult.phases.length > 0) {
+      nutritionTargetBlocks = nutritionParseResult.phases
+        .filter((p) => p.targetBlock !== null)
+        .map((p) => ({ phaseName: p.name, block: p.targetBlock! }));
+    }
+
+    // Override meal blocks — structured parser extracts per-phase meals
+    if (nutritionParseResult.hasMeals) {
+      parsedMealBlocks = nutritionParseResult.phases.flatMap((phase) =>
+        phase.meals.map((meal) => ({
+          mealNumber: meal.mealNumber,
+          foods: meal.foods.map((food) => ({
+            foodId: food.foodId,
+            amount: food.amount,
+            unit: (food.unit === "unit" ? "unit" : "g") as "g" | "unit",
+          })),
+        }))
+      );
+    }
+  }
+
+  // ── DetectedStructure ─────────────────────────────────────────────────────
   const detectedTargetBlocksByPhase = buildDetectedTargetBlocksByPhase(
     nutritionTargetBlocks
   );
   const phasesDetected =
-    detectedPhases.length > 0 || detectPhaseBlocks(normalized);
-  const mealsDetected = hasMealSystem || detectRepeatedMealStructure(normalized);
+    detectedPhases.length > 0 ||
+    detectPhaseBlocks(normalized) ||
+    (nutritionParseResult?.hasPhases ?? false);
+  const mealsDetected =
+    hasMealSystem ||
+    detectRepeatedMealStructure(normalized) ||
+    (nutritionParseResult?.hasMeals ?? false);
 
   const detectedStructure: DetectedStructure = {
     phasesDetected,
@@ -177,8 +241,7 @@ export function extractFields(
     detectedTargetBlocksByPhase,
   };
 
-  const parsedMealBlocks = parseMealBlocks(normalized);
-
+  // ── Notes ─────────────────────────────────────────────────────────────────
   const notes: string[] = [];
 
   if (!hasMealSystem) {
@@ -630,158 +693,4 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// ─── Nutrition Target Block Parser ──────────────────────────────────────────
 
-const KNOWN_PHASES = [
-  "BASE",
-  "CARB_UP",
-  "CARB_CUT",
-  "FAT_CUT",
-  "RECOMP",
-  "DELOAD",
-  "DIET_BREAK",
-  "PEAK_BULK",
-] as const;
-
-/**
- * parseNutritionTargetBlock — parses a single TARGET_MACRO_BLOCK body.
- *
- * Accepts a text fragment that contains four keys:
- *   calories: <number>
- *   protein_g: <number>
- *   carbs_g: <number>
- *   fat_g: <number>
- *
- * All four keys must be present for a result to be returned. Returns null if
- * any key is missing or malformed.
- */
-export function parseNutritionTargetBlock(
-  text: string
-): NutritionTargetBlock | null {
-  const caloriesMatch = text.match(/^\s*calories\s*:\s*(\d+)\s*$/im);
-  const proteinMatch = text.match(/^\s*protein_g\s*:\s*(\d+)\s*$/im);
-  const carbsMatch = text.match(/^\s*carbs_g\s*:\s*(\d+)\s*$/im);
-  const fatMatch = text.match(/^\s*fat_g\s*:\s*(\d+)\s*$/im);
-
-  if (!caloriesMatch || !proteinMatch || !carbsMatch || !fatMatch) return null;
-
-  return {
-    calories: Number(caloriesMatch[1]),
-    protein_g: Number(proteinMatch[1]),
-    carbs_g: Number(carbsMatch[1]),
-    fat_g: Number(fatMatch[1]),
-  };
-}
-
-/**
- * parseAllNutritionTargetBlocks — finds every TARGET_MACRO_BLOCK section in
- * the input and returns the parsed blocks, each annotated with the PHASE name
- * declared immediately above it (or null if no PHASE: line preceded it).
- *
- * Handles both standalone blocks and phase-associated blocks:
- *
- *   Standalone:
- *     TARGET_MACRO_BLOCK:
- *     calories: 2400
- *     protein_g: 170
- *     carbs_g: 260
- *     fat_g: 60
- *
- *   Phase-associated:
- *     PHASE: BASE
- *     TARGET_MACRO_BLOCK:
- *     calories: 2400
- *     protein_g: 170
- *     carbs_g: 260
- *     fat_g: 60
- *
- * Detection is line-by-line and fully deterministic — no regex back-tracking,
- * no section heuristics.
- */
-export function parseAllNutritionTargetBlocks(
-  text: string
-): ParsedNutritionTargetBlock[] {
-  const results: ParsedNutritionTargetBlock[] = [];
-  const lines = text.split("\n");
-
-  let currentPhase: string | null = null;
-  let inTargetBlock = false;
-  let blockLines: string[] = [];
-
-  const flushBlock = () => {
-    if (!inTargetBlock || blockLines.length === 0) return;
-    const parsed = parseNutritionTargetBlock(blockLines.join("\n"));
-    if (parsed) {
-      results.push({ phaseName: currentPhase, block: parsed });
-    }
-    blockLines = [];
-    inTargetBlock = false;
-  };
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    // Detect PHASE: <name> — updates current phase context
-    const phaseMatch = line.match(/^PHASE\s*:\s*(\w+)/i);
-    if (phaseMatch) {
-      flushBlock();
-      currentPhase = phaseMatch[1].toUpperCase();
-      continue;
-    }
-
-    // Detect TARGET_MACRO_BLOCK: header — starts a new block
-    if (/^TARGET_MACRO_BLOCK\s*:/i.test(line)) {
-      flushBlock();
-      inTargetBlock = true;
-      continue;
-    }
-
-    if (inTargetBlock) {
-      // A new all-caps section header ends the block
-      if (/^[A-Z][A-Z0-9_ ]+\s*:/.test(line) && line.length > 3) {
-        flushBlock();
-
-        // The current line may itself be a PHASE: declaration — re-process
-        const nestedPhase = line.match(/^PHASE\s*:\s*(\w+)/i);
-        if (nestedPhase) {
-          currentPhase = nestedPhase[1].toUpperCase();
-        } else if (/^TARGET_MACRO_BLOCK\s*:/i.test(line)) {
-          inTargetBlock = true;
-        }
-        continue;
-      }
-
-      // Collect non-empty content lines
-      if (line.length > 0) {
-        blockLines.push(rawLine);
-      }
-    }
-  }
-
-  flushBlock();
-
-  return results;
-}
-
-/**
- * buildDetectedTargetBlocksByPhase — maps each known phase name to whether
- * a TARGET_MACRO_BLOCK was found for it. Unknown phase names are also included
- * as keys if they appear in the parsed blocks.
- */
-export function buildDetectedTargetBlocksByPhase(
-  blocks: ParsedNutritionTargetBlock[]
-): Record<string, boolean> {
-  const result: Record<string, boolean> = {};
-
-  for (const phase of KNOWN_PHASES) {
-    result[phase] = false;
-  }
-
-  for (const { phaseName } of blocks) {
-    if (phaseName !== null) {
-      result[phaseName] = true;
-    }
-  }
-
-  return result;
-}
