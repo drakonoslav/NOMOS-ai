@@ -126,8 +126,8 @@ export { DEFAULT_CORRECTION_CONSTRAINTS } from "./nutrition/correction_constrain
 export type {
   FindingKind, FindingSeverity, Finding,
   StateSection, ConstraintEntry, UncertaintyEntry,
-  PhaseAuditEntry, FinalVerdict, AuditReport,
-} from "./nutrition/audit_engine.js";
+  PhaseAuditEntry, FinalVerdict, FinalVerdictStatus, AuditReport,
+} from "./nutrition/audit_types.js";
 export { runAudit } from "./nutrition/audit_engine.js";
 
 export type {
