@@ -15,13 +15,14 @@ import { EvaluationLaunchPanel } from "../../components/query/EvaluationLaunchPa
 import { EvaluationResultPanel } from "../../components/evaluation/EvaluationResultPanel";
 import { CompiledDraftPanel } from "../../components/compiler/CompiledDraftPanel";
 import { FieldPatchPanel } from "../../components/compiler/FieldPatchPanel";
+import { CompilerDebugPanel } from "../../components/debug/CompilerDebugPanel";
 
 import { autoCompile, StructuredDraft } from "../../../compiler/auto_compiler";
 import { IntentType } from "../../../compiler/domain_templates";
 import { compileConstraints, CompiledConstraint } from "../../../compiler/constraint_compiler";
 import { detectIntent } from "../../../compiler/intent_detector";
 import { patchDraftField, revalidateDraft } from "../../../compiler/draft_patcher";
-import { buildSerializedDraftRecord } from "../../../compiler/draft_serializer";
+import { buildSerializedDraftRecord, serializeDraft } from "../../../compiler/draft_serializer";
 import { buildAuditId, buildVersionId } from "../../../audit/audit_versioning";
 import { saveAuditRecord, listAuditRecords, deleteAuditRecord, clearAuditRecords } from "../../../audit/audit_store";
 import { AuditRecord } from "../../../audit/audit_types";
@@ -87,6 +88,12 @@ interface AutoCompileState {
   isEvaluating: boolean;
   evaluationResult?: EvaluationResult;
   evaluationError?: string;
+  /**
+   * The canonical NomosQuery produced by the kernel parser at evaluation time.
+   * All three modes converge to a NomosQuery built by the same kernel parser —
+   * this field stores the auto-compile mode's parsed result for debug/audit use.
+   */
+  parsedQuery?: NomosQuery;
   /** Compiled constraint set from the effective draft — populated at evaluation time. */
   compiledConstraints?: CompiledConstraint[];
   /** Domain routing decision resolved before the most recent evaluation. */
@@ -193,32 +200,6 @@ function canEvaluate(state: QueryBuilderPageState): boolean {
       state.parsedQuery.completeness !== "INSUFFICIENT" &&
       !state.isEvaluating
   );
-}
-
-function compiledDraftToNomosQuery(
-  draft: StructuredDraft,
-  rawInput: string
-): NomosQuery {
-  return {
-    rawInput,
-    state: {
-      description: draft.state.join(" "),
-      facts: [],
-      constraints: draft.constraints,
-      uncertainties: draft.uncertainties,
-    },
-    candidates: draft.candidates.map((c) => ({
-      id: c.id,
-      description: c.text,
-    })),
-    objective:
-      draft.objective.length > 0
-        ? { description: draft.objective.join(" ") }
-        : undefined,
-    parserConfidence: "HIGH",
-    completeness: "COMPLETE",
-    notes: [...draft.warnings, ...draft.notes],
-  };
 }
 
 /**
@@ -513,14 +494,26 @@ export function QueryBuilderPage() {
     if (!effectiveDraft || !effectiveDraft.isEvaluable || !autoState.isConfirmed)
       return;
 
-    const query = compiledDraftToNomosQuery(
-      effectiveDraft,
-      autoState.rawInput
-    );
+    // ── Shared compiler pipeline (Law of mode-invariance) ──────────────────
+    // Auto-compile mode MUST go through the same kernel parser as Guided and
+    // Natural Language modes.  The StructuredDraft is a display artefact only;
+    // it is serialized back to canonical heading-formatted text here and then
+    // parsed through the identical server-side rule-based parser endpoint.
+    // This guarantees: semantically equivalent input → identical NomosQuery
+    // regardless of which front-door the user chose.
+    const canonicalText = serializeDraft(effectiveDraft);
+    const query = await parser.parse({
+      rawInput: canonicalText,
+      operatorHints: [
+        "extract constraints conservatively",
+        "do not infer legality",
+      ],
+      allowFallback: true,
+    });
 
-    // Compile constraints before evaluation so decisive variables can be resolved
-    // against the typed constraint set rather than falling through to "constraint interpretation".
-    const compiledConstraints = compileConstraints(effectiveDraft.constraints);
+    // Compile constraints from the kernel-parsed result (not from the draft)
+    // so the display matches what the evaluator actually received.
+    const compiledConstraints = compileConstraints(query.state.constraints);
 
     // Resolve domain routing before the evaluation runs so the decision is
     // deterministic and stored alongside the result.
@@ -533,6 +526,7 @@ export function QueryBuilderPage() {
     setAutoState((prev) => ({
       ...prev,
       isEvaluating: true,
+      parsedQuery: query,
       evaluationResult: undefined,
       evaluationError: undefined,
       compiledConstraints,
@@ -753,6 +747,14 @@ export function QueryBuilderPage() {
             />
           )}
 
+          <CompilerDebugPanel
+            mode="auto"
+            rawInput={autoState.rawInput}
+            structuredDraft={effectiveDraft}
+            canonicalDeclaration={effectiveDraft ? serializeDraft(effectiveDraft) : undefined}
+            evaluationRequest={autoState.parsedQuery ?? null}
+          />
+
           <AuditHistoryPanel
             records={auditRecords}
             activeAuditId={autoState.activeAuditId}
@@ -817,6 +819,21 @@ export function QueryBuilderPage() {
             />
 
             <EvaluationResultPanel result={state.evaluationResult} />
+
+            <CompilerDebugPanel
+              mode={state.mode as "guided" | "natural"}
+              rawInput={
+                state.mode === "guided"
+                  ? buildRawInputFromGuidedDraft(state.guidedDraft)
+                  : state.rawInput
+              }
+              canonicalDeclaration={
+                state.mode === "guided"
+                  ? buildRawInputFromGuidedDraft(state.guidedDraft)
+                  : state.rawInput
+              }
+              evaluationRequest={state.parsedQuery ?? null}
+            />
           </div>
         </div>
       )}

@@ -7123,3 +7123,106 @@ textarea {
   color: var(--nm-text-muted);
   opacity: 0.6;
 }
+
+/* =========================================================
+   Compiler Debug Panel (temporary — cross-mode equivalence proof)
+   ========================================================= */
+
+.compiler-debug-panel {
+  margin-top: 24px;
+  border: 1px solid #2a2a3a;
+  border-radius: 6px;
+  background: #0f0f18;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.compiler-debug-panel__toggle {
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--nm-text-muted);
+  box-sizing: border-box;
+}
+
+.compiler-debug-panel__toggle:hover { color: var(--nm-text); }
+
+.compiler-debug-panel__badge {
+  background: #1e2a18;
+  color: #6fbf73;
+  border: 1px solid #3a5a3a;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.compiler-debug-panel__chevron {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.compiler-debug-panel__body {
+  padding: 12px 14px;
+  border-top: 1px solid #2a2a3a;
+}
+
+.compiler-debug-panel__note {
+  margin: 0 0 12px;
+  color: var(--nm-text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.compiler-debug-panel__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.compiler-debug-panel__table th {
+  text-align: left;
+  color: var(--nm-text-muted);
+  padding: 3px 8px 6px 0;
+  border-bottom: 1px solid #2a2a3a;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.compiler-debug-panel__table td {
+  padding: 5px 8px 5px 0;
+  color: var(--nm-text);
+  border-bottom: 1px solid #1a1a28;
+  vertical-align: top;
+}
+
+.compiler-debug-panel__table tr:last-child td { border-bottom: none; }
+
+.compiler-debug-panel__stage { color: var(--nm-text-muted); width: 160px; }
+
+.compiler-debug-panel__hash code {
+  color: #6fbf73;
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.compiler-debug-panel__preview {
+  color: #8888a8;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compiler-debug-panel__empty {
+  color: var(--nm-text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 12px;
+}

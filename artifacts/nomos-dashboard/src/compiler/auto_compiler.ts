@@ -169,37 +169,11 @@ function buildConstraints(
   template: DomainTemplate,
   extracted: ExtractedFields
 ): string[] {
-  const lines: string[] = [];
-
   if (extracted.constraints.length > 0) {
-    lines.push(...dedupe(extracted.constraints));
+    return dedupe(extracted.constraints);
   }
 
-  if (template.intent === "NUTRITION_AUDIT") {
-    if (!containsConstraintPhrase(lines, "protein placement")) {
-      lines.push(
-        "Protein placement should remain fixed unless explicitly released."
-      );
-    }
-
-    if (!containsConstraintPhrase(lines, "meal order")) {
-      lines.push(
-        "Meal order and dispersal should remain fixed unless explicitly released."
-      );
-    }
-
-    if (!containsConstraintPhrase(lines, "label")) {
-      lines.push(
-        "Label truth overrides food assumptions where labels are provided."
-      );
-    }
-  }
-
-  if (lines.length === 0) {
-    return template.constraints;
-  }
-
-  return dedupe(lines);
+  return template.constraints;
 }
 
 function buildUncertainties(
@@ -296,11 +270,6 @@ function buildObjective(
   }
 
   return dedupe(lines);
-}
-
-function containsConstraintPhrase(lines: string[], phrase: string): boolean {
-  const lowerPhrase = phrase.toLowerCase();
-  return lines.some((line) => line.toLowerCase().includes(lowerPhrase));
 }
 
 function containsAny(text: string, phrases: string[]): boolean {
