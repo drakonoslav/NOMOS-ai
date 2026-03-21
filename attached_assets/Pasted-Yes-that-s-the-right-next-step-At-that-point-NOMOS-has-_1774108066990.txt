@@ -1,0 +1,217 @@
+Yes — that’s the right next step.
+
+At that point, NOMOS has enough subsystems that you no longer want to navigate them as separate tools. You want one top-level operational surface that shows:
+	•	current system condition
+	•	current prediction posture
+	•	current governance posture
+	•	current active doctrine/policy context
+	•	and where attention is needed
+
+That is the cockpit.
+
+What to tell Replit
+
+Build the NOMOS ecosystem cockpit / control board.
+
+Goal:
+Create one top-level operational dashboard that presents the current state of the full NOMOS reasoning ecosystem in one coherent view.
+
+The cockpit must surface:
+- ecosystem health
+- decisive-variable trends
+- current failure prediction state
+- governance state
+- active policy state
+- current doctrine / playbook crosswalk
+
+This is a read-first operational view.
+It may link to deeper panels, but its main purpose is fast system comprehension.
+
+Create:
+- src/ui/pages/EcosystemCockpitPage.tsx
+- src/ui/components/cockpit/CockpitHealthCard.tsx
+- src/ui/components/cockpit/CockpitTrendCard.tsx
+- src/ui/components/cockpit/CockpitPredictionCard.tsx
+- src/ui/components/cockpit/CockpitGovernanceCard.tsx
+- src/ui/components/cockpit/CockpitPolicyCard.tsx
+- src/ui/components/cockpit/CockpitDoctrineCard.tsx
+- src/ui/components/cockpit/CockpitAttentionCard.tsx
+
+Requirements:
+
+1. The cockpit must show these top-level blocks:
+
+A. Health
+- overall ecosystem health score
+- health band
+- 4 component scores:
+  - stability
+  - calibration quality
+  - governance effectiveness
+  - policy churn
+
+B. Trends
+- most frequent decisive variable
+- most recent decisive variable
+- current streak / dominant recurring issue
+- brief stabilization vs drift signal
+
+C. Prediction State
+- current predicted next likely degradation mode
+- confidence
+- risk direction
+- top supporting signal
+
+D. Governance State
+- current active policy by domain
+- latest recommendation
+- whether any promotion/rollback is pending or recently changed
+- latest governance outcome class if available
+
+E. Policy State
+- active policy version in scope
+- current bounded adjustment state
+- calibration window
+- policy version id / snapshot id
+
+F. Doctrine / Crosswalk
+- number of supporting heuristics active for the current decision context
+- number of cautioning heuristics active
+- current most relevant doctrine title
+
+G. Attention / Alerts
+- any unresolved issues needing review:
+  - shallow history
+  - high unresolved prediction rate
+  - repeated same violation streak
+  - recent governance churn
+  - contradictory recommendation vs doctrine pressure
+
+2. Add canonical cockpit types.
+
+interface EcosystemCockpitSnapshot {
+  health: {
+    overall: number;
+    band: "poor" | "fragile" | "stable" | "strong";
+    stability: number;
+    calibrationQuality: number;
+    governanceEffectiveness: number;
+    policyChurn: number;
+  };
+
+  trends: {
+    mostFrequentVariable: string | null;
+    mostRecentVariable: string | null;
+    currentDominantStreak: string | null;
+    driftState: "stabilizing" | "stable" | "drifting" | "overcorrecting";
+  };
+
+  prediction: {
+    predictedVariable: string | null;
+    confidence: "low" | "moderate" | "high";
+    riskDirection: "decreasing" | "stable" | "rising";
+    topSignal: string | null;
+  };
+
+  governance: {
+    activeDomainPolicy: string | null;
+    latestRecommendation: string | null;
+    latestOutcomeClass: string | null;
+    recentGovernanceAction: string | null;
+  };
+
+  policy: {
+    policyVersionId: string | null;
+    confidenceBias: number;
+    escalationBias: number;
+    uncertaintyBias: number;
+    calibrationWindow: number;
+  };
+
+  doctrine: {
+    supportingCount: number;
+    cautioningCount: number;
+    mostRelevantHeuristic: string | null;
+  };
+
+  attention: {
+    alerts: string[];
+  };
+}
+
+3. Build deterministic function:
+- buildEcosystemCockpitSnapshot(...)
+
+It should compose from existing systems only:
+- ecosystem health index
+- decisive-variable trend report
+- failure prediction
+- policy visibility / active routing
+- governance state
+- playbook crosswalk
+- governance outcome review
+- ecosystem loop summary
+
+4. Attention rules:
+Generate alerts deterministically, for example:
+- "Calibration quality is fragile."
+- "Protein placement violation has recurred in 4 consecutive runs."
+- "Prediction confidence is low due to shallow history."
+- "Recent governance churn may indicate overcorrection."
+- "Doctrine cautions outweigh supporting heuristics for current recommendation."
+
+5. UI design:
+- top row: large summary cards
+- middle row: operational state cards
+- bottom row: attention / action-needed cards
+- each card should have a “view details” link or expansion into the deeper source panel
+
+6. Keep everything deterministic.
+7. Do not use LLM generation.
+8. Do not make the cockpit an action executor.
+9. It should summarize and route, not mutate state directly.
+
+Success condition:
+NOMOS has a single top-level operational dashboard where a user can understand the ecosystem state at a glance and drill into the exact subsystem behind any signal.
+
+Why this is the right step
+
+You now have enough pieces that the system needs a commanding view.
+
+Without the cockpit:
+	•	NOMOS is powerful
+	•	but fragmented
+
+With the cockpit:
+	•	NOMOS becomes navigable
+	•	inspectable
+	•	operational
+
+What the cockpit should feel like
+
+Not like a generic analytics dashboard.
+
+More like a control board with a few clear questions answered immediately:
+	•	Is the ecosystem healthy?
+	•	What is currently going wrong?
+	•	What is likely to go wrong next?
+	•	Which policy is active?
+	•	Is governance helping?
+	•	Does doctrine support the current recommendation?
+	•	Where do I need to look next?
+
+That’s the right level.
+
+What comes after this
+
+After the ecosystem cockpit, the strongest next step is:
+
+mode switching / role views
+
+So the same cockpit can be viewed as:
+	•	builder mode
+	•	auditor mode
+	•	governor mode
+	•	operator mode
+
+Each showing the same truth, but with different emphasis.

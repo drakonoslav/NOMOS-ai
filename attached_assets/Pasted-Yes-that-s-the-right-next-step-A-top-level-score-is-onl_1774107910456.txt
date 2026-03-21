@@ -1,0 +1,133 @@
+Yes — that’s the right next step.
+
+A top-level score is only trustworthy if it stays fully explorable.
+So the health index needs a traceability layer that lets you open each component and see:
+	•	exact inputs
+	•	exact formula
+	•	exact contributing records
+
+That keeps the score from becoming decorative.
+
+What to tell Replit
+
+Build health index traceability for NOMOS.
+
+Goal:
+Make every ecosystem health component fully auditable by exposing:
+- exact inputs
+- exact formula
+- exact contributing records
+
+This must apply to:
+- overall health score
+- stability
+- calibration quality
+- governance effectiveness
+- policy churn
+
+Create:
+- src/audit/health_trace_types.ts
+- src/audit/health_index_traceability.ts
+- src/ui/components/audit/HealthTracePanel.tsx
+- update EcosystemHealthPanel.tsx to support click-to-expand trace view
+
+Requirements:
+
+1. Add canonical types.
+
+interface HealthComponentTrace {
+  component: "stability" | "calibrationQuality" | "governanceEffectiveness" | "policyChurn";
+
+  rawInputs: Record<string, number | string | boolean | null>;
+  formulaLines: string[];
+  weightedContribution: number;
+
+  contributingRecordIds: string[];
+  explanationLines: string[];
+}
+
+interface EcosystemHealthTrace {
+  overallFormulaLines: string[];
+  overallInputs: Record<string, number>;
+
+  componentTraces: HealthComponentTrace[];
+}
+
+2. Build deterministic functions:
+- buildStabilityTrace(...)
+- buildCalibrationQualityTrace(...)
+- buildGovernanceEffectivenessTrace(...)
+- buildPolicyChurnTrace(...)
+- buildEcosystemHealthTrace(...)
+
+3. Each component trace must show:
+- exact raw input values
+- exact score formula used
+- final component score
+- record ids or action ids that contributed
+
+4. Overall trace must show:
+- component scores
+- weight per component
+- final weighted calculation
+
+5. Example formula lines:
+- "stability = clamp(0.5 * lawfulShare + 0.3 * driftReduction + 0.2 * recurringViolationReduction, 0, 100)"
+- "overall = 0.35*stability + 0.25*calibrationQuality + 0.25*governanceEffectiveness + 0.15*policyChurn"
+
+6. UI:
+- EcosystemHealthPanel should allow clicking:
+  - overall score
+  - each component score
+- opening a component shows:
+  - raw inputs
+  - formula
+  - contributing record ids
+  - explanation lines
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. Do not hide missing inputs; show them explicitly if a component is weakened by shallow evidence.
+
+Success condition:
+Every health score in NOMOS can be traced back to exact inputs, explicit formulas, and contributing records.
+
+Why this matters
+
+This keeps NOMOS honest at the very top level.
+
+Without traceability, the health index becomes:
+	•	convenient
+	•	but suspect
+
+With traceability, it becomes:
+	•	concise
+	•	but falsifiable
+
+What it should feel like
+
+You click Calibration Quality: 42 and see:
+	•	exact-match rate: 0.44
+	•	direction-match rate: 0.71
+	•	unresolved rate: 0.22
+	•	too-aggressive rate: 0.18
+	•	formula used
+	•	contributing prediction ids
+
+That is exactly right.
+
+What comes after this
+
+After health index traceability, the strongest next step is:
+
+ecosystem cockpit / control board
+
+A single top-level view that shows:
+	•	health
+	•	trends
+	•	prediction state
+	•	governance state
+	•	active policy
+	•	current doctrine crosswalk
+
+all in one coherent operational dashboard.
