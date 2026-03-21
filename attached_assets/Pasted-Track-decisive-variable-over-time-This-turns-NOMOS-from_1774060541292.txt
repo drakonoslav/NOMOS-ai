@@ -1,0 +1,302 @@
+Track decisive variable over time
+
+This turns NOMOS from:
+	•	a system that explains single decisions
+
+into:
+
+a system that reveals structural stability and drift across time
+
+⸻
+
+🧠 What we’re building
+
+A time-series layer that tracks:
+	•	decisive variable (categorical)
+	•	decisive value (numeric if available)
+	•	verification status
+	•	model confidence
+	•	robustness margin
+
+Across runs → visualized as:
+
+stability vs drift
+
+⸻
+
+🧱 1. Extend AuditLog to store decisive variable snapshot
+
+📁 audit_log.ts (add at end of run)
+
+When runtime completes, add a summary entry:
+
+record("run_summary", {
+  status,
+  decisiveVariable,
+  modelConfidence,
+  robustness: verification.robustness?.epsilon,
+  feasibility: verification.feasibility.ok,
+});
+
+This is critical—gives us a clean signal per run.
+
+⸻
+
+🧩 2. Extract time series
+
+📁 src/ui/audit/audit_timeseries.ts
+
+import { AuditEntry } from "../../core/audit_log";
+
+export interface RunSummary {
+  timestamp: number;
+  status: "LAWFUL" | "DEGRADED" | "INVALID";
+  decisiveVariable: string;
+  modelConfidence?: number;
+  robustness?: number;
+  feasibility?: boolean;
+}
+
+export function extractRunSummaries(
+  entries: AuditEntry[]
+): RunSummary[] {
+  return entries
+    .filter((e) => e.stage === "run_summary")
+    .map((e) => ({
+      timestamp: e.timestamp,
+      status: e.payload.status,
+      decisiveVariable: e.payload.decisiveVariable,
+      modelConfidence: e.payload.modelConfidence,
+      robustness: e.payload.robustness,
+      feasibility: e.payload.feasibility,
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+
+⸻
+
+🧠 3. Detect drift vs stability
+
+export function analyzeDrift(series: RunSummary[]) {
+  if (series.length < 2) return { drift: false };
+
+  const last = series[series.length - 1];
+  const prev = series[series.length - 2];
+
+  const variableChanged =
+    last.decisiveVariable !== prev.decisiveVariable;
+
+  const statusChanged = last.status !== prev.status;
+
+  return {
+    drift: variableChanged || statusChanged,
+    variableChanged,
+    statusChanged,
+  };
+}
+
+
+⸻
+
+📊 4. DecisiveTrendPanel.tsx
+
+📁 src/ui/components/nomos/DecisiveTrendPanel.tsx
+
+import React from "react";
+import { useScenario } from "../../state/ScenarioContext";
+import {
+  extractRunSummaries,
+  analyzeDrift,
+} from "../../audit/audit_timeseries";
+
+export function DecisiveTrendPanel() {
+  const { auditEntries } = useScenario();
+
+  const series = extractRunSummaries(auditEntries);
+  const drift = analyzeDrift(series);
+
+  return (
+    <div className="panel trend-panel">
+      <div className="panel-header">
+        Decisive Variable Trend
+      </div>
+
+      {series.length === 0 && (
+        <div className="trend-empty">
+          No run history available.
+        </div>
+      )}
+
+      {series.length > 0 && (
+        <>
+          <div className="trend-status">
+            {drift.drift ? (
+              <span className="trend-drift">
+                Drift detected
+              </span>
+            ) : (
+              <span className="trend-stable">
+                Stable
+              </span>
+            )}
+          </div>
+
+          <div className="trend-list">
+            {series.map((point, i) => (
+              <div key={i} className="trend-item">
+                <div className="trend-time">
+                  {formatTime(point.timestamp)}
+                </div>
+
+                <div className="trend-variable">
+                  {point.decisiveVariable}
+                </div>
+
+                <div
+                  className={`trend-status-pill trend-status-${point.status.toLowerCase()}`}
+                >
+                  {point.status}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 5. CSS
+
+.trend-panel {
+  max-height: 400px;
+}
+
+.trend-status {
+  margin-bottom: var(--nm-space-2);
+}
+
+.trend-drift {
+  color: var(--nm-degraded);
+}
+
+.trend-stable {
+  color: var(--nm-lawful);
+}
+
+.trend-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.trend-item {
+  display: grid;
+  grid-template-columns: 80px 1fr 100px;
+  gap: var(--nm-space-2);
+  padding: 6px;
+  border: 1px solid var(--nm-border);
+  border-radius: var(--nm-radius-xs);
+}
+
+.trend-variable {
+  font-weight: 600;
+}
+
+.trend-status-pill {
+  text-align: center;
+  font-size: var(--nm-text-xs);
+}
+
+.trend-status-lawful {
+  color: var(--nm-lawful);
+}
+
+.trend-status-degraded {
+  color: var(--nm-degraded);
+}
+
+.trend-status-invalid {
+  color: var(--nm-invalid);
+}
+
+
+⸻
+
+🧩 6. Add to dashboard
+
+<DecisiveTrendPanel />
+
+
+⸻
+
+🔥 What this gives you
+
+Now NOMOS shows:
+
+Stability
+
+robustness margin
+robustness margin
+robustness margin
+
+→ system stable
+
+⸻
+
+Drift
+
+robustness margin
+model confidence
+feasibility constraint
+
+→ system degrading
+
+⸻
+
+Collapse
+
+model confidence → feasibility constraint → INVALID
+
+→ system failure trajectory
+
+⸻
+
+🧠 Final insight
+
+This is a major leap.
+
+You now have:
+	•	state awareness
+	•	causal explanation
+	•	historical trace
+	•	temporal reasoning
+
+⸻
+
+What NOMOS becomes now
+
+Not just:
+
+“Is this valid?”
+
+But:
+
+“Is this system becoming more or less valid over time?”
+
+⸻
+
+If you want next
+
+👉 add forecast layer (predict next failure point)
+
+So NOMOS can say:
+
+“Given current drift, feasibility failure is next.”
+
+Just say:
+“Add failure prediction layer”

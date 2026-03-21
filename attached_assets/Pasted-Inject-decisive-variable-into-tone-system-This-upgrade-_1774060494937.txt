@@ -1,0 +1,236 @@
+Inject decisive variable into tone system
+
+This upgrade makes the tone layer causally aware, not just state-aware.
+
+Instead of:
+
+“Feasibility holds; robustness reduced.”
+
+You now get:
+
+“The decisive factor is robustness margin.”
+
+Clean, direct, and aligned with your style guide.
+
+⸻
+
+🧠 What we’re doing
+
+We will:
+	1.	Inject decisive variable from runtime/diff into tone_resolver
+	2.	Ensure it is:
+	•	always present when available
+	•	placed in the correct position (after primary condition)
+	3.	Prevent duplication or weak phrasing
+
+⸻
+
+🧱 1. Extend ToneResolverInput (if not already)
+
+📁 tone_resolver.ts
+
+Make sure this exists (you already added it earlier, but now we enforce it):
+
+decisiveVariable?: string;
+
+
+⸻
+
+🧠 2. Strengthen decisive line logic
+
+Replace your existing function with this:
+
+function decisiveVariableLine(
+  input: ToneResolverInput,
+  prefix: "The decisive factor is" | "Outcome is governed by"
+): string | undefined {
+  if (!input.decisiveVariable) return;
+
+  const clean = sanitizePhrase(input.decisiveVariable);
+
+  if (!clean || clean === "unknown" || clean === "none") {
+    return;
+  }
+
+  return `${prefix} ${clean}.`;
+}
+
+
+⸻
+
+🧠 3. Enforce placement (CRITICAL)
+
+The decisive variable must appear:
+
+immediately after the primary condition line
+
+⸻
+
+A. LAWFUL (update)
+
+body: compactBody([
+  "All constraints satisfied.",
+  decisiveVariableLine(input, "Outcome is governed by"),
+  marginLine(input, true),
+  ...
+])
+
+
+⸻
+
+B. DEGRADED (most important)
+
+body: compactBody([
+  "Feasibility holds.",
+  decisiveVariableLine(input, "The decisive factor is"),
+  degradedCauseLine(input),
+  marginLine(input, false),
+  ...
+])
+
+
+⸻
+
+C. INVALID (minimal but precise)
+
+body: compactBody([
+  invalidReason,
+  decisiveVariableLine(input, "Failure is governed by"),
+  ...
+])
+
+
+⸻
+
+🧠 4. Guarantee fallback (important)
+
+If no decisive variable is provided, infer one:
+
+Add helper:
+
+function inferDecisiveVariable(input: ToneResolverInput): string {
+  if (input.feasibilityOk === false) return "feasibility constraint";
+  if (input.robustnessOk === false) return "robustness margin";
+  if (input.modelOk === false) return "model confidence";
+  if (input.identifiabilityOk === false) return "identifiability";
+  if (input.observabilityOk === false) return "observability";
+  if (input.adaptationOk === false) return "adaptation integrity";
+
+  return "robustness margin";
+}
+
+
+⸻
+
+Inject at top of resolveToneMessage
+
+if (!input.decisiveVariable) {
+  input.decisiveVariable = inferDecisiveVariable(input);
+}
+
+
+⸻
+
+🧠 5. Prevent duplication
+
+In compactBody, ensure we don’t repeat:
+
+function compactBody(lines: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+
+  return lines
+    .filter(Boolean)
+    .map((line) => sanitizePhrase(line!))
+    .filter((line) => {
+      if (seen.has(line)) return false;
+      seen.add(line);
+      return true;
+    })
+    .map((line) => (line.endsWith(".") ? line : `${line}.`));
+}
+
+
+⸻
+
+🧠 6. Runtime → Tone wiring (already mostly done)
+
+In evaluate_nomos.ts, ensure:
+
+decisiveVariable: findDecisiveVariable(verification),
+
+Now that value flows all the way to UI.
+
+⸻
+
+🔥 Resulting behavior
+
+LAWFUL
+
+LAWFUL
+
+All constraints satisfied.
+Outcome is governed by robustness margin.
+Robustness margin acceptable.
+
+
+⸻
+
+DEGRADED
+
+DEGRADED
+
+Feasibility holds.
+The decisive factor is model confidence.
+Constraint margin reduced: resource availability.
+
+
+⸻
+
+INVALID
+
+INVALID
+
+Feasibility violation detected.
+Failure is governed by feasibility constraint.
+No admissible candidates remain.
+
+
+⸻
+
+🧠 Why this is a major upgrade
+
+Before:
+	•	system reports status
+	•	system lists issues
+
+After:
+	•	system identifies causal driver
+
+⸻
+
+🧠 Final insight
+
+This is the shift from:
+
+“what happened”
+
+to:
+
+“what determined what happened”
+
+That’s the exact signature of a system that feels:
+	•	intelligent
+	•	grounded
+	•	internally consistent
+
+⸻
+
+If you want next
+
+👉 elevate this one step further:
+	•	show decisive variable trend across runs
+	•	track it over time
+	•	visualize stability vs drift
+
+Just say:
+“Track decisive variable over time”
