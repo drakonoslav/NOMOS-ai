@@ -1,0 +1,122 @@
+Yes — that’s the right next step.
+
+That turns the worklog from a list of events into a reconstructable operational narrative.
+
+So NOMOS can later show:
+	•	what happened first
+	•	what the user opened next
+	•	what evidence they looked at
+	•	what rationale they accepted or rejected
+	•	how the final decision path unfolded
+
+That is very strong.
+
+What to tell Replit
+
+Build session replay / narrative reconstruction for NOMOS.
+
+Goal:
+Reconstruct a human-readable session narrative from the worklog so NOMOS can explain:
+- what happened in a session
+- in what order
+- what the user saw
+- what decision path they took
+
+This is a replay and reconstruction layer, not automation.
+
+Create:
+- src/worklog/session_replay_types.ts
+- src/worklog/session_replay.ts
+- src/ui/components/worklog/SessionReplayPanel.tsx
+
+Requirements:
+
+1. Add canonical types.
+
+interface SessionReplayStep {
+  stepNumber: number;
+  timestamp: string;
+  eventType: string;
+  title: string;
+  description: string;
+  targetId: string | null;
+}
+
+interface SessionNarrative {
+  sessionId: string;
+  roleMode: "builder" | "auditor" | "governor" | "operator";
+
+  startedAt: string;
+  finalDecision: "promote" | "rollback" | "hold" | null;
+
+  orderedSteps: SessionReplayStep[];
+
+  acceptedRationales: string[];
+  rejectedRationales: string[];
+  notes: string[];
+
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- sortSessionEvents(events)
+- buildSessionReplaySteps(worklog)
+- buildSessionNarrative(worklog)
+
+3. Reconstruction rules:
+- preserve exact event order by timestamp
+- convert raw worklog events into readable replay steps
+- do not invent steps that were not logged
+- only summarize explicit recorded actions
+
+4. Example replay steps:
+- "Workflow started in governor mode."
+- "Opened Policy Recommendation panel."
+- "Opened Doctrine Crosswalk panel."
+- "Accepted rationale: improved exact-match performance."
+- "Rejected rationale: shallow history caution."
+- "Final decision: promote policy v3."
+
+5. Summary lines should support statements like:
+- "The user followed the governor workflow and reviewed recommendation, doctrine, and deliberation panels before deciding."
+- "The final decision was promotion after accepting two rationale lines and rejecting one caution."
+- "The session remained within governance review; no rollback path was explored."
+
+6. UI:
+Create SessionReplayPanel showing:
+- role mode
+- ordered replay steps
+- final decision
+- accepted / rejected rationales
+- summary lines
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. Do not infer unseen user actions.
+
+Success condition:
+NOMOS can replay a session as an ordered human-readable narrative built strictly from recorded worklog events.
+
+Why this matters
+
+Now NOMOS can answer not just:
+	•	what the machine concluded
+
+but also:
+	•	how the human moved through the system
+
+That gives you a real operational narrative, which is much more useful for review, training, and governance accountability.
+
+What comes after this
+
+After session replay / narrative reconstruction, the strongest next step is:
+
+cross-session behavioral pattern summary
+
+So NOMOS can learn patterns like:
+	•	which workflow paths most often end in promotion
+	•	which panels are most often consulted before rollback
+	•	which cautions are repeatedly rejected
+	•	which role modes lead to better decisions
+
+That would let the system reflect on human use patterns without automating them.

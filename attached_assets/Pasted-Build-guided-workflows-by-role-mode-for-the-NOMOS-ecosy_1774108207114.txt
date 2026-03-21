@@ -1,0 +1,88 @@
+Build guided workflows by role mode for the NOMOS ecosystem cockpit.
+
+Goal:
+For each cockpit role mode, provide a recommended operating flow so the user is guided through the most relevant sequence of panels and checks.
+
+This is not automation.
+It is deterministic workflow guidance only.
+
+Create:
+- src/ui/cockpit/workflow_types.ts
+- src/ui/cockpit/workflow_config.ts
+- src/ui/components/cockpit/RoleWorkflowPanel.tsx
+- update EcosystemCockpitPage.tsx to render the workflow for the active role mode
+
+Requirements:
+
+1. Add canonical workflow types.
+
+type CockpitRoleMode =
+  | "builder"
+  | "auditor"
+  | "governor"
+  | "operator";
+
+interface WorkflowStep {
+  id: string;
+  title: string;
+  description: string;
+  targetCardId: string;
+}
+
+interface RoleWorkflow {
+  mode: CockpitRoleMode;
+  title: string;
+  summary: string;
+  steps: WorkflowStep[];
+}
+
+2. Define deterministic workflows for each role.
+
+Builder mode:
+- inspect attention alert
+- open trace / proof source
+- inspect invariant break or parser/evaluator mismatch
+- inspect formula / health trace if needed
+
+Auditor mode:
+- open candidate proof trace
+- compare run diff
+- inspect health traceability
+- verify satisfaction vs verdict consistency
+
+Governor mode:
+- review policy recommendation
+- inspect doctrine crosswalk
+- inspect gains / tradeoffs / risks
+- open deliberation summary
+- optionally move to governance panel
+
+Operator mode:
+- inspect ecosystem health
+- inspect current prediction state
+- inspect attention alerts
+- inspect active policy / governance state if needed
+
+3. Build deterministic function:
+- getRoleWorkflow(mode)
+
+4. UI:
+Create RoleWorkflowPanel showing:
+- role workflow title
+- short summary
+- ordered steps
+- each step links or scrolls to the relevant cockpit card / panel
+
+5. Workflow behavior:
+- same underlying data
+- same truth
+- no mutation
+- purely guidance and navigation
+
+6. Keep everything deterministic.
+7. Do not use LLM generation.
+8. Do not auto-complete workflow steps.
+9. This is guidance, not task execution.
+
+Success condition:
+Each role mode in NOMOS has a clear recommended flow that helps the user move through the cockpit in a sensible, domain-appropriate order.

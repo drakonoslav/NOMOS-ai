@@ -1,0 +1,126 @@
+Yes — that’s the right next step.
+
+That adds the missing human layer:
+	•	machine trace = what NOMOS computed
+	•	human worklog = how a person moved through it
+
+Together, that gives you a full operational record.
+
+What to tell Replit
+
+Build a session narratives / worklog layer for NOMOS.
+
+Goal:
+Record the human operational trace on top of the machine trace, including:
+- which workflow the user followed
+- which panels they opened
+- what decision they reached
+- what rationale they accepted or rejected
+
+This is an audit/worklog layer, not automation.
+
+Create:
+- src/worklog/worklog_types.ts
+- src/worklog/session_worklog.ts
+- src/ui/components/worklog/SessionWorklogPanel.tsx
+- update EcosystemCockpitPage.tsx to emit worklog events
+
+Requirements:
+
+1. Add canonical types.
+
+interface WorklogEvent {
+  eventId: string;
+  timestamp: string;
+
+  sessionId: string;
+  roleMode: "builder" | "auditor" | "governor" | "operator";
+
+  eventType:
+    | "workflow_started"
+    | "workflow_step_opened"
+    | "panel_opened"
+    | "panel_closed"
+    | "decision_made"
+    | "rationale_accepted"
+    | "rationale_rejected"
+    | "note_added";
+
+  targetId: string | null;
+  payload: Record<string, unknown> | null;
+}
+
+interface SessionWorklog {
+  sessionId: string;
+  startedAt: string;
+  roleMode: "builder" | "auditor" | "governor" | "operator";
+
+  events: WorklogEvent[];
+
+  finalDecision: "promote" | "rollback" | "hold" | null;
+  acceptedRationales: string[];
+  rejectedRationales: string[];
+  notes: string[];
+}
+
+2. Build deterministic functions:
+- createSessionWorklog(sessionId, roleMode)
+- appendWorklogEvent(worklog, event)
+- recordWorkflowStart(...)
+- recordWorkflowStepOpened(...)
+- recordPanelOpened(...)
+- recordDecision(...)
+- recordRationaleAccepted(...)
+- recordRationaleRejected(...)
+- addWorklogNote(...)
+
+3. Track at minimum:
+- active role mode
+- workflow started
+- workflow step opened
+- panel opened
+- final decision
+- accepted rationale ids or text
+- rejected rationale ids or text
+
+4. UI:
+Create SessionWorklogPanel showing:
+- session id
+- role mode
+- ordered event timeline
+- final decision
+- accepted rationales
+- rejected rationales
+- notes
+
+5. Keep everything deterministic.
+6. Do not infer human intent.
+7. Only record explicit user actions.
+
+Success condition:
+NOMOS can preserve a human-readable operational trace of how a user moved through a session and what decision/rationale outcome resulted.
+
+Why this matters
+
+This lets NOMOS later answer:
+	•	which workflow was actually followed
+	•	what the user inspected
+	•	what doctrine/recommendation they accepted
+	•	what they rejected
+	•	how the decision was reached
+
+That is much stronger than machine-only logs.
+
+What comes after this
+
+After the worklog layer, the strongest next step is:
+
+session replay / narrative reconstruction
+
+So NOMOS can reconstruct:
+	•	what happened in a session
+	•	in what order
+	•	what the user saw
+	•	what decision path they took
+
+That would turn the worklog into a real operational narrative.

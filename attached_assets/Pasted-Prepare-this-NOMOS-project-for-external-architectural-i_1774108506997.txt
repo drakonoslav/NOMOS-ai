@@ -1,0 +1,157 @@
+Prepare this NOMOS project for external architectural inspection and continued augmentation.
+
+This is not just a Git export.
+The repository must be structured so an external reviewer can quickly inspect:
+- system architecture
+- module boundaries
+- deterministic evaluation flow
+- governance flow
+- prediction/calibration flow
+- UI-to-engine linkage
+- audit/history linkage
+
+Do the following:
+
+1. Git + branch hygiene
+- ensure the repo is initialized cleanly
+- commit all current work
+- create a clean main branch
+- ensure no generated junk, build artifacts, caches, or node_modules are tracked
+
+2. Root-level review files
+Create or update these root files so they reflect the CURRENT system, not the early version:
+- README.md
+- ARCHITECTURE.md
+- SYSTEM_RULES.md
+- MODULE_MAP.md
+- REVIEW_GUIDE.md
+- CHANGELOG_ARCHITECTURE.md
+
+3. README.md must explain:
+- what NOMOS is
+- the end-to-end pipeline
+- the major subsystems
+- how to run the project
+- how to inspect the project
+- where the canonical types and flows live
+
+4. ARCHITECTURE.md must include:
+- raw input -> compiler -> structured draft -> patching -> canonical declaration -> evaluation -> audit history
+- constraint algebra + diff engine
+- candidate-local trace flow
+- trend tracking / prediction / calibration / bounded adjustment
+- governance layers
+- cockpit / role views / workflow layers
+- decision -> outcome linkage
+- ecosystem summary / health traceability
+
+5. SYSTEM_RULES.md must include current invariants such as:
+- NOMOS never evaluates raw input
+- NOMOS only evaluates confirmed structured drafts
+- labels/source truth override assumptions where applicable
+- violation labels are reporting outputs, never comparison operands
+- deterministic evaluation must be separated from constraint satisfaction
+- UI must never contradict canonical evaluation report fields
+- governance is advisory until explicit human action
+- policy recommendation is not policy promotion
+- historical records and frozen policy snapshots are immutable
+
+6. MODULE_MAP.md must be a fast inspection table:
+Layer | Files | Responsibility | Deterministic? | Notes
+
+Include at minimum:
+- compiler
+- nutrition engine
+- evaluation core
+- diff / trace
+- audit persistence
+- trend / prediction / calibration
+- governance
+- cockpit
+- worklog / replay
+
+7. REVIEW_GUIDE.md must tell an external reviewer exactly how to inspect the project in order:
+Recommended order:
+1. README
+2. MODULE_MAP
+3. ARCHITECTURE
+4. SYSTEM_RULES
+5. examples
+6. canonical types
+7. evaluation pipeline
+8. governance pipeline
+9. cockpit / role views
+
+Also include:
+- which files are the source of truth
+- which files are derived / view layer only
+- where to look for current likely weak points
+
+8. CHANGELOG_ARCHITECTURE.md must summarize the major architectural expansions since the original repo pass:
+- nutrition structured parser
+- typed constraint compiler
+- formal evaluation schema
+- diff / proof tracing
+- audit persistence
+- cross-run trace diff
+- trend tracking
+- prediction / calibration / bounded adjustment
+- policy freeze/versioning
+- governance recommendation / deliberation
+- decision -> outcome linkage
+- ecosystem health and cockpit
+- role modes and workflows
+- worklog / session replay
+
+9. Examples directory
+Create or update /examples so inspection is easy.
+At minimum include:
+- nutrition audit example
+- governance recommendation example
+- policy replay example
+- ecosystem cockpit snapshot example
+
+For each example include:
+- input
+- compiled draft
+- canonical declaration
+- evaluation report
+- trace
+- any linked governance or prediction artifact if relevant
+
+10. Canonical type index
+Create TYPES_INDEX.md listing the most important canonical interfaces and where they live.
+Group by:
+- compiler
+- evaluation
+- audit
+- governance
+- cockpit
+- worklog
+
+11. Inspection-friendly folder organization
+Without breaking working code, ensure the repo is easy to browse and that related modules are grouped clearly.
+Do not reorganize gratuitously, but do improve discoverability where needed.
+
+12. Linkature requirement
+Make sure each major document cross-links the others:
+- README links to REVIEW_GUIDE, ARCHITECTURE, MODULE_MAP
+- ARCHITECTURE links to major type files
+- REVIEW_GUIDE links to example folders
+- governance docs link to policy/versioning files
+- cockpit docs link back to underlying source modules
+
+13. Add a reviewer snapshot section
+In README or REVIEW_GUIDE include:
+"If you only have 15 minutes, inspect these files first:"
+with a short curated file list.
+
+14. Final output
+After completing the pass, provide:
+- updated file tree
+- list of root review docs created/updated
+- list of example folders
+- exact git commands to commit and push to GitHub
+
+Goal:
+This repository must read as a coherent reasoning ecosystem with clear inspectable linkature, not just a pile of feature files.

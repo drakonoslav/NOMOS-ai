@@ -1,0 +1,268 @@
+Yes — that’s the right next step.
+
+Same system, same truth, different emphasis.
+
+That is exactly how you avoid building four separate apps while still making NOMOS usable for different kinds of work.
+
+What role views should mean
+
+They should not change:
+	•	the data
+	•	the evaluation
+	•	the policy
+	•	the health score
+
+They should only change:
+	•	what is emphasized
+	•	what is foregrounded
+	•	what is collapsed vs expanded
+	•	what default drill-downs are shown
+
+So the system remains one truth surface.
+
+The four modes
+
+Builder mode
+
+Emphasis:
+	•	architecture
+	•	constraints
+	•	diff traces
+	•	formulas
+	•	invariants
+	•	broken pipeline areas
+
+Best for:
+	•	fixing the system
+	•	improving schemas
+	•	debugging compiler/evaluator issues
+
+Auditor mode
+
+Emphasis:
+	•	proof traces
+	•	baseline vs candidate diffs
+	•	exact reasons for pass/fail
+	•	audit history
+	•	trace-aware diffs
+	•	health traceability
+
+Best for:
+	•	validating truth
+	•	checking whether outputs are trustworthy
+	•	explaining exactly why a result occurred
+
+Governor mode
+
+Emphasis:
+	•	policy comparison
+	•	recommendations
+	•	gains/tradeoffs/risks
+	•	doctrine crosswalk
+	•	deliberation summary
+	•	governance audit trail
+
+Best for:
+	•	deciding promote / rollback / hold
+	•	reviewing whether policy changes are justified
+
+Operator mode
+
+Emphasis:
+	•	cockpit summary
+	•	current alerts
+	•	active policy
+	•	current prediction state
+	•	dominant recurring issue
+	•	next likely degradation mode
+
+Best for:
+	•	day-to-day oversight
+	•	fast situational awareness
+	•	knowing what needs attention now
+
+⸻
+
+What to tell Replit
+
+Build mode switching / role views for the NOMOS ecosystem cockpit.
+
+Goal:
+Allow the same cockpit to be viewed in four role-based modes:
+- builder mode
+- auditor mode
+- governor mode
+- operator mode
+
+Important:
+These modes must not change truth, evaluation, or policy.
+They only change emphasis, layout priority, visible cards, default expansions, and navigation focus.
+
+Create:
+- src/ui/cockpit/role_view_types.ts
+- src/ui/cockpit/role_view_config.ts
+- src/ui/components/cockpit/RoleModeSwitcher.tsx
+- update EcosystemCockpitPage.tsx to support role-aware rendering
+
+Requirements:
+
+1. Add canonical role types.
+
+type CockpitRoleMode =
+  | "builder"
+  | "auditor"
+  | "governor"
+  | "operator";
+
+interface CockpitRoleViewConfig {
+  mode: CockpitRoleMode;
+
+  visibleCards: string[];
+  emphasizedCards: string[];
+  defaultExpandedCards: string[];
+
+  summaryPriority: string[];
+}
+
+2. Define role configurations:
+
+BUILDER
+Visible/emphasized:
+- health
+- trends
+- prediction
+- attention
+- traceability
+- diff / proof related entry points
+
+AUDITOR
+Visible/emphasized:
+- health
+- trends
+- proof traces
+- audit history
+- trace-aware diff
+- health traceability
+
+GOVERNOR
+Visible/emphasized:
+- governance
+- policy
+- doctrine
+- recommendation
+- deliberation
+- governance audit trail
+
+OPERATOR
+Visible/emphasized:
+- health
+- trends
+- prediction
+- governance state
+- active policy
+- attention
+
+3. Build deterministic function:
+- getCockpitRoleViewConfig(mode)
+
+4. Add UI mode switcher:
+- Builder
+- Auditor
+- Governor
+- Operator
+
+5. Role mode behavior:
+- same underlying snapshot/data
+- same truth
+- no mutation of evaluation or governance
+- only presentation emphasis changes
+
+6. Role effects can include:
+- card ordering
+- card sizing emphasis
+- which detail links are foregrounded
+- which panels are default expanded
+- which summary lines appear first
+
+7. Example:
+Operator mode:
+- health, prediction, attention first
+- traceability collapsed by default
+
+Builder mode:
+- traceability and technical source panels foregrounded
+- health remains visible but not dominant
+
+Governor mode:
+- governance, recommendation, doctrine, deliberation first
+- operator alerts remain visible but secondary
+
+Auditor mode:
+- proof-oriented cards and diff/history panels first
+- governance controls remain secondary
+
+8. Keep everything deterministic.
+9. Do not use LLM generation.
+10. Role mode is a view-layer concern only.
+
+Success condition:
+The NOMOS cockpit can be viewed through builder, auditor, governor, or operator modes, each emphasizing different aspects of the same underlying system truth.
+
+The important principle
+
+This should be implemented as:
+	•	one cockpit snapshot
+	•	one truth model
+	•	multiple view configs
+
+Not:
+	•	four different data pipelines
+
+That distinction matters a lot.
+
+A clean mental model
+
+Think of it like this:
+	•	Builder asks: how is the machine constructed and where is it weak?
+	•	Auditor asks: is this true and can I prove it?
+	•	Governor asks: what should we change in policy?
+	•	Operator asks: what is happening now and what needs attention?
+
+Same system. Different operational posture.
+
+What the UI should do
+
+A nice first pass:
+	•	mode pills or segmented control at the top
+	•	card order changes by mode
+	•	1–2 key cards expand by default per mode
+	•	subtle description under mode label:
+	•	Builder: architecture and constraint integrity
+	•	Auditor: proof, trace, and verification
+	•	Governor: policy and governance decisions
+	•	Operator: live health and attention routing
+
+Why this matters
+
+Once this exists, NOMOS becomes much more usable without becoming fragmented.
+
+You keep:
+	•	one truth
+	•	one engine
+	•	one governance chain
+
+But different people, or different moments, can approach it appropriately.
+
+What comes after this
+
+After role views, the strongest next step is:
+
+guided workflows by mode
+
+So each role gets a recommended flow, for example:
+	•	Builder: inspect alert → open trace → inspect invariant break
+	•	Auditor: open candidate proof → compare run diff → verify health trace
+	•	Governor: review recommendation → review doctrine crosswalk → open deliberation summary
+	•	Operator: inspect health → inspect prediction → inspect attention alerts
+
+That would make each mode not just a layout, but a usable operating path.
