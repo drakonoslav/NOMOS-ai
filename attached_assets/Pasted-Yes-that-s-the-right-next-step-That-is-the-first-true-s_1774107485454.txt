@@ -1,0 +1,193 @@
+Yes — that’s the right next step.
+
+That is the first true system-level reflection layer.
+
+Up to now, NOMOS can inspect:
+	•	a run
+	•	a trace
+	•	a policy
+	•	a recommendation
+	•	a governance decision
+	•	an outcome
+
+The ecosystem loop summary would let it inspect:
+
+the whole cycle across time
+
+So it can summarize:
+	•	which prediction patterns tend to trigger promotion vs rollback vs hold
+	•	which governance choices most often meet expectations
+	•	which doctrines keep emerging
+	•	whether the ecosystem is stabilizing, drifting, or overcorrecting
+
+That is exactly what a reflective dashboard should do.
+
+What to tell Replit
+
+Build ecosystem loop summary for NOMOS.
+
+Goal:
+Create a top-level reflective layer that summarizes the full governance ecosystem across time, including:
+
+- what prediction patterns led to which governance choices
+- which choices most often worked
+- which doctrines emerged
+- how the system is changing over time
+
+This is a system-level reflection layer, not a control layer.
+It must remain deterministic, advisory, and read-only.
+
+Create:
+- src/audit/ecosystem_loop_types.ts
+- src/audit/ecosystem_loop_summary.ts
+- src/ui/components/audit/EcosystemLoopSummaryPanel.tsx
+
+Requirements:
+
+1. Add canonical types.
+
+interface PredictionToDecisionPattern {
+  label: string;
+  count: number;
+  summary: string;
+}
+
+interface GovernanceChoiceOutcomePattern {
+  label: string;
+  count: number;
+  summary: string;
+}
+
+interface DoctrineEmergencePattern {
+  heuristicId: string;
+  title: string;
+  supportCount: number;
+  confidence: "low" | "moderate" | "high";
+  summary: string;
+}
+
+interface EcosystemChangeSummary {
+  stabilizing: boolean;
+  drifting: boolean;
+  overcorrecting: boolean;
+  summaryLines: string[];
+}
+
+interface EcosystemLoopSummary {
+  totalAuditRuns: number;
+  totalPredictions: number;
+  totalGovernanceActions: number;
+  totalOutcomeReviews: number;
+
+  predictionToDecisionPatterns: PredictionToDecisionPattern[];
+  governanceChoiceOutcomePatterns: GovernanceChoiceOutcomePattern[];
+  doctrineEmergencePatterns: DoctrineEmergencePattern[];
+
+  ecosystemChangeSummary: EcosystemChangeSummary;
+
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildPredictionToDecisionPatterns(...)
+- buildGovernanceChoiceOutcomePatterns(...)
+- buildDoctrineEmergencePatterns(...)
+- buildEcosystemChangeSummary(...)
+- buildEcosystemLoopSummary(...)
+
+3. Pattern extraction rules:
+
+Prediction -> decision patterns:
+- identify repeated cases where certain predicted variables or risk directions led to promote / rollback / hold
+
+Governance choice -> outcome patterns:
+- identify repeated cases where promote / rollback / hold led to met_expectations / partially_met / did_not_meet
+
+Doctrine emergence:
+- summarize playbook heuristics that repeatedly appear with meaningful support
+
+System change summary:
+- stabilizing if lawful outcomes rise, recurring violations fall, or governance outcomes improve
+- drifting if recurring violations grow, governance outcomes worsen, or unresolved outcomes rise
+- overcorrecting if rollback/promotion churn rises without clear improvement
+
+4. Example summary lines:
+- "Protein placement risk most often led to rollback decisions in nutrition."
+- "Promotions following conservative recommendations most often met expectations."
+- "A doctrine favoring cautious promotion under shallow history has emerged repeatedly."
+- "Recent governance patterns suggest stabilization."
+- "Recent policy churn suggests possible overcorrection."
+
+5. UI:
+Create EcosystemLoopSummaryPanel showing:
+- total counts
+- prediction -> decision patterns
+- governance choice -> outcome patterns
+- doctrine emergence
+- change summary
+- top-level summary lines
+
+6. Keep everything deterministic.
+7. Do not use LLM generation.
+8. Do not generate policy actions from this layer.
+9. This layer is reflective and descriptive only.
+
+Success condition:
+NOMOS can summarize the full governance ecosystem across time, showing how prediction, decision, outcome, and doctrine interact at system scale.
+
+Why this matters
+
+This gives you a real top-level dashboard that can say things like:
+	•	“Calorie-drift predictions most often led to hold decisions.”
+	•	“Rollback decisions were more often corrective than promotions in nutrition.”
+	•	“A cautious-promotion doctrine has emerged under shallow-history conditions.”
+	•	“The system appears to be stabilizing.”
+	•	“Recent churn suggests overcorrection.”
+
+That is much more meaningful than isolated charts.
+
+What the dashboard should feel like
+
+Not noisy. Not chatty. More like:
+
+Ecosystem status
+	•	Stabilizing: yes
+	•	Drifting: no
+	•	Overcorrecting: mild concern
+
+Dominant loops
+	•	protein placement risk → rollback
+	•	calorie delta risk → hold
+	•	conservative promotion → met expectations
+
+Emerging doctrine
+	•	caution under shallow history
+	•	rollback after aggressiveness without exact-match gain
+
+That’s the right tone.
+
+The key discipline
+
+This layer should remain:
+	•	descriptive
+	•	pattern-based
+	•	auditable
+
+It should not become:
+	•	self-governing
+	•	auto-intervening
+	•	speculative
+
+What comes after this
+
+After ecosystem loop summary, the strongest next step is:
+
+ecosystem health index
+
+A bounded composite score that summarizes:
+	•	stability
+	•	calibration quality
+	•	governance effectiveness
+	•	policy churn
+
+So NOMOS can display a top-level health signal for the whole reasoning ecosystem without replacing the underlying details.

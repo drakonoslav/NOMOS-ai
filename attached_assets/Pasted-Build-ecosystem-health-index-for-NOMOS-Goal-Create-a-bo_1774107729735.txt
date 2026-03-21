@@ -1,0 +1,101 @@
+Build ecosystem health index for NOMOS.
+
+Goal:
+Create a bounded composite health score for the full NOMOS reasoning ecosystem that summarizes:
+- stability
+- calibration quality
+- governance effectiveness
+- policy churn
+
+This score must be decomposable, deterministic, and explainable.
+It must never replace the underlying details.
+
+Create:
+- src/audit/ecosystem_health_types.ts
+- src/audit/ecosystem_health_index.ts
+- src/ui/components/audit/EcosystemHealthPanel.tsx
+
+Requirements:
+
+1. Add canonical types.
+
+interface EcosystemHealthComponents {
+  stability: number;              // 0 to 100
+  calibrationQuality: number;     // 0 to 100
+  governanceEffectiveness: number; // 0 to 100
+  policyChurn: number;            // 0 to 100, where higher means healthier / less harmful churn
+}
+
+interface EcosystemHealthIndex {
+  overall: number;                // 0 to 100
+  band: "poor" | "fragile" | "stable" | "strong";
+
+  components: EcosystemHealthComponents;
+
+  explanationLines: string[];
+  cautionLines: string[];
+}
+
+2. Build deterministic functions:
+- scoreStability(ecosystemLoopSummary, auditRecords)
+- scoreCalibrationQuality(calibrationReport)
+- scoreGovernanceEffectiveness(governanceOutcomeReviewReport)
+- scorePolicyChurn(governanceAuditTrail, ecosystemLoopSummary)
+- buildEcosystemHealthIndex(...)
+
+3. Component guidance:
+
+Stability should reflect:
+- lawful outcome share
+- recurring violation reduction
+- drift vs stabilization signals
+
+Calibration quality should reflect:
+- exact-match rate
+- direction-match rate
+- unresolved prediction burden
+- too aggressive / too weak rates
+
+Governance effectiveness should reflect:
+- met_expectations share
+- partially_met vs did_not_meet balance
+- follow-up sufficiency
+
+Policy churn should reflect:
+- how often policy changes occur
+- whether repeated promotion/rollback churn is happening
+- whether churn is associated with improvement or not
+
+4. Scoring rules:
+- every component bounded 0–100
+- overall score is a weighted combination of the 4 components
+- weights must be explicit in code
+- no hidden heuristics
+- all scores should be clamped to 0–100
+
+5. Example explanation lines:
+- "Stability is strong because recurring violations have fallen and lawful outcomes have increased."
+- "Calibration quality is fragile due to weak exact-match performance and elevated unresolved outcomes."
+- "Governance effectiveness is moderate because most recent policy actions only partially met expectations."
+- "Policy churn is weak because repeated policy changes have not yet produced clear gains."
+
+6. Band rules:
+- poor: 0–24
+- fragile: 25–49
+- stable: 50–74
+- strong: 75–100
+
+7. UI:
+Create EcosystemHealthPanel showing:
+- overall health score
+- health band
+- four component scores
+- explanation lines
+- caution lines
+
+8. Keep everything deterministic.
+9. Do not use LLM generation.
+10. Do not let the score suppress or replace the underlying audit views.
+
+Success condition:
+NOMOS can display an overall ecosystem health signal that is fully decomposable into stability, calibration quality, governance effectiveness, and policy churn.
