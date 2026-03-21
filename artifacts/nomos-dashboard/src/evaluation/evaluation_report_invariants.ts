@@ -18,6 +18,8 @@
  *      be greater than zero.
  *  I5. The overall satisfactionSummary must not say "passed" when
  *      constraintsViolated > 0 at the global level.
+ *  I6. ConstraintEvaluationRecord.variableName must never contain the word
+ *      "violation" — it is the measured variable, not the violation label.
  */
 
 import type { OverallEvaluationReport } from "./evaluation_report_types";
@@ -85,6 +87,17 @@ export function assertEvaluationReportInvariants(
         candidateId: candidate.candidateId,
         detail: `Candidate ${candidate.candidateId} decisiveVariable is "${candidate.decisiveVariable}" (names a violation) but constraintsViolated === 0.`,
       });
+    }
+
+    /* I6: ConstraintEvaluationRecord.variableName must never contain "violation" */
+    for (const record of candidate.constraintEvaluations) {
+      if (record.variableName?.toLowerCase().includes("violation")) {
+        violations.push({
+          invariant: "I6",
+          candidateId: candidate.candidateId,
+          detail: `Candidate ${candidate.candidateId}: ConstraintEvaluationRecord[${record.key ?? record.constraintId}].variableName="${record.variableName}" contains "violation". variableName must be the variable, not the violation label.`,
+        });
+      }
     }
   }
 

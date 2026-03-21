@@ -116,7 +116,7 @@ describe("NUTRITION_AUDIT template constraints — all deterministic", () => {
     ]);
     expect(compiled[0]!.kind).toBe("STRUCTURAL_LOCK");
     expect(compiled[0]!.key).toBe("preserve_protein_placement");
-    expect(compiled[0]!.decisiveVariable).toBe("protein placement violation");
+    expect(compiled[0]!.decisiveVariable).toBe("protein placement");
   });
 
   it("compiles food-labels-as-source-truth to SOURCE_TRUTH:label_priority", () => {
@@ -439,7 +439,7 @@ describe("regression: classification vs satisfaction — must never be conflated
           id: "B",
           status: "DEGRADED",
           reason: "Protein placement moved between meals. Structural lock violated.",
-          decisiveVariable: "protein placement violation",
+          decisiveVariable: "protein placement",
           adjustments: ["Restore protein to its original meal placement."],
           confidence: "high",
           marginScore: 0.35,
@@ -449,14 +449,14 @@ describe("regression: classification vs satisfaction — must never be conflated
           id: "C",
           status: "DEGRADED",
           reason: "Meal order altered. Structural lock violated.",
-          decisiveVariable: "meal order violation",
+          decisiveVariable: "meal order",
           adjustments: ["Restore the original meal sequence."],
           confidence: "high",
           marginScore: 0.28,
           marginLabel: "LOW",
         },
       ],
-      decisiveVariable: "protein placement violation",
+      decisiveVariable: "protein placement",
       notes: ["6 constraint(s) evaluated against 3 candidate(s)."],
       bestCandidateId: "A",
       strongestMarginScore: 0.85,
@@ -536,7 +536,7 @@ describe("regression: classification vs satisfaction — must never be conflated
           id: "A",
           status: "DEGRADED",
           reason: "Protein placement moved.",
-          decisiveVariable: "protein placement violation",
+          decisiveVariable: "protein placement",
           adjustments: [],
           confidence: "high",
           marginScore: 0.2,
@@ -546,14 +546,14 @@ describe("regression: classification vs satisfaction — must never be conflated
           id: "B",
           status: "DEGRADED",
           reason: "Meal order altered.",
-          decisiveVariable: "meal order violation",
+          decisiveVariable: "meal order",
           adjustments: [],
           confidence: "high",
           marginScore: 0.15,
           marginLabel: "LOW",
         },
       ],
-      decisiveVariable: "protein placement violation",
+      decisiveVariable: "protein placement",
       notes: [],
       bestCandidateId: undefined,
       strongestMarginScore: 0.2,

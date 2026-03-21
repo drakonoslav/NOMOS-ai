@@ -53,6 +53,16 @@ export type ConstraintKindLabel =
  *   - DEGRADED/INVALID candidate → the decisive constraint is "violated";
  *     INTERPRETATION_REQUIRED constraints are "not_evaluated"; rest are "satisfied"
  * This is documented explicitly so callers understand the approximation.
+ *
+ * Variable/violation field law:
+ *   - variableName   — the thing being measured (e.g. "protein placement").
+ *                      INVARIANT: must NEVER contain the word "violation".
+ *   - violationLabel — the event label (e.g. "protein placement violation").
+ *                      Only set when satisfactionStatus === "violated".
+ *                      Derived as: `${variableName} violation`.
+ *                      Must NEVER be used in place of variableName for computation.
+ *   - decisiveVariable — legacy field kept for backward compat; equals violationLabel
+ *                        when violated, variableName when satisfied.
  */
 export interface ConstraintEvaluationRecord {
   constraintId: string;
@@ -65,7 +75,13 @@ export interface ConstraintEvaluationRecord {
   key: string | null;
   operator: string | null;
 
+  /** The variable being compared. MUST NOT contain the word "violation". */
+  variableName: string | null;
+  /** The violation event label. Only set when satisfactionStatus === "violated". */
+  violationLabel: string | null;
+  /** Legacy field: equals violationLabel when violated, variableName when satisfied. */
   decisiveVariable: string | null;
+
   lhsSummary: string | null;
   rhsSummary: string | null;
 

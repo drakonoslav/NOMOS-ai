@@ -90,7 +90,7 @@ const RULES: CompilerRule[] = [
       operator: "MUST_EQUAL",
       lhs: "protein_placement_map",
       rhs: "baseline_protein_placement_map",
-      decisiveVariable: "protein placement violation",
+      decisiveVariable: "protein placement",
     }),
   },
 
@@ -108,7 +108,7 @@ const RULES: CompilerRule[] = [
       operator: "MUST_EQUAL",
       lhs: "meal_order",
       rhs: "baseline_meal_order",
-      decisiveVariable: "meal order violation",
+      decisiveVariable: "meal order",
     }),
   },
 

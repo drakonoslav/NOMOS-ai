@@ -1,0 +1,176 @@
+Yes — that’s exactly the right next step.
+
+At that point NOMOS stops being just:
+	•	a checker
+	•	a historian
+
+and becomes:
+
+a trend-aware constraint system
+
+That means it can answer not just:
+	•	what failed?
+	•	what changed?
+
+but:
+	•	what keeps failing
+	•	what is recurring
+	•	what is stabilizing
+	•	what is drifting toward failure
+
+That is a big jump.
+
+What decisive-variable trend tracking should do
+
+Across many saved runs, NOMOS should track:
+	•	decisive variable frequency
+	•	decisive variable sequence over time
+	•	recurring violations
+	•	streaks
+	•	recovery
+	•	drift direction
+
+So if the last 8 runs look like:
+	•	calorie delta
+	•	calorie delta
+	•	protein placement violation
+	•	protein placement violation
+	•	protein placement violation
+	•	calorie delta
+	•	calorie delta
+	•	lawful
+
+NOMOS can say:
+	•	protein placement violation recurred 3 runs in a row
+	•	calorie delta is the most frequent recent degradation driver
+	•	latest run shows recovery toward lawful state
+
+That is much stronger than a pile of logs.
+
+What to tell Replit
+
+Build decisive-variable trend tracking for NOMOS.
+
+Goal:
+Track decisive variables across many audit runs so NOMOS can identify:
+- recurring degradation drivers
+- repeated violations
+- variable frequency
+- variable streaks
+- stabilization vs drift over time
+
+Create:
+- src/audit/trend_types.ts
+- src/audit/decisive_variable_trends.ts
+- src/ui/components/audit/DecisiveVariableTrendPanel.tsx
+
+Requirements:
+
+1. Add canonical trend types.
+
+interface DecisiveVariableOccurrence {
+  versionId: string;
+  timestamp: string;
+  candidateId?: string | null;
+  overallStatus: string | null;
+  decisiveVariable: string | null;
+}
+
+interface DecisiveVariableTrend {
+  variable: string;
+  count: number;
+  firstSeen: string;
+  lastSeen: string;
+  currentStreak: number;
+  longestStreak: number;
+  statuses: Record<string, number>;
+}
+
+interface DriftSummary {
+  mostFrequentVariable: string | null;
+  mostRecentVariable: string | null;
+  recurringViolations: string[];
+  stabilizing: boolean;
+  drifting: boolean;
+  summaryLines: string[];
+}
+
+interface DecisiveVariableTrendReport {
+  totalRuns: number;
+  variables: DecisiveVariableTrend[];
+  driftSummary: DriftSummary;
+  occurrenceTimeline: DecisiveVariableOccurrence[];
+}
+
+2. Build deterministic functions:
+- extractDecisiveVariableOccurrences(auditRecords)
+- buildDecisiveVariableTrends(occurrences)
+- computeCurrentStreak(variable, occurrences)
+- computeLongestStreak(variable, occurrences)
+- buildDriftSummary(trends, occurrences)
+- buildDecisiveVariableTrendReport(auditRecords)
+
+3. Trend rules:
+- count frequency per decisive variable
+- compute streaks based on chronological order
+- ignore null decisive variables for frequency ranking
+- support lawful runs with null or "none" decisive variable
+- recurring violation = variable appears >= 2 times in recent history
+- stabilizing = recent sequence shows decreasing violations or more lawful outcomes
+- drifting = recent sequence shows repeated same violation or worsening outcomes
+
+4. UI:
+Create DecisiveVariableTrendPanel that shows:
+- most frequent decisive variable
+- most recent decisive variable
+- recurring violations
+- per-variable counts
+- streak lengths
+- simple chronological list of occurrences
+
+5. Add readable summaries like:
+- "Protein placement violation has recurred in 3 consecutive runs."
+- "Calorie delta is the most frequent recent degradation driver."
+- "Recent runs suggest stabilization toward lawful status."
+
+6. Keep everything deterministic.
+7. Do not use LLM generation here.
+
+Success condition:
+NOMOS can inspect audit history and report which decisive variables recur, which are trending, and whether the system is stabilizing or drifting.
+
+What this should eventually let NOMOS say
+
+Examples:
+	•	“Protein placement violation is the current dominant degradation driver.”
+	•	“Calorie delta appeared in 5 of the last 8 runs.”
+	•	“Meal order violation has not appeared in the last 6 runs.”
+	•	“Recent history suggests stabilization: 3 consecutive runs reduced violation severity.”
+	•	“Recent history suggests drift: the same structural violation has recurred across 4 runs.”
+
+That is exactly the kind of language a serious control-oriented system should be able to produce.
+
+The deeper architecture
+
+Now you have four layers:
+	1.	single-run evaluation
+	2.	proof tracing
+	3.	cross-run diff
+	4.	trend tracking
+
+That stack is very strong.
+
+What comes after this
+
+After decisive-variable trend tracking, the strongest next step is:
+
+failure prediction
+
+Not fantasy prediction — constrained projection.
+
+So NOMOS can say:
+	•	given current recurrence of calorie delta, next likely degradation remains calorie drift
+	•	given repeated protein-placement violations, structural lock failure risk is rising
+	•	given recent stabilization, projected risk is decreasing
+
+That’s when it starts acting like a real monitoring and control system.

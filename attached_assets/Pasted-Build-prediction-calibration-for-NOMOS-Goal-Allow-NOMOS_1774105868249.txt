@@ -1,0 +1,110 @@
+Build prediction calibration for NOMOS.
+
+Goal:
+Allow NOMOS to compare prior failure predictions against what actually happened in later audit runs, so it can measure whether its prediction rules are accurate, too aggressive, too weak, or uncertain.
+
+Create:
+- src/audit/calibration_types.ts
+- src/audit/prediction_calibration.ts
+- src/ui/components/audit/PredictionCalibrationPanel.tsx
+
+Requirements:
+
+1. Add canonical calibration types.
+
+interface StoredPredictionRecord {
+  sourceVersionId: string;
+  sourceTimestamp: string;
+
+  predictedVariable: string | null;
+  confidence: "low" | "moderate" | "high";
+  riskDirection: "decreasing" | "stable" | "rising";
+
+  explanationLines: string[];
+}
+
+interface PredictionOutcomeRecord {
+  sourceVersionId: string;
+  resolvedVersionId: string | null;
+
+  predictedVariable: string | null;
+  actualNextVariable: string | null;
+
+  predictedRiskDirection: "decreasing" | "stable" | "rising";
+  actualRiskDirection: "decreasing" | "stable" | "rising" | null;
+
+  exactMatch: boolean;
+  directionMatch: boolean;
+  confidence: "low" | "moderate" | "high";
+
+  calibrationClass:
+    | "well_calibrated"
+    | "too_aggressive"
+    | "too_weak"
+    | "unresolved";
+
+  summary: string;
+}
+
+interface PredictionCalibrationReport {
+  totalPredictions: number;
+  resolvedPredictions: number;
+  unresolvedPredictions: number;
+
+  exactMatchRate: number | null;
+  directionMatchRate: number | null;
+
+  calibrationCounts: Record<
+    "well_calibrated" | "too_aggressive" | "too_weak" | "unresolved",
+    number
+  >;
+
+  outcomes: PredictionOutcomeRecord[];
+  summaryLines: string[];
+}
+
+2. Store each generated prediction alongside the audit record that created it.
+
+3. Build deterministic functions:
+- resolvePredictionOutcome(sourceRecord, laterRecords)
+- classifyCalibration(predicted, actual)
+- buildPredictionOutcomeRecords(auditRecords)
+- buildPredictionCalibrationReport(auditRecords)
+
+4. Resolution rule:
+For a prediction made at run N, compare it to the next available run N+1 first.
+If no later run exists, mark unresolved.
+
+5. Matching rules:
+- exactMatch = predictedVariable === actualNextVariable
+- directionMatch = predictedRiskDirection === actualRiskDirection
+
+6. Calibration classes:
+- well_calibrated:
+  exact match or strong directional match with appropriate confidence
+- too_aggressive:
+  predicted rising/failure strongly, but next run stabilized or lawful
+- too_weak:
+  predicted stable/decreasing, but next run worsened or repeated dominant violation
+- unresolved:
+  no later run available
+
+7. Add summary lines such as:
+- "Prediction exact-match rate is 67% across resolved runs."
+- "Recent predictions are too aggressive; risk escalation is being overstated."
+- "Predictions are directionally accurate but often miss the exact decisive variable."
+
+8. UI:
+Create PredictionCalibrationPanel showing:
+- exact match rate
+- direction match rate
+- counts by calibration class
+- recent prediction outcomes
+- summary lines
+
+9. Keep everything deterministic.
+10. Do not modify prediction rules automatically yet.
+This pass is measurement only, not auto-learning.
+
+Success condition:
+NOMOS can compare prior predictions to actual later outcomes and report whether its forecasting is well-calibrated, too aggressive, too weak, or unresolved.

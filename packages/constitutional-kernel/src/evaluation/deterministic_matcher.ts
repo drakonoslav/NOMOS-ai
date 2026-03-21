@@ -324,7 +324,7 @@ function evalNutritionStructuralLock(
           id: candidate.id,
           status: "INVALID",
           reason: "Protein placement moved between meals. Structural lock violated.",
-          decisiveVariable: "protein placement violation",
+          decisiveVariable: "protein placement",
           confidence: "high",
           adjustments: ["Preserve existing protein placement across all meals."],
         };
@@ -352,7 +352,7 @@ function evalNutritionStructuralLock(
           id: candidate.id,
           status: "INVALID",
           reason: "Meal order altered. Structural lock violated.",
-          decisiveVariable: "meal order violation",
+          decisiveVariable: "meal order",
           confidence: "high",
           adjustments: ["Preserve the declared meal sequence."],
         };
@@ -380,7 +380,7 @@ function evalNutritionStructuralLock(
           id: candidate.id,
           status: "INVALID",
           reason: "Meal removed from plan. Structural lock violated.",
-          decisiveVariable: "meal count violation",
+          decisiveVariable: "meal count",
           confidence: "high",
           adjustments: ["Retain all meals in the declared plan."],
         };
@@ -413,7 +413,7 @@ function evalNutritionStructuralLock(
           id: candidate.id,
           status: "INVALID",
           reason: "Meal timeblock pattern altered. Dispersal lock violated.",
-          decisiveVariable: "meal dispersal violation",
+          decisiveVariable: "meal dispersal",
           confidence: "high",
           adjustments: ["Preserve the declared meal timing structure."],
         };

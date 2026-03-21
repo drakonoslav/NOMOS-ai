@@ -1,0 +1,187 @@
+Yes — that’s the right next step.
+
+Once NOMOS has:
+	•	canonical declarations
+	•	saved audit history
+	•	candidate-local proof traces
+
+the next real leap is:
+
+trace-aware diff across runs
+
+That means NOMOS can stop saying only:
+	•	“this is wrong now”
+
+and start saying:
+	•	“this is what changed between then and now, and this change caused the failure”
+
+That is where audit history becomes genuinely powerful.
+
+What trace-aware diff should compare
+
+Not just:
+	•	old verdict vs new verdict
+
+But:
+	•	old baseline state vs new baseline state
+	•	old candidate state vs new candidate state
+	•	old diff summary vs new diff summary
+	•	old decisive variable vs new decisive variable
+	•	old proof lines vs new proof lines
+
+What to tell Replit
+
+Build trace-aware diff across audit runs for NOMOS.
+
+Goal:
+Allow NOMOS to compare two saved audit versions and explain:
+- what changed in baseline state
+- what changed in candidate state
+- what changed in diff/proof
+- what changed in decisive variable
+- what changed in verdict
+
+Create:
+- src/audit/trace_diff.ts
+- src/audit/trace_diff_types.ts
+- src/ui/components/audit/TraceDiffPanel.tsx
+- update AuditHistoryPanel.tsx to support selecting two runs for comparison
+
+Requirements:
+
+1. Add canonical diff types.
+
+interface TraceStateDiff {
+  before: unknown;
+  after: unknown;
+  changed: boolean;
+  summary: string;
+}
+
+interface ProofLineDiff {
+  added: string[];
+  removed: string[];
+  unchanged: string[];
+}
+
+interface ConstraintTraceDiff {
+  constraintId: string;
+  key: string;
+  variableName: string;
+
+  baselineStateDiff: TraceStateDiff;
+  candidateStateDiff: TraceStateDiff;
+  diffSummaryBefore: string | null;
+  diffSummaryAfter: string | null;
+
+  decisiveVariableBefore: string | null;
+  decisiveVariableAfter: string | null;
+
+  verdictBefore: string | null;
+  verdictAfter: string | null;
+
+  proofLineDiff: ProofLineDiff;
+
+  changed: boolean;
+  changeSummary: string;
+}
+
+interface AuditRunDiff {
+  beforeVersionId: string;
+  afterVersionId: string;
+
+  overallStatusBefore: string | null;
+  overallStatusAfter: string | null;
+
+  decisiveVariableBefore: string | null;
+  decisiveVariableAfter: string | null;
+
+  candidateDiffs: ConstraintTraceDiff[];
+  changed: boolean;
+  summaryLines: string[];
+}
+
+2. Implement deterministic diff functions:
+- diffTraceState(before, after)
+- diffProofLines(beforeLines, afterLines)
+- diffConstraintTrace(beforeTrace, afterTrace)
+- diffAuditRuns(beforeRecord, afterRecord)
+
+3. Diff rules:
+- compare baseline state structurally
+- compare candidate state structurally
+- compare proof lines as added/removed/unchanged text
+- compare decisive variables and verdicts directly
+- generate a short change summary per candidate
+
+4. Example change summary:
+- "Decisive variable changed from calorie delta to protein placement violation."
+- "Baseline protein placement map changed in meal 2."
+- "Proof added: 'Whey moved from meal 2 to meal 7.'"
+
+5. UI:
+Add TraceDiffPanel that renders:
+- selected before version
+- selected after version
+- overall status change
+- decisive variable change
+- per-candidate trace diff
+- proof line additions/removals
+
+6. AuditHistoryPanel:
+Allow selecting two audit records for comparison.
+
+7. Keep everything deterministic.
+8. Do not use LLM text generation here.
+
+Success condition:
+NOMOS can compare two audit runs and explain exactly what changed in the proof itself, not just the top-level verdict.
+
+What the output should eventually say
+
+For example:
+
+Run diff summary
+	•	Overall status changed from LAWFUL to DEGRADED.
+	•	Decisive variable changed from calorie delta to protein placement violation.
+	•	Candidate B baseline trace changed in meal 2.
+	•	Proof gained one new line: “Whey moved from meal 2 to meal 7.”
+
+That is much more powerful than:
+	•	“today failed”
+
+Why this matters
+
+This gives NOMOS something most systems do not have:
+
+historical proof continuity
+
+It can now answer:
+	•	what changed?
+	•	where did it change?
+	•	why did that change matter?
+	•	which proof line appeared or disappeared?
+
+That is the beginning of real audit intelligence.
+
+The deeper structure
+
+At this point NOMOS becomes:
+	•	compiler
+	•	evaluator
+	•	corrector
+	•	historian
+
+And that combination is rare.
+
+What comes after this
+
+After trace-aware diff, the strongest next step is:
+	•	decisive-variable trend tracking
+
+So across many runs, NOMOS can show:
+	•	which variable keeps causing degradation
+	•	whether a violation is recurring
+	•	whether the system is stabilizing or drifting
+
+That’s when it starts behaving like a serious control system rather than just an audit engine.

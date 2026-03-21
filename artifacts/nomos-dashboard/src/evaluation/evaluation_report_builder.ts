@@ -184,6 +184,11 @@ function buildConstraintRecords(
       satisfactionStatus = "satisfied";
     }
 
+    const variableName = resolveVariableName(c.decisiveVariable ?? null);
+    const violationLabel = satisfactionStatus === "violated" && variableName
+      ? `${variableName} violation`
+      : null;
+
     const record: ConstraintEvaluationRecord = {
       constraintId: `${c.kind}:${c.key ?? idx}`,
       rawText: c.raw,
@@ -192,7 +197,9 @@ function buildConstraintRecords(
       constraintKind: kindLabel(c.kind),
       key: c.key ?? null,
       operator: c.operator ?? null,
-      decisiveVariable: satisfactionStatus === "violated" ? (c.decisiveVariable ?? null) : null,
+      variableName,
+      violationLabel,
+      decisiveVariable: satisfactionStatus === "violated" ? violationLabel : variableName,
       lhsSummary: c.lhs ?? null,
       rhsSummary: c.rhs ?? null,
       reason: satisfactionStatus === "violated"
@@ -304,48 +311,64 @@ function buildCandidateAdjustments(records: ConstraintEvaluationRecord[]): strin
     });
 }
 
+/**
+ * Strips the " violation" suffix from a raw decisiveVariable string.
+ *
+ * decisiveVariable values from the engine must be variable names, not violation
+ * labels. This helper is a safety net for any legacy data that accidentally
+ * includes the suffix, ensuring reason text always reads "protein placement"
+ * rather than "protein placement violation".
+ *
+ * INVARIANT: The returned string must never contain the word "violation".
+ */
+function resolveVariableName(raw: string | null): string | null {
+  if (!raw) return null;
+  return raw.replace(/ violation$/i, "").trim() || null;
+}
+
 function buildViolationReason(c: CompiledConstraint): string {
-  const dv = c.decisiveVariable ?? "constraint";
+  const variableName = resolveVariableName(c.decisiveVariable ?? null) ?? "constraint";
   switch (c.kind) {
     case "STRUCTURAL_LOCK":
-      return `Structural lock violated: ${dv} was altered.`;
+      return `Structural lock violated: ${variableName} differs from declared baseline.`;
     case "ALLOWED_ACTION":
-      return `Allowed-action boundary violated: ${dv} exceeded declared scope.`;
+      return `Allowed-action boundary violated: ${variableName} exceeded declared scope.`;
     case "TARGET_TOLERANCE":
-      return `Target tolerance exceeded: ${dv} diverged beyond declared limit.`;
+      return `Target tolerance exceeded: ${variableName} diverged beyond declared limit.`;
     case "SOURCE_TRUTH":
-      return `Source-truth constraint violated: ${dv} references undeclared data.`;
+      return `Source-truth constraint violated: ${variableName} references undeclared data.`;
     default:
-      return `Constraint violated: ${dv}.`;
+      return `Constraint violated: ${variableName}.`;
   }
 }
 
 function buildSatisfactionReason(c: CompiledConstraint): string {
-  const dv = c.decisiveVariable ?? "constraint";
+  const variableName = resolveVariableName(c.decisiveVariable ?? null) ?? "constraint";
   switch (c.kind) {
     case "STRUCTURAL_LOCK":
-      return `Structural lock satisfied: ${dv} preserved.`;
+      return `Structural lock satisfied: ${variableName} preserved.`;
     case "ALLOWED_ACTION":
-      return `Allowed-action scope satisfied: ${dv} within declared boundary.`;
+      return `Allowed-action scope satisfied: ${variableName} within declared boundary.`;
     case "TARGET_TOLERANCE":
-      return `Target tolerance satisfied: ${dv} within declared limit.`;
+      return `Target tolerance satisfied: ${variableName} within declared limit.`;
     case "SOURCE_TRUTH":
-      return `Source-truth constraint satisfied: ${dv} uses declared data.`;
+      return `Source-truth constraint satisfied: ${variableName} uses declared data.`;
     default:
       return `Constraint satisfied.`;
   }
 }
 
 function buildViolationAdjustment(c: CompiledConstraint): string {
+  const variableName = resolveVariableName(c.decisiveVariable ?? null) ?? "the constrained structure";
   switch (c.kind) {
     case "STRUCTURAL_LOCK":
-      return `Restore ${c.decisiveVariable ?? "the constrained structure"} to its declared state.`;
+      return `Restore ${variableName} to its declared state.`;
     case "ALLOWED_ACTION":
-      return `Restrict action to the declared scope for ${c.decisiveVariable ?? "this constraint"}.`;
+      return `Restrict action to the declared scope for ${variableName}.`;
     case "TARGET_TOLERANCE":
-      return `Reduce ${c.decisiveVariable ?? "the divergence"} to within the declared tolerance.`;
+      return `Reduce ${variableName} to within the declared tolerance.`;
     case "SOURCE_TRUTH":
-      return `Use only declared source data for ${c.decisiveVariable ?? "this constraint"}.`;
+      return `Use only declared source data for ${variableName}.`;
     default:
       return `Review constraint: ${c.raw.slice(0, 80)}.`;
   }

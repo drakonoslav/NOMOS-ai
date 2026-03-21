@@ -5,12 +5,14 @@
  *
  * Covers:
  *   1. buildOverallEvaluationReport — correct field values from typed inputs
- *   2. assertEvaluationReportInvariants — all 5 invariants enforce correctly
+ *   2. assertEvaluationReportInvariants — all 6 invariants enforce correctly
  *   3. generateClassificationSummary / generateSatisfactionSummary / generateVerdictSummary
  *      — field-driven text, never prose inference, never "passed" with violations
  *   4. Nutrition case regression — protein placement violation scenario
  *   5. Full round-trip through mapEvaluationResultToViewModel — report fields
  *      drive the final view model, not raw reason strings
+ *   6. variableName/violationLabel field separation — variable name must never
+ *      contain "violation"; violation label only set when status === "violated"
  */
 
 import { describe, it, expect } from "vitest";
@@ -479,5 +481,186 @@ describe("mapEvaluationResultToViewModel — routes through report schema", () =
     const vm = mapEvaluationResultToViewModel(buildNutritionViolationResult(), compiled);
     expect(vm.decisiveVariable).toBeDefined();
     expect(vm.decisiveVariable!.length).toBeGreaterThan(0);
+  });
+});
+
+/* =========================================================
+   6. variableName / violationLabel field separation
+   The three-field law:
+     variableName   = the measured variable   (e.g. "protein placement")
+     violationLabel = the event label          (e.g. "protein placement violation")
+     decisiveVariable on ConstraintEvaluationRecord:
+       = violationLabel when violated
+       = variableName  when satisfied / not_evaluated
+   Invariant I6: variableName must NEVER contain the word "violation".
+   ========================================================= */
+
+describe("variableName/violationLabel separation — field law", () => {
+  const compiled = compileConstraints(NUTRITION_CONSTRAINTS);
+
+  function getViolatedRecords(candidateId: string) {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidate = report.candidates.find((c) => c.candidateId === candidateId)!;
+    return candidate.constraintEvaluations.filter((r) => r.satisfactionStatus === "violated");
+  }
+
+  function getSatisfiedRecords(candidateId: string) {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidate = report.candidates.find((c) => c.candidateId === candidateId)!;
+    return candidate.constraintEvaluations.filter((r) => r.satisfactionStatus === "satisfied");
+  }
+
+  it("every ConstraintEvaluationRecord has a non-null variableName", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    for (const candidate of report.candidates) {
+      for (const record of candidate.constraintEvaluations) {
+        expect(record.variableName).not.toBeNull();
+      }
+    }
+  });
+
+  it("variableName never contains the word 'violation' — I6 invariant", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    for (const candidate of report.candidates) {
+      for (const record of candidate.constraintEvaluations) {
+        expect(record.variableName?.toLowerCase() ?? "").not.toContain("violation");
+      }
+    }
+  });
+
+  it("violated record: violationLabel equals variableName + ' violation'", () => {
+    const violated = getViolatedRecords("B");
+    expect(violated.length).toBeGreaterThan(0);
+    for (const r of violated) {
+      expect(r.violationLabel).toBe(`${r.variableName} violation`);
+    }
+  });
+
+  it("violated record: violationLabel is not null", () => {
+    const violated = getViolatedRecords("B");
+    for (const r of violated) {
+      expect(r.violationLabel).not.toBeNull();
+    }
+  });
+
+  it("satisfied record: violationLabel is null", () => {
+    const satisfied = getSatisfiedRecords("A");
+    for (const r of satisfied) {
+      expect(r.violationLabel).toBeNull();
+    }
+  });
+
+  it("violated record: decisiveVariable equals violationLabel", () => {
+    const violated = getViolatedRecords("B");
+    for (const r of violated) {
+      expect(r.decisiveVariable).toBe(r.violationLabel);
+    }
+  });
+
+  it("satisfied record: decisiveVariable equals variableName", () => {
+    const satisfied = getSatisfiedRecords("A");
+    for (const r of satisfied) {
+      expect(r.decisiveVariable).toBe(r.variableName);
+    }
+  });
+
+  it("protein placement violated record: variableName is 'protein placement'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    expect(violated.variableName).toBe("protein placement");
+  });
+
+  it("protein placement violated record: violationLabel is 'protein placement violation'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    expect(violated.violationLabel).toBe("protein placement violation");
+  });
+
+  it("violation reason does NOT say 'was altered'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    expect(violated.reason).not.toContain("was altered");
+  });
+
+  it("violation reason says 'differs from declared baseline'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    expect(violated.reason).toContain("differs from declared baseline");
+  });
+
+  it("violation adjustment does NOT contain 'violation'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    expect(violated.adjustment?.toLowerCase()).not.toContain("violation");
+  });
+
+  it("violation adjustment says 'Restore protein placement to its declared state'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    expect(violated.adjustment).toContain("Restore protein placement to its declared state");
+  });
+
+  it("I6 invariant fires when variableName contains 'violation'", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const candidateB = report.candidates.find((c) => c.candidateId === "B")!;
+    const violated = candidateB.constraintEvaluations.find(
+      (r) => r.satisfactionStatus === "violated"
+    )!;
+    violated.variableName = "protein placement violation";
+    const invariantViolations = assertEvaluationReportInvariants(report);
+    expect(invariantViolations.some((v) => v.invariant === "I6")).toBe(true);
+  });
+
+  it("I6 invariant does NOT fire when variableName is clean", () => {
+    const report = buildOverallEvaluationReport(buildNutritionViolationResult(), compiled);
+    const invariantViolations = assertEvaluationReportInvariants(report);
+    expect(invariantViolations.some((v) => v.invariant === "I6")).toBe(false);
+  });
+
+  it("constraint compiler decisiveVariable for preserve_protein_placement has no 'violation' suffix", () => {
+    const all = compileConstraints([
+      "Preserve protein placement by meal unless explicitly allowed otherwise.",
+    ]);
+    expect(all.length).toBeGreaterThan(0);
+    const ppConstraint = all.find((c) => c.key === "preserve_protein_placement");
+    expect(ppConstraint).toBeDefined();
+    expect(ppConstraint!.decisiveVariable).toBe("protein placement");
+    expect(ppConstraint!.decisiveVariable).not.toContain("violation");
+  });
+
+  it("constraint compiler decisiveVariable for preserve_meal_order has no 'violation' suffix", () => {
+    const all = compileConstraints([
+      "Preserve meal order unless explicitly allowed otherwise.",
+    ]);
+    const moConstraint = all.find((c) => c.key === "preserve_meal_order");
+    expect(moConstraint).toBeDefined();
+    expect(moConstraint!.decisiveVariable).toBe("meal order");
+    expect(moConstraint!.decisiveVariable).not.toContain("violation");
+  });
+
+  it("all compiled STRUCTURAL_LOCK constraints have clean decisiveVariable (no 'violation' suffix)", () => {
+    const all = compileConstraints(NUTRITION_CONSTRAINTS);
+    const structural = all.filter((c) => c.kind === "STRUCTURAL_LOCK");
+    for (const c of structural) {
+      expect(c.decisiveVariable ?? "").not.toMatch(/violation/i);
+    }
   });
 });

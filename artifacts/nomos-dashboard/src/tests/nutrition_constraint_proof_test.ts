@@ -50,14 +50,14 @@ const PROOF_TABLE: ProofRow[] = [
     raw: "Preserve protein placement. Do not move protein between meals.",
     expectedKind: "STRUCTURAL_LOCK",
     expectedKey: "preserve_protein_placement",
-    expectedDecisiveVariable: "protein placement violation",
+    expectedDecisiveVariable: "protein placement",
   },
   {
     label: "meal order",
     raw: "Do not change meal order.",
     expectedKind: "STRUCTURAL_LOCK",
     expectedKey: "preserve_meal_order",
-    expectedDecisiveVariable: "meal order violation",
+    expectedDecisiveVariable: "meal order",
   },
   {
     label: "meal count",
@@ -265,8 +265,8 @@ describe("nutrition constraint proof table", () => {
       const dvs = new Set(
         PROOF_TABLE.map((row) => compileConstraint(row.raw).decisiveVariable)
       );
-      expect(dvs).toContain("protein placement violation");
-      expect(dvs).toContain("meal order violation");
+      expect(dvs).toContain("protein placement");
+      expect(dvs).toContain("meal order");
       expect(dvs).toContain("meal count");
       expect(dvs).toContain("meal dispersal");
       expect(dvs).toContain("calorie delta");

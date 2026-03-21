@@ -1,0 +1,166 @@
+Yes — that’s the right next step.
+
+But it has to be projection from history, not “AI intuition.”
+
+So failure prediction in NOMOS should mean:
+
+given recent decisive-variable history, verdict history, and streak structure, what is the next most likely degradation mode under current trajectory?
+
+That is valid.
+
+What prediction should use
+
+Only use things NOMOS already has:
+	•	decisive variable history
+	•	verdict history
+	•	streak lengths
+	•	recurrence frequency
+	•	recent diff direction
+	•	stabilization vs drift summary
+
+Do not use freeform semantic guessing.
+
+What to tell Replit
+
+Build constrained failure prediction for NOMOS.
+
+Goal:
+Project the next likely degradation mode using audit history, decisive-variable trends, and recent verdict sequences.
+
+This is not open-ended AI prediction.
+It must be deterministic, history-based, and explicitly tied to observed recurrence and drift.
+
+Create:
+- src/audit/prediction_types.ts
+- src/audit/failure_prediction.ts
+- src/ui/components/audit/FailurePredictionPanel.tsx
+
+Requirements:
+
+1. Add canonical prediction types.
+
+interface FailurePredictionSignal {
+  variable: string;
+  frequency: number;
+  currentStreak: number;
+  longestStreak: number;
+  recentShare: number;
+  weightedRiskScore: number;
+}
+
+interface FailurePrediction {
+  predictedVariable: string | null;
+  confidence: "low" | "moderate" | "high";
+  riskDirection: "decreasing" | "stable" | "rising";
+  explanationLines: string[];
+  signals: FailurePredictionSignal[];
+}
+
+2. Build deterministic functions:
+- buildFailureSignals(auditRecords)
+- scoreFailureSignals(signals)
+- pickPredictedVariable(signals)
+- classifyPredictionConfidence(signals, totalRuns)
+- classifyRiskDirection(occurrences, driftSummary)
+- buildFailurePrediction(auditRecords)
+
+3. Scoring rules must be deterministic.
+Use only:
+- decisive variable frequency
+- current streak
+- recent share in last N runs
+- verdict severity weighting
+
+Suggested weightedRiskScore inputs:
+- frequency weight
+- recent frequency weight
+- streak weight
+- degraded/invalid status weight
+
+4. Confidence rules:
+- low if history depth is too small
+- low if top two signals are too close
+- moderate if clear leader but shallow history
+- high if one variable dominates by both frequency and streak
+
+5. Risk direction:
+- rising if same decisive variable recurs in recent runs or verdicts worsen
+- decreasing if lawful outcomes increase or dominant variable frequency drops
+- stable otherwise
+
+6. Example output lines:
+- "Protein placement violation has recurred in 3 consecutive runs."
+- "Calorie delta remains the most frequent recent degradation driver."
+- "Recent lawful outcomes suggest decreasing risk."
+
+7. UI:
+Create FailurePredictionPanel showing:
+- predicted next likely degradation mode
+- confidence
+- risk direction
+- supporting signals
+- explanation lines
+
+8. Keep everything deterministic.
+9. Do not use LLM generation here.
+
+Success condition:
+NOMOS can project the next likely degradation mode from its own audit history and explain why using recurrence, streaks, and verdict history.
+
+The model should be simple
+
+A good first-pass score is:
+
+weightedRiskScore =
+  frequency * 1.0 +
+  recentShare * 3.0 +
+  currentStreak * 2.0 +
+  degradedCount * 0.5 +
+  invalidCount * 1.0;
+
+That’s enough to start. You can refine later.
+
+What NOMOS should eventually say
+
+Examples:
+	•	“Given recent recurrence, calorie delta remains the next likely degradation mode.”
+	•	“Protein placement violation risk is rising due to a 3-run streak.”
+	•	“Projected risk is decreasing; recent lawful outcomes interrupt the prior violation pattern.”
+	•	“Prediction confidence is low because audit history is too shallow.”
+
+That last one is very important. NOMOS should know when it does not know enough.
+
+One safeguard you should require
+
+Tell Replit this too:
+
+Add a hard guard:
+If totalRuns < 3, prediction confidence must be low.
+If there is no clear dominant signal, predictedVariable may be null.
+
+That keeps it honest.
+
+Why this is the right step
+
+At that point NOMOS becomes:
+	•	evaluator
+	•	auditor
+	•	historian
+	•	trend tracker
+	•	projector
+
+That is the beginning of a real control system.
+
+What comes after this
+
+After failure prediction, the strongest next step is:
+
+prediction calibration
+
+So NOMOS can later compare:
+	•	what it predicted
+	•	what actually happened
+
+and learn whether its projection rules are too aggressive, too weak, or well-calibrated.
+
+That’s when the system starts becoming self-correcting.
