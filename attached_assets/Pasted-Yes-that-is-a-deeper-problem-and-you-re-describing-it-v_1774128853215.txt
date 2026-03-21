@@ -1,0 +1,329 @@
+Yes — that is a deeper problem, and you’re describing it very clearly.
+
+Not just “tabs drift.”
+
+You’re saying the three submission modes themselves:
+	•	Guided
+	•	Natural Language
+	•	Auto-Compile
+
+do not parse the same reality from the same input.
+
+That is a much more fundamental coherence bug.
+
+What that means
+
+If the same underlying query produces materially different:
+	•	extracted constraints
+	•	candidates
+	•	targets
+	•	objective
+	•	admissibility results
+
+depending on which input mode you use, then NOMOS does not yet have one compiler.
+
+It has three partially different interpreters.
+
+That breaks the core promise of the system.
+
+Because mode should only affect:
+	•	how the user enters data
+
+Not:
+	•	what the system believes the data means
+
+⸻
+
+The invariant you actually need
+
+This should be a hard architectural law:
+
+Mode-invariance law
+
+For semantically equivalent input, all submission modes must compile to the same canonical declaration.
+
+Formally:
+
+guided_input
+natural_language_input
+auto_compiled_input
+
+if semantically equivalent, must converge to:
+
+same parsed facts
+same constraints
+same candidates
+same targets
+same objective
+same canonical declaration
+same evaluation request
+same evaluation result
+
+If they do not, the bug is not UI.
+It is compiler fragmentation.
+
+⸻
+
+What is probably happening
+
+Very likely one or more of these:
+
+1. Guided mode writes structured fields directly
+
+So it may bypass parts of the real compiler.
+
+2. Natural language mode goes through parser heuristics
+
+So it depends on extraction logic.
+
+3. Auto-compile mode uses template + gap filling + inference
+
+So it may normalize differently than the other two.
+
+That means you don’t actually have:
+	•	one canonical compiler with three front doors
+
+You may have:
+	•	three different roads that only partially meet downstream
+
+That’s why they “don’t parse the same reality.”
+
+⸻
+
+The correct architecture
+
+You want this:
+
+Guided input --------\
+Natural language ----- > Unified compiler pipeline -> Canonical declaration
+Auto-compile --------/
+
+Not this:
+
+Guided -> special logic -> declaration A
+NL -> parser logic -> declaration B
+Auto -> template logic -> declaration C
+
+The first is coherent.
+The second guarantees drift.
+
+⸻
+
+What each mode should do
+
+Guided mode
+
+Should only do:
+	•	field collection
+	•	explicit structure creation
+
+Then send into the same normalization/compiler pipeline.
+
+Natural Language mode
+
+Should only do:
+	•	extraction from prose
+
+Then send into the same normalization/compiler pipeline.
+
+Auto-Compile mode
+
+Should only do:
+	•	extraction
+	•	template selection
+	•	gap detection
+
+Then send into the same normalization/compiler pipeline.
+
+So the compiler core is shared, and only the input acquisition layer differs.
+
+⸻
+
+The real test you need
+
+You need a cross-mode equivalence test suite.
+
+For a given scenario, you should encode it three ways:
+	•	guided
+	•	natural language
+	•	auto-compile
+
+Then assert that all three produce the same:
+	•	canonical declaration
+	•	evaluation request
+	•	evaluation result
+
+That will immediately expose where the realities diverge.
+
+⸻
+
+What to tell Replit
+
+Send this exactly:
+
+This is not just a tab-state issue.
+
+The three submission modes:
+- Guided
+- Natural Language
+- Auto-Compile
+
+do not parse the same reality even when given semantically identical input.
+
+That is a compiler coherence bug.
+
+I need a cross-mode equivalence audit and refactor.
+
+Goal:
+All three submission modes must converge to the same canonical declaration and evaluation result for semantically equivalent input.
+
+Do the following:
+
+1. Trace each mode separately:
+- Guided -> what internal object does it produce first?
+- Natural Language -> what internal object does it produce first?
+- Auto-Compile -> what internal object does it produce first?
+
+2. Identify where the three paths diverge:
+- extracted fields
+- template selection
+- normalization
+- canonical declaration generation
+- evaluation request generation
+
+3. Refactor architecture so mode only affects input acquisition, not semantic interpretation.
+
+Desired shape:
+Guided input --------\
+Natural language ----- > shared compiler pipeline -> canonical declaration -> evaluation request
+Auto-compile --------/
+
+4. Create a shared compiler boundary, for example:
+- extractedFields
+- normalizedFields
+- structuredDraft
+- canonicalDeclaration
+- evaluationRequest
+
+All modes must pass through the same downstream stages.
+
+5. Add hard invariants:
+- semantically equivalent inputs across modes must produce identical canonical declarations
+- identical canonical declarations must produce identical evaluation requests
+- identical evaluation requests must produce identical evaluation results
+
+6. Add regression tests for cross-mode equivalence.
+
+At minimum create test cases for:
+- nutrition audit
+- simple temporal carb-timing constraint
+- schedule/time-window case
+
+For each case:
+A. enter through guided mode
+B. enter through natural language mode
+C. enter through auto-compile mode
+
+Then assert equality of:
+- canonical declaration
+- parsed constraints
+- parsed candidates
+- targets
+- evaluation result
+
+7. Add a temporary debug panel showing per mode:
+- extractedFields hash
+- structuredDraft hash
+- canonicalDeclaration hash
+- evaluationRequest hash
+
+This is to prove whether the modes converge or diverge.
+
+8. Success condition:
+The same semantic query, regardless of mode, compiles to the same canonical declaration and evaluates the same way.
+
+
+⸻
+
+What this bug really is
+
+This is a multi-front-end / non-unified compiler problem.
+
+Which means the solution is not:
+	•	patch guided mode
+	•	patch NL mode
+	•	patch auto-compile mode separately
+
+The solution is:
+	•	establish one shared semantic core
+	•	make each mode feed that same core
+
+⸻
+
+The smell to watch for in code
+
+If Replit shows code where:
+	•	Guided mode builds StructuredDraft directly
+	•	NL mode builds CanonicalDeclaration directly
+	•	Auto-compile builds CompiledDraft with its own assumptions
+
+then that is the bug.
+
+You want all three to funnel into the same intermediate stages.
+
+⸻
+
+The right hierarchy
+
+Think of it like this:
+
+Layer 1 — Acquisition
+
+Different by mode:
+	•	form fields
+	•	prose
+	•	semi-structured prompt
+
+Layer 2 — Extraction
+
+Mode-specific only where unavoidable
+
+Layer 3 — Normalization
+
+Shared
+
+Layer 4 — Structured draft
+
+Shared
+
+Layer 5 — Canonical declaration
+
+Shared
+
+Layer 6 — Evaluation request
+
+Shared
+
+Layer 7 — Evaluation
+
+Shared
+
+Only Layer 1 should really differ much.
+
+⸻
+
+Your intuition is correct
+
+So yes:
+
+You are not imagining it.
+
+The problem is likely not just “the parser.”
+It is that the three entry modes are not anchored to one semantic spine yet.
+
+That is exactly the kind of bug that makes a system feel uncanny:
+it seems intelligent, but not stable.
+
+And for NOMOS, stability of interpretation is non-negotiable.
+
+The next thing I would press Replit to do is the cross-mode equivalence audit, not more features.

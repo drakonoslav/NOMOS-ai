@@ -239,6 +239,25 @@ export function normalizeConstraint(raw: string): NormalizedConstraint {
   }
 
   /* =========================================================
+     NUTRITION_CARB_TIMING
+     — "at least Xg of fast-digesting carbs within Y min before lifting"
+     — "no more than Xg of slow-digesting carbs within Y min before lifting"
+     Must be checked BEFORE BOUNDED_TIME because both contain "within".
+     ========================================================= */
+
+  {
+    const carbTimingParams = parseCarbTimingParams(text, raw);
+    if (carbTimingParams !== null) {
+      return {
+        raw,
+        kind: "NUTRITION_CARB_TIMING",
+        decisiveVariable: "carb timing window",
+        params: carbTimingParams,
+      };
+    }
+  }
+
+  /* =========================================================
      Action-control domains
      ========================================================= */
 
@@ -330,6 +349,106 @@ export function normalizeConstraint(raw: string): NormalizedConstraint {
     kind: "UNKNOWN",
     decisiveVariable: "constraint interpretation",
   };
+}
+
+/* =========================================================
+   Carb timing constraint parser
+   ========================================================= */
+
+/**
+ * parseCarbTimingParams — detects carb-timing constraints and extracts
+ * numeric params for fast-carb min and slow-carb max sub-constraints.
+ *
+ * Returns null when the constraint text does not match the carb-timing pattern.
+ *
+ * Patterns handled:
+ *   "at least Xg of fast-digesting carbohydrates ... within Y minutes"
+ *   "no more than Zg of slow-digesting carbohydrates ... within W minutes"
+ *   Compound sentences containing both patterns joined by ", and".
+ */
+function parseCarbTimingParams(text: string, raw: string): Record<string, number> | null {
+  const hasFast =
+    text.includes("fast-digesting") ||
+    text.includes("fast digesting") ||
+    text.includes("fast carb") ||
+    text.includes("fast-carb");
+
+  const hasSlow =
+    text.includes("slow-digesting") ||
+    text.includes("slow digesting") ||
+    text.includes("slow carb") ||
+    text.includes("slow-carb");
+
+  const hasCarb =
+    text.includes("carbohydrate") || text.includes("carb");
+
+  const hasTiming =
+    text.includes("before lifting") ||
+    text.includes("before workout") ||
+    text.includes("before training") ||
+    text.includes("before exercise") ||
+    text.includes("pre-lift") ||
+    text.includes("pre-workout");
+
+  // Require at least one speed signal + carb signal + timing signal
+  if (!((hasFast || hasSlow) && hasCarb && hasTiming)) return null;
+
+  // Split at ", and " to separate the two sub-constraints if compound
+  const parts = raw.split(/,\s*and\s*/i);
+  const part1 = parts[0] ?? "";
+  const part2 = parts[1] ?? raw; // fallback to whole text for single-constraint form
+
+  const result: Record<string, number> = {};
+
+  // Fast carb minimum: "at least Xg ... within Y min"
+  const fastMinGramMatch = part1.match(/at\s+least\s+(\d+)\s*g/i);
+  const fastWindowMatch  = part1.match(/within\s+(\d+)\s*(?:min|minutes?|hrs?|hours?)/i);
+  if (fastMinGramMatch && fastWindowMatch) {
+    const rawWindow = part1.match(/within\s+(\d+)\s*(min|minutes?|hrs?|hours?)/i);
+    const windowValue = rawWindow ? parseInt(rawWindow[1], 10) : 0;
+    const isHours = rawWindow ? /hrs?|hours?/i.test(rawWindow[2]) : false;
+    result["fastCarbMinGrams"]    = parseInt(fastMinGramMatch[1], 10);
+    result["fastCarbWindowMinutes"] = isHours ? windowValue * 60 : windowValue;
+  }
+
+  // Slow carb maximum: "no more than Xg ... within Y min"
+  const slowPart = parts.length > 1 ? part2 : raw;
+  const slowMaxGramMatch = slowPart.match(/no\s+more\s+than\s+(\d+)\s*g/i);
+  const slowWindowMatch  = slowPart.match(/within\s+(\d+)\s*(?:min|minutes?|hrs?|hours?)/i);
+  if (slowMaxGramMatch && slowWindowMatch) {
+    const rawWindow = slowPart.match(/within\s+(\d+)\s*(min|minutes?|hrs?|hours?)/i);
+    const windowValue = rawWindow ? parseInt(rawWindow[1], 10) : 0;
+    const isHours = rawWindow ? /hrs?|hours?/i.test(rawWindow[2]) : false;
+    result["slowCarbMaxGrams"]    = parseInt(slowMaxGramMatch[1], 10);
+    result["slowCarbWindowMinutes"] = isHours ? windowValue * 60 : windowValue;
+  }
+
+  // Single-part slow constraint (e.g. "no more than 20g slow carbs within 60 min before lifting")
+  if (!result["slowCarbMaxGrams"] && hasSlow) {
+    const singleSlowGram   = raw.match(/no\s+more\s+than\s+(\d+)\s*g/i);
+    const singleSlowWindow = raw.match(/within\s+(\d+)\s*(min|minutes?|hrs?|hours?)/i);
+    if (singleSlowGram && singleSlowWindow) {
+      const windowValue = parseInt(singleSlowWindow[1], 10);
+      const isHours = /hrs?|hours?/i.test(singleSlowWindow[2]);
+      result["slowCarbMaxGrams"]    = parseInt(singleSlowGram[1], 10);
+      result["slowCarbWindowMinutes"] = isHours ? windowValue * 60 : windowValue;
+    }
+  }
+
+  // Single-part fast constraint (e.g. "at least 60g fast carbs within 90 min before lifting")
+  if (!result["fastCarbMinGrams"] && hasFast) {
+    const singleFastGram   = raw.match(/at\s+least\s+(\d+)\s*g/i);
+    const singleFastWindow = raw.match(/within\s+(\d+)\s*(min|minutes?|hrs?|hours?)/i);
+    if (singleFastGram && singleFastWindow) {
+      const windowValue = parseInt(singleFastWindow[1], 10);
+      const isHours = /hrs?|hours?/i.test(singleFastWindow[2]);
+      result["fastCarbMinGrams"]    = parseInt(singleFastGram[1], 10);
+      result["fastCarbWindowMinutes"] = isHours ? windowValue * 60 : windowValue;
+    }
+  }
+
+  // Must have at least one parsed param to qualify
+  return Object.keys(result).length > 0 ? result : null;
 }
 
 /* =========================================================

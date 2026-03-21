@@ -1,0 +1,141 @@
+Build a temporal constraint engine for NOMOS using time-window algebra.
+
+Goal:
+Allow NOMOS to evaluate constraints over time-bound events deterministically.
+
+This engine must support:
+- event classification
+- anchor-relative timing
+- time-window inclusion
+- aggregation within windows
+- comparison against thresholds
+
+Create:
+- src/temporal/temporal_types.ts
+- src/temporal/time_window_algebra.ts
+- src/temporal/window_aggregator.ts
+- src/temporal/temporal_constraint_engine.ts
+- src/tests/temporal_constraint_engine_test.ts
+
+Requirements:
+
+1. Add canonical types.
+
+type TimeRelation = "before" | "after" | "around";
+
+interface TemporalAnchor {
+  anchorId: string;
+  label: string;
+  timeMinutes: number;
+}
+
+interface TemporalEvent {
+  eventId: string;
+  label: string;
+  category: string;
+  timeMinutes: number;
+
+  quantities: Record<string, number>;
+  tags: string[];
+}
+
+interface TimeWindow {
+  relation: TimeRelation;
+  anchorId: string;
+  startOffsetMinutes: number;
+  endOffsetMinutes: number;
+}
+
+interface AggregationSpec {
+  quantityKey: string;
+  filterTags?: string[];
+  aggregation: "sum" | "count" | "max" | "min";
+}
+
+interface TemporalConstraint {
+  constraintId: string;
+  label: string;
+
+  window: TimeWindow;
+  aggregation: AggregationSpec;
+
+  operator: ">=" | "<=" | ">" | "<" | "==" ;
+  threshold: number;
+}
+
+interface TemporalConstraintResult {
+  constraintId: string;
+  passed: boolean;
+  observedValue: number;
+  operator: string;
+  threshold: number;
+
+  includedEventIds: string[];
+  explanationLines: string[];
+}
+
+2. Build deterministic functions:
+- resolveWindow(anchor, window)
+- eventFallsInWindow(event, resolvedWindow)
+- collectEventsInWindow(events, resolvedWindow)
+- aggregateWindow(events, aggregationSpec)
+- evaluateTemporalConstraint(events, anchors, constraint)
+- evaluateTemporalConstraintSet(events, anchors, constraints)
+
+3. Window semantics:
+- For "before" windows, offsets should be negative relative to anchor
+- For "after" windows, offsets should be positive relative to anchor
+- Window resolution must be explicit and testable
+
+4. Aggregation rules:
+- support sum first as highest priority
+- count/max/min can be included now if simple
+- filterTags should allow things like:
+  - fast
+  - slow
+  - carb
+  - protein
+  - caffeine
+
+5. Example nutrition test case:
+Anchor:
+- lifting at time 0
+
+Candidates:
+A:
+- dextrin event at -30, tags ["fast","carb"], quantity carbs=80
+B:
+- oats event at -30, tags ["slow","carb"], quantity carbs=120
+C:
+- dextrin event at -120, tags ["fast","carb"], quantity carbs=80
+D:
+- dextrin event at -75, tags ["fast","carb"], quantity carbs=60
+- oats event at -45, tags ["slow","carb"], quantity carbs=30
+
+Constraints:
+- fast carbs within 90 min before lifting >= 60
+- slow carbs within 60 min before lifting <= 20
+
+Expected result:
+- A passes
+- B fails
+- C fails
+- D fails
+
+6. Add invariant:
+If parsed constraints exist, temporal evaluation must use them.
+UI must not be allowed to say "No constraints declared" when parsed constraints are present.
+
+7. Add traceability in result:
+Each constraint result must expose:
+- included events
+- observed aggregate
+- threshold
+- pass/fail explanation
+
+8. Keep everything deterministic.
+9. Do not use LLM generation.
+10. This engine must be reusable across nutrition, training, and scheduling domains.
+
+Success condition:
+NOMOS can correctly evaluate time-bound constraints like carb timing windows and expose an auditable proof of why a candidate passed or failed.

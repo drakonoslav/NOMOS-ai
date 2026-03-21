@@ -41,7 +41,24 @@ export async function evaluateQueryCandidates(
 ): Promise<EvaluationResult> {
   const constraints = query.state.constraints;
 
-  if (constraints.length === 0 || query.candidates.length === 0) {
+  // Constitutional invariant:
+  // If the submitted query declares one or more constraints, the evaluation
+  // pipeline MUST process them. Returning "No constraints declared" when
+  // constraints are present is a constitutional violation — it silently
+  // discards the operator's intent and produces unlawful permissiveness.
+  if (constraints.length > 0 && query.candidates.length === 0) {
+    return {
+      overallStatus: "INVALID" as CandidateStatus,
+      lawfulSet: [],
+      candidateEvaluations: [],
+      decisiveVariable: "none",
+      notes: [
+        `${constraints.length} constraint(s) declared but no candidates submitted. Evaluation requires at least one candidate.`,
+      ],
+    };
+  }
+
+  if (constraints.length === 0) {
     const unconstrained: CandidateEvaluation[] = query.candidates.map((c) => ({
       id: c.id,
       status: "LAWFUL" as CandidateStatus,
@@ -62,6 +79,16 @@ export async function evaluateQueryCandidates(
       strongestMarginScore: 1.00,
       weakestAdmissibleMarginScore: 1.00,
     };
+  }
+
+  // Invariant assertion: every parsed constraint must enter the evaluation loop.
+  // This guard prevents silent constraint loss between the parse layer and here.
+  const normalizedForCheck = constraints.map(normalizeConstraint);
+  if (normalizedForCheck.length !== constraints.length) {
+    throw new Error(
+      `[NOMOS invariant violated] ${constraints.length} constraint(s) were submitted but ` +
+      `normalization produced ${normalizedForCheck.length}. Constraint set integrity failure.`
+    );
   }
 
   const evaluations: CandidateEvaluation[] = [];

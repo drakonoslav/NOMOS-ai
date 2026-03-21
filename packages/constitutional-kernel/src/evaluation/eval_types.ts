@@ -29,6 +29,7 @@ export interface NormalizedConstraint {
     | "NUTRITION_ALLOWED_ACTION"
     | "NUTRITION_TARGET_TOLERANCE"
     | "NUTRITION_SOURCE_TRUTH"
+    | "NUTRITION_CARB_TIMING"
     | "UNKNOWN";
   protectedObject?: string;
   threshold?: string;

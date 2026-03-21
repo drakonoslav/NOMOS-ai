@@ -25,6 +25,13 @@ import {
   NormalizedConstraint,
 } from "./eval_types.js";
 import { evaluateSleepCandidate } from "./domains/sleep_constraint_evaluator.js";
+import { parseCandidateEvents } from "./candidate_event_parser.js";
+import {
+  TemporalAnchor,
+  TemporalEvent,
+  TemporalConstraint,
+} from "../temporal/temporal_types.js";
+import { evaluateTemporalConstraintSet } from "../temporal/temporal_constraint_engine.js";
 
 export function evaluateDeterministically(
   constraint: NormalizedConstraint,
@@ -63,6 +70,9 @@ export function evaluateDeterministically(
 
     case "NUTRITION_SOURCE_TRUTH":
       return evalNutritionSourceTruth(candidate, constraint);
+
+    case "NUTRITION_CARB_TIMING":
+      return evalNutritionCarbTiming(candidate, constraint);
 
     case "UNKNOWN":
     default:
@@ -663,5 +673,151 @@ function evalNutritionSourceTruth(
     reason: `${label} Constraint satisfied.`,
     decisiveVariable,
     confidence: "high",
+  };
+}
+
+/* =========================================================
+   NUTRITION_CARB_TIMING
+   Deterministic time-window evaluation using the temporal constraint engine.
+
+   Reads params from NormalizedConstraint.params:
+     fastCarbMinGrams       — minimum fast carbs required in window
+     fastCarbWindowMinutes  — window size (minutes before reference event)
+     slowCarbMaxGrams       — maximum slow carbs allowed in window
+     slowCarbWindowMinutes  — window size (minutes before reference event)
+
+   Converts candidate raw text → CandidateEvent[] → TemporalEvent[]
+   then runs the full temporal constraint engine and maps results back
+   to a CandidateEvaluationDraft.
+   ========================================================= */
+
+function evalNutritionCarbTiming(
+  candidate: NormalizedCandidate,
+  constraint: NormalizedConstraint
+): CandidateEvaluationDraft {
+  const params = constraint.params ?? {};
+
+  // Build TemporalConstraints from the normalizer params
+  const temporalConstraints: TemporalConstraint[] = [];
+
+  if (
+    typeof params["fastCarbMinGrams"] === "number" &&
+    typeof params["fastCarbWindowMinutes"] === "number"
+  ) {
+    temporalConstraints.push({
+      constraintId: "fast_carb_min",
+      label: `Fast carbs >= ${params["fastCarbMinGrams"]}g within ${params["fastCarbWindowMinutes"]} min before lifting`,
+      window: {
+        relation: "before",
+        anchorId: "lifting",
+        startOffsetMinutes: -params["fastCarbWindowMinutes"],
+        endOffsetMinutes: 0,
+      },
+      aggregation: { quantityKey: "carbs", filterTags: ["fast"], aggregation: "sum" },
+      operator: ">=",
+      threshold: params["fastCarbMinGrams"],
+    });
+  }
+
+  if (
+    typeof params["slowCarbMaxGrams"] === "number" &&
+    typeof params["slowCarbWindowMinutes"] === "number"
+  ) {
+    temporalConstraints.push({
+      constraintId: "slow_carb_max",
+      label: `Slow carbs <= ${params["slowCarbMaxGrams"]}g within ${params["slowCarbWindowMinutes"]} min before lifting`,
+      window: {
+        relation: "before",
+        anchorId: "lifting",
+        startOffsetMinutes: -params["slowCarbWindowMinutes"],
+        endOffsetMinutes: 0,
+      },
+      aggregation: { quantityKey: "carbs", filterTags: ["slow"], aggregation: "sum" },
+      operator: "<=",
+      threshold: params["slowCarbMaxGrams"],
+    });
+  }
+
+  // If no params were parsed, fall through to UNKNOWN
+  if (temporalConstraints.length === 0) {
+    return {
+      id: candidate.id,
+      status: "DEGRADED",
+      reason: "Carb timing constraint present but could not extract numeric thresholds. Manual review required.",
+      decisiveVariable: "carb timing window",
+      confidence: "low",
+      adjustments: ["Specify fast-carb minimum and slow-carb maximum with explicit gram values and time windows."],
+    };
+  }
+
+  // Parse candidate text into CandidateEvents, then bridge to TemporalEvents
+  const parsed = parseCandidateEvents(candidate.id, candidate.raw);
+  const temporalEvents: TemporalEvent[] = parsed.events
+    .filter((e) => e.timeOffsetMinutes !== undefined)
+    .map((e, i) => {
+      const tags: string[] = [...e.tags];
+      // Ensure speed tags are present for filtering
+      if (e.nutrientSpeed === "FAST" && !tags.includes("fast")) tags.push("fast");
+      if (e.nutrientSpeed === "SLOW" && !tags.includes("slow")) tags.push("slow");
+
+      return {
+        eventId: `${candidate.id}_te${i + 1}`,
+        label: e.subject ?? e.raw,
+        category: "nutrition",
+        // referenceEvent is "lifting" — anchor is at time 0, offsets are already relative
+        timeMinutes: e.timeOffsetMinutes!,
+        quantities: { carbs: e.quantity ?? 0 },
+        tags,
+      };
+    });
+
+  const anchors: TemporalAnchor[] = [
+    { anchorId: "lifting", label: "Lifting session", timeMinutes: 0 },
+  ];
+
+  // Evaluate using the temporal constraint engine
+  const summary = evaluateTemporalConstraintSet(
+    candidate.id,
+    temporalEvents,
+    anchors,
+    temporalConstraints
+  );
+
+  // Build reason string from the per-constraint explanations
+  const failedResults = summary.constraintResults.filter((r) => !r.passed);
+  const passedResults = summary.constraintResults.filter((r) => r.passed);
+
+  const debugLine =
+    `Fast carbs: ${summary.debugFastCarbsGrams}g | Slow carbs: ${summary.debugSlowCarbsGrams}g.`;
+
+  if (summary.allPassed) {
+    const passedLabels = passedResults.map((r) =>
+      `${r.observedValue}g ${r.operator} ${r.threshold}g ✓`
+    );
+    return {
+      id: candidate.id,
+      status: "LAWFUL",
+      reason: `All carb-timing constraints satisfied. ${passedLabels.join("; ")}. ${debugLine}`,
+      decisiveVariable: "carb timing window",
+      confidence: "high",
+    };
+  }
+
+  const failReasons = failedResults.map((r) => {
+    const key = r.constraintId === "fast_carb_min" ? "fast" : "slow";
+    return (
+      `${key === "fast" ? "Fast" : "Slow"} carbs in window: ${r.observedValue}g ` +
+      `${r.operator} ${r.threshold}g → FAIL.`
+    );
+  });
+  const allExplanations = summary.constraintResults.flatMap((r) => r.explanationLines);
+
+  return {
+    id: candidate.id,
+    status: "INVALID",
+    reason: failReasons.join(" ") + ` ${debugLine}`,
+    decisiveVariable: "carb timing window",
+    confidence: "high",
+    adjustments: allExplanations,
   };
 }

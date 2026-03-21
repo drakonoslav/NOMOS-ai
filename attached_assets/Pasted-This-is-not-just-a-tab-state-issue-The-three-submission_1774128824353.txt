@@ -1,0 +1,80 @@
+This is not just a tab-state issue.
+
+The three submission modes:
+- Guided
+- Natural Language
+- Auto-Compile
+
+do not parse the same reality even when given semantically identical input.
+
+That is a compiler coherence bug.
+
+I need a cross-mode equivalence audit and refactor.
+
+Goal:
+All three submission modes must converge to the same canonical declaration and evaluation result for semantically equivalent input.
+
+Do the following:
+
+1. Trace each mode separately:
+- Guided -> what internal object does it produce first?
+- Natural Language -> what internal object does it produce first?
+- Auto-Compile -> what internal object does it produce first?
+
+2. Identify where the three paths diverge:
+- extracted fields
+- template selection
+- normalization
+- canonical declaration generation
+- evaluation request generation
+
+3. Refactor architecture so mode only affects input acquisition, not semantic interpretation.
+
+Desired shape:
+Guided input --------\
+Natural language ----- > shared compiler pipeline -> canonical declaration -> evaluation request
+Auto-compile --------/
+
+4. Create a shared compiler boundary, for example:
+- extractedFields
+- normalizedFields
+- structuredDraft
+- canonicalDeclaration
+- evaluationRequest
+
+All modes must pass through the same downstream stages.
+
+5. Add hard invariants:
+- semantically equivalent inputs across modes must produce identical canonical declarations
+- identical canonical declarations must produce identical evaluation requests
+- identical evaluation requests must produce identical evaluation results
+
+6. Add regression tests for cross-mode equivalence.
+
+At minimum create test cases for:
+- nutrition audit
+- simple temporal carb-timing constraint
+- schedule/time-window case
+
+For each case:
+A. enter through guided mode
+B. enter through natural language mode
+C. enter through auto-compile mode
+
+Then assert equality of:
+- canonical declaration
+- parsed constraints
+- parsed candidates
+- targets
+- evaluation result
+
+7. Add a temporary debug panel showing per mode:
+- extractedFields hash
+- structuredDraft hash
+- canonicalDeclaration hash
+- evaluationRequest hash
+
+This is to prove whether the modes converge or diverge.
+
+8. Success condition:
+The same semantic query, regardless of mode, compiles to the same canonical declaration and evaluates the same way.

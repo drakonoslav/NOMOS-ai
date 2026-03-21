@@ -148,6 +148,21 @@ export type {
 } from "./nutrition/meal_audit_pipeline.js";
 export { runMealAuditPipeline } from "./nutrition/meal_audit_pipeline.js";
 
+export type {
+  TimeRelation,
+  TemporalAnchor,
+  TemporalEvent,
+  ResolvedWindow,
+  TimeWindow,
+  AggregationSpec,
+  TemporalConstraint,
+  TemporalConstraintResult,
+  TemporalEvaluationSummary,
+} from "./temporal/temporal_types.js";
+export { resolveWindow, eventFallsInWindow, collectEventsInWindow, findAnchor } from "./temporal/time_window_algebra.js";
+export { filterByTags, aggregateWindow } from "./temporal/window_aggregator.js";
+export { evaluateTemporalConstraint, evaluateTemporalConstraintSet } from "./temporal/temporal_constraint_engine.js";
+
 export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
 export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";
 export { normalizeCandidate } from "./evaluation/candidate_normalizer.js";

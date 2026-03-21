@@ -100,9 +100,20 @@ export function detectGaps(
 
   notes.push(...extracted.notes);
 
+  // A submission is evaluable when EITHER the domain-specific required fields
+  // are all present (domain-complete), OR the submission is structurally
+  // complete as a decision query — i.e. explicit candidates exist alongside
+  // at least one of: explicit constraints, or an explicit objective.
+  // This mirrors the kernel's own assessCompleteness rule so that Auto-compile
+  // and Natural Language tabs reach the same verdict for the same input.
+  const isDomainComplete = missingRequiredFields.length === 0;
+  const isStructurallyComplete =
+    extracted.hasCandidates &&
+    (extracted.hasConstraints || extracted.hasObjective);
+
   return {
     intent: template.intent,
-    isEvaluable: missingRequiredFields.length === 0,
+    isEvaluable: isDomainComplete || isStructurallyComplete,
     missingRequiredFields,
     missingOptionalFields,
     warnings: uniqueStrings(warnings),
