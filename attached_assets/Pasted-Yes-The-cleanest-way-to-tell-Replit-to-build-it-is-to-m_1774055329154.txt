@@ -1,0 +1,154 @@
+Yes. The cleanest way to tell Replit to build it is to make Replit Agent follow a very explicit contract:
+	1.	keep NOMOS as the verification/decision authority,
+	2.	add the model only as the LLM proposer,
+	3.	store the API key in Replit Secrets as an environment variable,
+	4.	call the model from a server-side module or route, not from client code,
+	5.	use OpenAI’s Responses API with the official JavaScript library, which OpenAI recommends for new projects. Replit supports secrets via environment variables, and its app configuration supports explicit run commands for starting your app.  ￼
+
+Paste this into Replit Agent as your build instruction:
+
+Build NOMOS as a TypeScript Node app.
+
+Architectural law:
+- The LLM is a proposer only.
+- It may generate CONTROL_PLAN, STATE_HYPOTHESIS, PARAMETER_HYPOTHESIS, and RECOVERY_ACTION proposals.
+- It may not certify feasibility, robustness, observability, adaptation integrity, or authorize action.
+- All model outputs must pass through:
+  belief -> observer -> model_registry -> llm_proposer -> decision_engine -> verification_kernel -> constitution_guard -> audit_log
+
+Implementation requirements:
+- Add server-side OpenAI integration using the official openai npm package.
+- Use the Responses API, not a browser-exposed client.
+- Read OPENAI_API_KEY from environment variables / Replit Secrets.
+- Create src/llm/openai_client.ts to wrap model calls.
+- Create or update src/llm_proposer.ts so it can:
+  - accept mission context, belief state, model signature
+  - call OpenAI
+  - request structured JSON output
+  - parse proposals into NOMOS proposal objects
+  - always return lawful: false on proposal creation
+- Patch main.ts so candidate plans come from llm_proposer, not hard-coded plans.
+- Keep decision_engine and verification_kernel unchanged as authorities.
+- Add package scripts so npm run start works in Replit.
+- Do not put the API key in frontend code.
+- If the model call fails, fall back to deterministicFallback proposals.
+
+That prompt is usually enough to get Replit Agent moving in the right direction without letting it “helpfully” collapse your constitutional boundaries.  ￼
+
+For the actual link to a model, the simplest pattern is:
+	•	put OPENAI_API_KEY in Replit Secrets,
+	•	install the official library,
+	•	create a tiny server-side wrapper around client.responses.create(...),
+	•	have llm_proposer.ts call that wrapper and convert the returned JSON into NOMOS proposals. Replit’s Secrets are exposed as environment variables in your app, and the OpenAI docs show the Responses API and official JS library as the standard path for Node/TypeScript integrations.  ￼
+
+A minimal server-side wrapper looks like this:
+
+// src/llm/openai_client.ts
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function generateProposalJSON(input: {
+  missionContext: unknown;
+  belief: unknown;
+  modelSignature: unknown;
+}) {
+  const response = await client.responses.create({
+    model: "gpt-5.4",
+    input: [
+      {
+        role: "system",
+        content: `
+You are the LLM proposer inside NOMOS.
+You may propose plans and hypotheses.
+You are not the verifier, decision engine, or guard.
+Return only valid JSON.
+        `.trim(),
+      },
+      {
+        role: "user",
+        content: JSON.stringify(input),
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "nomos_proposal_bundle",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            proposals: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  kind: { type: "string" },
+                  confidence: { type: "string" },
+                  rationale: { type: "string" },
+                  assumptions: {
+                    type: "array",
+                    items: { type: "string" }
+                  },
+                  controlSequence: {
+                    type: "array",
+                    items: {
+                      type: "array",
+                      items: { type: "number" }
+                    }
+                  }
+                },
+                required: ["kind", "confidence", "rationale", "assumptions"]
+              }
+            }
+          },
+          required: ["proposals"]
+        }
+      }
+    }
+  });
+
+  return response.output_text;
+}
+
+OpenAI’s docs recommend the Responses API for new work, support the official TypeScript/JavaScript SDK, and recommend structured outputs over loose JSON when possible.  ￼
+
+Then in llm_proposer.ts, do not let the model return a CandidatePlan directly. Let it return a proposal bundle, then translate that into your existing proposal objects, and only afterward convert eligible CONTROL_PLAN proposals into CandidatePlan objects for the decision_engine. That preserves your constitutional ordering: model output is suggestion, while screening and authorization remain downstream. The OpenAI docs also note the Responses API supports tool use and structured generation, which fits this proposer-only role well.  ￼
+
+For Replit specifically, tell it to:
+	•	add OPENAI_API_KEY in Secrets,
+	•	keep the app’s start command in package.json,
+	•	and use Replit’s run configuration rather than exposing secret values in code. Replit documents that secrets are available as environment variables, and its app configuration supports explicit run commands.  ￼
+
+A good package.json shape is:
+
+{
+  "name": "nomos-core",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "check": "tsc --noEmit",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "openai": "^latest"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+
+That is enough for Replit to run with npm run start, and Replit’s docs confirm package changes can be installed through the run flow or standard package tooling.  ￼
+
+The most important instruction to give Replit Agent is this sentence:
+
+Do not let the OpenAI call bypass NOMOS verification; the model may propose, but only NOMOS Decision, Verifier, and Guard may determine authority.
+
+That single sentence will prevent most of the architectural drift.
+
+I can write the exact openai_client.ts + patched llm_proposer.ts next.
