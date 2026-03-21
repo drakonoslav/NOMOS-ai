@@ -378,14 +378,68 @@ export const CANONICAL_HEADINGS = [
 export type CanonicalHeading = (typeof CANONICAL_HEADINGS)[number];
 
 /**
- * matchHeading — recognizes a line as a canonical section heading.
+ * HEADING_ALIASES — maps natural language heading variants to their canonical form.
+ *
+ * Users frequently write non-canonical headings like UNKNOWNS, OPTIONS, GOAL, CONTEXT.
+ * These are all normalized to the canonical heading before section assignment.
+ *
+ * Rule: if a user writes a recognized alias, it is treated identically to the
+ * canonical heading. Explicit headings always dominate content assignment.
+ */
+export const HEADING_ALIASES: Record<string, CanonicalHeading> = {
+  // UNCERTAINTIES aliases
+  unknown:        "UNCERTAINTIES",
+  unknowns:       "UNCERTAINTIES",
+  question:       "UNCERTAINTIES",
+  questions:      "UNCERTAINTIES",
+  assumption:     "UNCERTAINTIES",
+  assumptions:    "UNCERTAINTIES",
+  // CANDIDATES aliases
+  option:         "CANDIDATES",
+  options:        "CANDIDATES",
+  choice:         "CANDIDATES",
+  choices:        "CANDIDATES",
+  solution:       "CANDIDATES",
+  solutions:      "CANDIDATES",
+  alternative:    "CANDIDATES",
+  alternatives:   "CANDIDATES",
+  plan:           "CANDIDATES",
+  plans:          "CANDIDATES",
+  // OBJECTIVE aliases
+  goal:           "OBJECTIVE",
+  goals:          "OBJECTIVE",
+  purpose:        "OBJECTIVE",
+  aim:            "OBJECTIVE",
+  aims:           "OBJECTIVE",
+  // STATE aliases
+  context:        "STATE",
+  situation:      "STATE",
+  background:     "STATE",
+  // CONSTRAINTS aliases
+  requirement:    "CONSTRAINTS",
+  requirements:   "CONSTRAINTS",
+  rule:           "CONSTRAINTS",
+  rules:          "CONSTRAINTS",
+  limit:          "CONSTRAINTS",
+  limits:         "CONSTRAINTS",
+  condition:      "CONSTRAINTS",
+  conditions:     "CONSTRAINTS",
+  // FACTS aliases
+  fact:           "FACTS",
+};
+
+/**
+ * matchHeading — recognizes a line as a section heading and returns the canonical name.
  *
  * Accepts all of:
  *   STATE        STATE:        state:        State :        CONSTRAINTS:
  *   Objective    UNCERTAINTIES CANDIDATES:   facts
+ *   UNKNOWNS     UNKNOWNS:     OPTIONS        OPTIONS:
+ *   GOAL         GOAL:         goal           context:
  *
  * Rejects content lines that happen to start with a recognized word:
- *   "Stateful systems..." — has content after the heading word.
+ *   "State description follows here." — has content after the heading word.
+ *   "Options are many." — sentence, not a heading.
  *
  * Rules:
  *   - Case-insensitive
@@ -397,12 +451,19 @@ export function matchHeading(line: string): CanonicalHeading | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  for (const heading of CANONICAL_HEADINGS) {
-    // Pattern: ^HEADING\s*:?\s*$  — whole line, colon optional
-    if (new RegExp(`^${heading}\\s*:?\\s*$`, "i").test(trimmed)) {
-      return heading;
-    }
+  // Strip optional trailing colon and whitespace to get the bare word
+  const bare = trimmed.replace(/\s*:?\s*$/, "").trim().toLowerCase();
+  if (!bare) return null;
+
+  // Check canonical headings directly
+  const upper = bare.toUpperCase() as CanonicalHeading;
+  if ((CANONICAL_HEADINGS as readonly string[]).includes(upper)) {
+    return upper;
   }
+
+  // Check aliases
+  const alias = HEADING_ALIASES[bare];
+  if (alias) return alias;
 
   return null;
 }
@@ -457,7 +518,7 @@ export function segmentSections(text: string): {
 /**
  * matchCandidateLine — parses a single line as a candidate entry.
  *
- * Accepted formats:
+ * Accepted formats (strict — safe for recovery scanning full text):
  *   A: text          (colon — the format taught by the UI template)
  *   A. text          (period)
  *   A) text          (parenthesis)
@@ -498,26 +559,50 @@ export function matchCandidateLine(
 }
 
 /**
+ * matchCandidateInSection — parses a candidate line within an explicit section context.
+ *
+ * Accepts all formats from matchCandidateLine PLUS the bare space format:
+ *   A text           (single uppercase letter A-D, space, then content of 2+ chars)
+ *
+ * The bare format is only safe within an explicit candidate section (OPTIONS, CANDIDATES)
+ * because it could false-positive on ordinary sentences in free text.
+ */
+function matchCandidateInSection(line: string): ExtractedCandidate | null {
+  const strict = matchCandidateLine(line);
+  if (strict) return strict;
+
+  // Bare format: "A eggs and oats" — restricted to A-D, 2+ char text
+  const t = line.trim();
+  const bare = t.match(/^([A-D])\s+(.{2,})$/i);
+  if (bare) {
+    return { id: bare[1].toUpperCase(), text: bare[2].trim() };
+  }
+
+  return null;
+}
+
+/**
  * extractCandidates — two-layer candidate detection with recovery.
  *
- * Layer 1 (primary): collect candidates from the CANDIDATES section.
- *   - Accepts A:, A., A), Candidate A:, Option A: — all common formats.
- *   - The CANDIDATES section is detected by matchHeading (robust, no colon required).
+ * Layer 1 (primary): collect candidates from the CANDIDATES section (including aliases
+ *   like OPTIONS, CHOICES, SOLUTIONS). Uses section-contextual matching which also
+ *   accepts the bare "A text" format (A-D only) within the section.
+ *   The section is detected by matchHeading (robust, colon not required, alias-aware).
  *
  * Layer 2 (recovery): if no candidates found in the section (or if there
- *   was no CANDIDATES section at all), scan the entire input for candidate-like lines.
- *   If any are found, they are returned rather than reporting "no candidates."
+ *   was no candidate-aliased section at all), scan the entire input for candidate-like
+ *   lines using the strict (punctuated) format only.
  *   This ensures visible candidate-like entries are never silently discarded.
  */
 export function extractCandidates(text: string): ExtractedCandidate[] {
   const { sections } = segmentSections(text);
 
-  // Layer 1: parse from explicit CANDIDATES section
+  // Layer 1: parse from explicit CANDIDATES section (includes OPTIONS, CHOICES aliases)
   const sectionLines = sections.get("CANDIDATES") ?? [];
   const fromSection: ExtractedCandidate[] = [];
 
   for (const rawLine of sectionLines) {
-    const match = matchCandidateLine(rawLine);
+    const match = matchCandidateInSection(rawLine);
     if (match && !fromSection.find((c) => c.id === match.id)) {
       fromSection.push(match);
     }
@@ -525,7 +610,7 @@ export function extractCandidates(text: string): ExtractedCandidate[] {
 
   if (fromSection.length > 0) return fromSection;
 
-  // Layer 2: recovery pass — scan full input for candidate-like lines.
+  // Layer 2: recovery pass — scan full input for candidate-like lines (strict format only).
   // Only activates when the primary pass found nothing.
   const allLines = text.split("\n");
   const recovered: ExtractedCandidate[] = [];

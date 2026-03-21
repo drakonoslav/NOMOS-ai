@@ -5,19 +5,22 @@
  *
  * Constitutional role:
  * - Fallback parser when LLM is unavailable.
- * - Uses anchored regex block capture for structured input (section headers).
- * - Candidates are parsed ONLY from the Candidates block — never from full text.
- * - Falls back to heuristic sentence classification for free-form input.
+ * - Robust single-pass section segmentation — headings recognized with or without colons.
+ * - Aliases for common natural language heading variants (UNKNOWNS, OPTIONS, GOAL, etc.).
+ * - Candidates parsed with multi-format detection: A: / A. / A) / bare "A text".
+ * - Falls back to heuristic sentence classification for fully free-form input.
  * - Does NOT assign lawfulness, authority, or constitutional status.
  *
- * Supported section format (case-insensitive, any order):
- *   Objective:   <text>
- *   Constraint:  <text> (also: Constraints:)
- *   Candidates:
- *     A. <text>
- *     B. <text>
- *   Question:    <text>
- *   Assumption:  <text>  (also: Assumptions:, Uncertainty:)
+ * Recognized heading roles (canonical + aliases, case-insensitive, colon optional):
+ *
+ *   objective:   Objective, Goal, Goals, Purpose, Aim
+ *   constraint:  Constraint, Constraints, Requirements, Requirement, Rules, Rule,
+ *                Limits, Limit, Conditions, Condition
+ *   candidate:   Candidate, Candidates, Option, Options, Choice, Choices,
+ *                Solution, Solutions, Plan, Plans, Alternative, Alternatives
+ *   uncertainty: Uncertainty, Uncertainties, Assumption, Assumptions, Unknown,
+ *                Unknowns, Question, Questions
+ *   state:       State, Facts, Fact, Context, Situation, Background
  */
 
 import {
@@ -28,68 +31,205 @@ import {
 } from "./query_types.js";
 
 /* =========================================================
-   Known section header names
+   Heading map — maps normalized heading word → semantic role
    ========================================================= */
 
-const SECTION_HEADERS = [
-  "Objective",
-  "Constraint",
-  "Candidate",
-  "Question",
-  "Assumption",
-  "Uncertainty",
-];
+type HeadingRole = "objective" | "constraint" | "candidate" | "uncertainty" | "state";
+
+const HEADING_MAP: Record<string, HeadingRole> = {
+  // Objective
+  objective:    "objective",
+  objectives:   "objective",
+  goal:         "objective",
+  goals:        "objective",
+  purpose:      "objective",
+  aim:          "objective",
+  aims:         "objective",
+  // Constraint
+  constraint:   "constraint",
+  constraints:  "constraint",
+  requirement:  "constraint",
+  requirements: "constraint",
+  rule:         "constraint",
+  rules:        "constraint",
+  limit:        "constraint",
+  limits:       "constraint",
+  condition:    "constraint",
+  conditions:   "constraint",
+  // Candidate
+  candidate:    "candidate",
+  candidates:   "candidate",
+  option:       "candidate",
+  options:      "candidate",
+  choice:       "candidate",
+  choices:      "candidate",
+  solution:     "candidate",
+  solutions:    "candidate",
+  plan:         "candidate",
+  plans:        "candidate",
+  alternative:  "candidate",
+  alternatives: "candidate",
+  // Uncertainty
+  uncertainty:    "uncertainty",
+  uncertainties:  "uncertainty",
+  assumption:     "uncertainty",
+  assumptions:    "uncertainty",
+  unknown:        "uncertainty",
+  unknowns:       "uncertainty",
+  question:       "uncertainty",
+  questions:      "uncertainty",
+  // State / facts
+  state:       "state",
+  facts:       "state",
+  fact:        "state",
+  context:     "state",
+  situation:   "state",
+  background:  "state",
+};
+
+/**
+ * matchKernelHeading — recognizes a line as a section heading.
+ *
+ * Accepts:   "CONSTRAINTS", "Constraints:", "goal", "GOAL:", "OPTIONS :"
+ * Rejects:   "Options are many...", "Goal: achieve X with Y" (has inline content)
+ *
+ * Returns the semantic role if matched, null otherwise.
+ */
+function matchKernelHeading(line: string): HeadingRole | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Strip optional trailing colon and surrounding whitespace
+  // The line must be ONLY the heading word (possibly with colon) — no inline content
+  const bare = trimmed.replace(/\s*:?\s*$/, "").trim().toLowerCase();
+  if (!bare) return null;
+
+  return HEADING_MAP[bare] ?? null;
+}
 
 /* =========================================================
-   Section extraction — regex block capture
-   Each label captures ALL content until the next section header or EOF.
+   Single-pass section segmenter
    ========================================================= */
 
-/**
- * Lookahead pattern that stops capture at any known section header.
- * Accounts for plural forms (Constraints:, Candidates:, Assumptions:).
- */
-function buildSectionLookahead(): string {
-  const alts = SECTION_HEADERS.map((h) => `${h}s?`).join("|");
-  return `(?=\\n(?:${alts})\\s*:|$)`;
+interface KernelSection {
+  role: HeadingRole;
+  lines: string[];
+}
+
+interface SegmentResult {
+  sections: KernelSection[];
+  unlabeled: string[];
+  hasStructure: boolean;
 }
 
 /**
- * Extract a named section's content block.
- * Returns trimmed content or empty string if not found.
+ * segmentKernelSections — single-pass segmenter with alias-aware heading detection.
+ *
+ * Headings are recognized:
+ *   - Case-insensitively (CONSTRAINTS, constraints, Constraints)
+ *   - With or without colon (STATE: and STATE both open a section)
+ *   - As the complete trimmed line — no false positives on inline content
+ *
+ * Content under a heading belongs to that heading's section until the
+ * next recognized heading appears.
  */
-function extractSection(text: string, label: string): string {
-  const lookahead = buildSectionLookahead();
-  // Match "label:" or "labels:" (plural), capture content until next section or EOF
-  const pattern = new RegExp(
-    `(?:^|\\n)${label}s?\\s*:\\s*([\\s\\S]*?)${lookahead}`,
-    "i"
-  );
-  const match = text.match(pattern);
-  return match ? match[1].trim() : "";
+function segmentKernelSections(text: string): SegmentResult {
+  const lines = text.split("\n");
+  const sections: KernelSection[] = [];
+  const unlabeled: string[] = [];
+  let current: KernelSection | null = null;
+  let hasStructure = false;
+
+  for (const rawLine of lines) {
+    const role = matchKernelHeading(rawLine);
+
+    if (role !== null) {
+      hasStructure = true;
+      current = { role, lines: [] };
+      sections.push(current);
+      continue;
+    }
+
+    if (current === null) {
+      unlabeled.push(rawLine);
+    } else {
+      current.lines.push(rawLine);
+    }
+  }
+
+  return { sections, unlabeled, hasStructure };
 }
 
 /**
- * Returns true when the input contains at least one known section header.
+ * Collect all lines under a given role from the segmented sections.
+ * Multiple sections with the same role are merged (handles duplicate headings).
  */
-function hasSectionHeaders(text: string): boolean {
-  return SECTION_HEADERS.some((h) =>
-    new RegExp(`(?:^|\\n)${h}s?\\s*:`, "i").test(text)
-  );
+function getSectionLines(sections: KernelSection[], role: HeadingRole): string[] {
+  return sections.filter((s) => s.role === role).flatMap((s) => s.lines);
 }
 
 /* =========================================================
-   Candidates — section-scoped only
-   Pattern: "A. description" — letter A–D followed by period and space
+   Candidate parsing — multi-format
    ========================================================= */
 
-function parseCandidateBlock(block: string): NomosCandidateBlock[] {
+/**
+ * parseCandidateLine — parses a single line as a candidate in a candidate section.
+ *
+ * Accepted formats:
+ *   A: text      (colon format)
+ *   A. text      (period format)
+ *   A) text      (paren format)
+ *   A text       (bare space — accepted within explicit candidate sections, A-D only)
+ *   Candidate A: text
+ *   Option A: text
+ *
+ * The bare "A text" format is only used within explicit candidate sections to avoid
+ * false positives. Recovery scanning uses stricter formats only.
+ */
+function parseCandidateLine(line: string, withinSection: boolean): NomosCandidateBlock | null {
+  const t = line.trim();
+  if (!t) return null;
+
+  // Colon / period / paren format: A: text  A. text  A) text
+  const punctuated = t.match(/^([A-Z])\s*[:.)] \s*(.+)$/i);
+  if (punctuated) {
+    return { id: punctuated[1].toUpperCase(), description: punctuated[2].trim() };
+  }
+
+  // No-space version: A:text  A.text  A)text
+  const nospace = t.match(/^([A-Z])[:.)](.+)$/i);
+  if (nospace) {
+    const text = nospace[2].trim();
+    if (text) return { id: nospace[1].toUpperCase(), description: text };
+  }
+
+  // Long form: "Candidate A: text"  "Option A: text"
+  const long = t.match(/^(?:candidate|option)\s+([A-Z])\s*[:.)]?\s*(.+)$/i);
+  if (long) {
+    return { id: long[1].toUpperCase(), description: long[2].trim() };
+  }
+
+  // Bare format: "A text" — only accepted within explicit candidate sections
+  // Restricted to A-D to limit false positives
+  if (withinSection) {
+    const bare = t.match(/^([A-D])\s+(.{2,})$/i);
+    if (bare) {
+      return { id: bare[1].toUpperCase(), description: bare[2].trim() };
+    }
+  }
+
+  return null;
+}
+
+function parseCandidateBlock(lines: string[]): NomosCandidateBlock[] {
   const results: NomosCandidateBlock[] = [];
+  const seen = new Set<string>();
 
-  for (const line of block.split("\n")) {
-    const match = line.match(/^([A-D])\.\s+(\S.*)/);
-    if (match) {
-      results.push({ id: match[1], description: match[2].trim() });
+  for (const line of lines) {
+    const match = parseCandidateLine(line, true);
+    if (match && !seen.has(match.id)) {
+      seen.add(match.id);
+      results.push(match);
     }
   }
 
@@ -98,15 +238,15 @@ function parseCandidateBlock(block: string): NomosCandidateBlock[] {
 
 /* =========================================================
    Constraint / uncertainty list extraction
-   Splits on newlines and semicolons, strips bullet characters
    ========================================================= */
 
-function parseListBlock(block: string): string[] {
-  if (!block) return [];
-  return block
-    .split(/\n|;/)
-    .map((s) => s.replace(/^[-•*]\s*/, "").trim())
-    .filter(Boolean);
+function parseListBlock(lines: string[]): string[] {
+  const out: string[] = [];
+  for (const rawLine of lines) {
+    const parts = rawLine.split(";").map((s) => s.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+    out.push(...parts);
+  }
+  return dedupe(out);
 }
 
 /* =========================================================
@@ -145,7 +285,8 @@ function assessConfidence(
 }
 
 /* =========================================================
-   Heuristic helpers — used for unstructured free-form input
+   Heuristic helpers — used for fully unstructured free-form input
+   (no recognized headings found anywhere)
    ========================================================= */
 
 function splitSentences(input: string): string[] {
@@ -157,26 +298,35 @@ function splitSentences(input: string): string[] {
 
 function looksLikeConstraint(sentence: string): boolean {
   const lower = sentence.toLowerCase();
-  return ["must", "cannot", "can't", "should not", "at least", "no more than",
-    "avoid", "need to", "required", "limit"].some((t) => lower.includes(t));
+  return [
+    "must", "cannot", "can't", "should not", "at least", "no more than",
+    "avoid", "need to", "required", "limit", "under ", "maximum", "minimum",
+    "no less than", "at most", "fewer than", "more than", "only",
+  ].some((t) => lower.includes(t));
 }
 
 function looksLikeUncertainty(sentence: string): boolean {
   const lower = sentence.toLowerCase();
-  return ["not sure", "uncertain", "unknown", "maybe", "might", "probably",
-    "guess", "unsure", "unclear"].some((t) => lower.includes(t));
+  return [
+    "not sure", "uncertain", "unknown", "maybe", "might", "probably",
+    "guess", "unsure", "unclear", "not certain", "depends",
+  ].some((t) => lower.includes(t));
 }
 
 function looksLikeObjective(sentence: string): boolean {
   const lower = sentence.toLowerCase();
-  return ["goal", "want", "maximize", "minimize", "best", "optimize",
-    "trying to", "would like", "priority"].some((t) => lower.includes(t));
+  return [
+    "goal", "want", "maximize", "minimize", "best", "optimize",
+    "trying to", "would like", "priority", "aim", "purpose",
+  ].some((t) => lower.includes(t));
 }
 
 function looksLikeCandidate(sentence: string): boolean {
   const lower = sentence.toLowerCase();
-  return ["option", "candidate", "either", "plan", "choice", "path",
-    "stay", "leave", "accept", "reject"].some((t) => lower.includes(t));
+  return [
+    "option", "candidate", "either", "plan", "choice", "path",
+    "stay", "leave", "accept", "reject", "alternative",
+  ].some((t) => lower.includes(t));
 }
 
 function dedupe(values: string[]): string[] {
@@ -184,17 +334,23 @@ function dedupe(values: string[]): string[] {
 }
 
 /**
- * Heuristic candidate extraction for unstructured input.
- * Uses "A. text" pattern (period, not colon) to avoid matching section headers.
+ * Heuristic candidate extraction for fully unstructured input.
  */
 function heuristicCandidates(
   candidateSentences: string[],
   rawInput: string
 ): NomosCandidateBlock[] {
-  // Lettered list with period: "A. something" — safe, avoids "Objective:" etc.
-  const dotMatches = [...rawInput.matchAll(/(?:^|\n)([A-D])\.\s+([^\n]+)/g)];
-  if (dotMatches.length > 0) {
-    return dotMatches.map((m) => ({ id: m[1], description: m[2].trim() }));
+  // Lettered list with punctuation: "A. something"  "A: something"  "A) something"
+  const punctMatches = [...rawInput.matchAll(/(?:^|\n)([A-D])[:.)] \s*([^\n]+)/gi)];
+  if (punctMatches.length > 0) {
+    const seen = new Set<string>();
+    return punctMatches
+      .map((m) => ({ id: m[1].toUpperCase(), description: m[2].trim() }))
+      .filter((c) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
   }
 
   // Either/or split
@@ -209,7 +365,9 @@ function heuristicCandidates(
     }
   }
 
-  return dedupe(candidateSentences).map((description, i) => ({
+  // Fall back to heuristic candidate sentences (filtered to exclude single-word matches)
+  const filtered = candidateSentences.filter((s) => s.length > 5);
+  return dedupe(filtered).map((description, i) => ({
     id: String.fromCharCode(65 + i),
     description,
   }));
@@ -221,32 +379,40 @@ function heuristicCandidates(
 
 export class NomosQueryParser {
   public parse(rawInput: string): NomosQuery {
-    return hasSectionHeaders(rawInput)
-      ? this.parseSectionBased(rawInput)
+    const segmented = segmentKernelSections(rawInput);
+
+    return segmented.hasStructure
+      ? this.parseSectionBased(rawInput, segmented)
       : this.parseHeuristic(rawInput);
   }
 
   /* -------------------------------------------------------
-     Section-based parsing (structured input with headers)
+     Section-based parsing (structured input with recognized headings)
      ------------------------------------------------------- */
 
-  private parseSectionBased(rawInput: string): NomosQuery {
-    const objectiveText   = extractSection(rawInput, "Objective");
-    const constraintText  = extractSection(rawInput, "Constraint");
-    const candidatesText  = extractSection(rawInput, "Candidate");
-    const questionText    = extractSection(rawInput, "Question");
-    const assumptionText  = extractSection(rawInput, "Assumption");
-    const uncertaintyText = extractSection(rawInput, "Uncertainty");
+  private parseSectionBased(rawInput: string, segmented: SegmentResult): NomosQuery {
+    const { sections } = segmented;
 
-    const constraints   = dedupe(parseListBlock(constraintText));
-    const uncertainties = dedupe(parseListBlock(uncertaintyText || assumptionText));
+    const objectiveLines    = getSectionLines(sections, "objective");
+    const constraintLines   = getSectionLines(sections, "constraint");
+    const candidateLines    = getSectionLines(sections, "candidate");
+    const uncertaintyLines  = getSectionLines(sections, "uncertainty");
+    const stateLines        = getSectionLines(sections, "state");
 
-    // CRITICAL: parse candidates ONLY from the Candidates block
-    const candidates = parseCandidateBlock(candidatesText);
+    const constraints   = parseListBlock(constraintLines);
+    const uncertainties = parseListBlock(uncertaintyLines);
+    const stateFacts    = parseListBlock(stateLines);
+    const candidates    = parseCandidateBlock(candidateLines);
+
+    // Objective: join all non-empty lines from the objective section
+    const objectiveText = objectiveLines
+      .map((l) => l.replace(/^[-•*]\s*/, "").trim())
+      .filter(Boolean)
+      .join(" ");
 
     const state: NomosStateBlock = {
       description:  rawInput.trim(),
-      facts:        [],
+      facts:        stateFacts,
       constraints,
       uncertainties,
     };
@@ -258,17 +424,16 @@ export class NomosQueryParser {
     const parserConfidence = assessConfidence(state, candidates, completeness);
 
     const notes: string[] = [];
-    if (!objectiveText)            notes.push("Missing objective.");
-    if (candidates.length === 0)   notes.push("No candidates found in Candidates block. Use 'A. text' format.");
-    if (constraints.length === 0)  notes.push("No constraints declared.");
-    if (questionText)              notes.push(`Question: ${questionText}`);
+    if (!objectiveText)           notes.push("Missing objective.");
+    if (candidates.length === 0)  notes.push("No candidates found. Use 'A: text', 'A. text', or 'A) text' format.");
+    if (constraints.length === 0) notes.push("No constraints declared.");
     notes.push("Section-based parser used.");
 
     return { rawInput, state, candidates, objective, parserConfidence, completeness, notes };
   }
 
   /* -------------------------------------------------------
-     Heuristic parsing (unstructured free-form input)
+     Heuristic parsing (fully unstructured free-form input)
      ------------------------------------------------------- */
 
   private parseHeuristic(rawInput: string): NomosQuery {
@@ -312,7 +477,7 @@ export class NomosQueryParser {
     if (!objective)               notes.push("No explicit objective detected.");
     notes.push(
       "Heuristic parser used. For precise results, use section headers: " +
-      "Objective:, Constraint:, Candidates:, Question:"
+      "Goal:, Constraints:, Options:, Unknowns:"
     );
 
     return { rawInput, state, candidates, objective, parserConfidence, completeness, notes };

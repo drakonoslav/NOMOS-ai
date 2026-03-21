@@ -21,6 +21,7 @@ import {
   extractCandidates,
   extractConstraintLines,
   CANONICAL_HEADINGS,
+  HEADING_ALIASES,
 } from "../compiler/field_extractor";
 import { autoCompile } from "../compiler/auto_compiler";
 
@@ -529,5 +530,174 @@ the final objective`;
     expect(candidates).toHaveLength(2);
     const texts = candidates.map((c) => c.text);
     expect(texts.join(" ")).not.toContain("final objective");
+  });
+});
+
+// ─── Heading alias tests — natural language variants ──────────────────────────
+
+describe("matchHeading — alias recognition", () => {
+  it("HEADING_ALIASES maps to canonical headings", () => {
+    expect(HEADING_ALIASES["unknowns"]).toBe("UNCERTAINTIES");
+    expect(HEADING_ALIASES["options"]).toBe("CANDIDATES");
+    expect(HEADING_ALIASES["goal"]).toBe("OBJECTIVE");
+    expect(HEADING_ALIASES["context"]).toBe("STATE");
+    expect(HEADING_ALIASES["requirements"]).toBe("CONSTRAINTS");
+  });
+
+  it("recognizes UNKNOWNS as UNCERTAINTIES", () => {
+    expect(matchHeading("UNKNOWNS")).toBe("UNCERTAINTIES");
+    expect(matchHeading("UNKNOWNS:")).toBe("UNCERTAINTIES");
+    expect(matchHeading("unknowns")).toBe("UNCERTAINTIES");
+    expect(matchHeading("Unknowns:")).toBe("UNCERTAINTIES");
+  });
+
+  it("recognizes OPTIONS as CANDIDATES", () => {
+    expect(matchHeading("OPTIONS")).toBe("CANDIDATES");
+    expect(matchHeading("OPTIONS:")).toBe("CANDIDATES");
+    expect(matchHeading("options")).toBe("CANDIDATES");
+    expect(matchHeading("Options:")).toBe("CANDIDATES");
+  });
+
+  it("recognizes GOAL as OBJECTIVE", () => {
+    expect(matchHeading("GOAL")).toBe("OBJECTIVE");
+    expect(matchHeading("GOAL:")).toBe("OBJECTIVE");
+    expect(matchHeading("goal")).toBe("OBJECTIVE");
+    expect(matchHeading("Goal:")).toBe("OBJECTIVE");
+  });
+
+  it("recognizes CONTEXT as STATE", () => {
+    expect(matchHeading("CONTEXT")).toBe("STATE");
+    expect(matchHeading("context:")).toBe("STATE");
+    expect(matchHeading("SITUATION")).toBe("STATE");
+  });
+
+  it("recognizes REQUIREMENTS as CONSTRAINTS", () => {
+    expect(matchHeading("REQUIREMENTS")).toBe("CONSTRAINTS");
+    expect(matchHeading("requirements:")).toBe("CONSTRAINTS");
+    expect(matchHeading("RULES")).toBe("CONSTRAINTS");
+  });
+
+  it("rejects inline-content lines that start with alias words", () => {
+    expect(matchHeading("Options are many.")).toBeNull();
+    expect(matchHeading("Goal: achieve X with Y")).toBeNull();
+    expect(matchHeading("Unknowns remain unclear.")).toBeNull();
+  });
+});
+
+// ─── The exact user input from the bug report screenshot ──────────────────────
+
+const SCREENSHOT_INPUT = `STATE
+Need dinner at home
+
+CONSTRAINTS
+under 700 kcal
+40g protein minimum
+
+UNKNOWNS
+not sure if yogurt is available
+
+OPTIONS
+A eggs and oats
+B whey and yogurt
+
+GOAL
+best feasible dinner`;
+
+describe("segmentSections — screenshot input aliases", () => {
+  it("recognizes all 5 sections despite non-canonical headings", () => {
+    const { sections } = segmentSections(SCREENSHOT_INPUT);
+    expect(sections.has("STATE")).toBe(true);
+    expect(sections.has("CONSTRAINTS")).toBe(true);
+    expect(sections.has("UNCERTAINTIES")).toBe(true);  // from UNKNOWNS alias
+    expect(sections.has("CANDIDATES")).toBe(true);     // from OPTIONS alias
+    expect(sections.has("OBJECTIVE")).toBe(true);      // from GOAL alias
+  });
+
+  it("CONSTRAINTS section contains the 2 constraint lines", () => {
+    const { sections } = segmentSections(SCREENSHOT_INPUT);
+    const lines = sections.get("CONSTRAINTS")!.map((l) => l.trim()).filter(Boolean);
+    expect(lines).toHaveLength(2);
+    expect(lines.join(" ")).toContain("700 kcal");
+    expect(lines.join(" ")).toContain("40g protein");
+  });
+
+  it("UNCERTAINTIES section contains the uncertainty (from UNKNOWNS)", () => {
+    const { sections } = segmentSections(SCREENSHOT_INPUT);
+    const lines = sections.get("UNCERTAINTIES")!.map((l) => l.trim()).filter(Boolean);
+    expect(lines.join(" ")).toContain("yogurt");
+  });
+
+  it("CANDIDATES section contains A and B lines (from OPTIONS)", () => {
+    const { sections } = segmentSections(SCREENSHOT_INPUT);
+    const lines = sections.get("CANDIDATES")!.map((l) => l.trim()).filter(Boolean);
+    expect(lines.join(" ")).toContain("eggs and oats");
+    expect(lines.join(" ")).toContain("whey and yogurt");
+  });
+
+  it("OBJECTIVE section contains the goal text (from GOAL)", () => {
+    const { sections } = segmentSections(SCREENSHOT_INPUT);
+    const lines = sections.get("OBJECTIVE")!.map((l) => l.trim()).filter(Boolean);
+    expect(lines.join(" ")).toContain("best feasible dinner");
+  });
+});
+
+describe("extractCandidates — bare A text format within OPTIONS section", () => {
+  it("extracts A and B from screenshot OPTIONS section (bare space format)", () => {
+    const candidates = extractCandidates(SCREENSHOT_INPUT);
+    expect(candidates.length).toBeGreaterThanOrEqual(2);
+    const ids = candidates.map((c) => c.id);
+    expect(ids).toContain("A");
+    expect(ids).toContain("B");
+  });
+
+  it("candidate texts are correct — eggs and oats / whey and yogurt", () => {
+    const candidates = extractCandidates(SCREENSHOT_INPUT);
+    const a = candidates.find((c) => c.id === "A");
+    const b = candidates.find((c) => c.id === "B");
+    expect(a?.text).toBe("eggs and oats");
+    expect(b?.text).toBe("whey and yogurt");
+  });
+});
+
+describe("extractConstraintLines — screenshot input no-colon CONSTRAINTS", () => {
+  it("extracts 2 constraints from CONSTRAINTS section without bullet prefix", () => {
+    const lines = extractConstraintLines(SCREENSHOT_INPUT);
+    expect(lines.length).toBeGreaterThanOrEqual(2);
+    expect(lines.join(" ")).toContain("700 kcal");
+    expect(lines.join(" ")).toContain("protein");
+  });
+});
+
+describe("extractSingleSection — screenshot GOAL→OBJECTIVE alias", () => {
+  it("extracts objective from GOAL section", () => {
+    const result = extractSingleSection(SCREENSHOT_INPUT, "OBJECTIVE");
+    expect(result).toBeDefined();
+    expect(result!).toContain("best feasible dinner");
+  });
+});
+
+describe("autoCompile — screenshot alias input end-to-end", () => {
+  it("detects 2 candidates from OPTIONS section using bare format", () => {
+    const result = autoCompile(SCREENSHOT_INPUT, "GENERIC_CONSTRAINT_TASK");
+    expect(result.draft).not.toBeNull();
+    expect(result.draft!.candidates.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("extracts constraints from CONSTRAINTS section", () => {
+    const result = autoCompile(SCREENSHOT_INPUT, "GENERIC_CONSTRAINT_TASK");
+    const joined = result.draft!.constraints.join(" ");
+    expect(joined).toContain("700 kcal");
+  });
+
+  it("extracts uncertainty from UNKNOWNS section", () => {
+    const result = autoCompile(SCREENSHOT_INPUT, "GENERIC_CONSTRAINT_TASK");
+    const joined = result.draft!.uncertainties.join(" ");
+    expect(joined).toContain("yogurt");
+  });
+
+  it("extracts objective from GOAL section", () => {
+    const result = autoCompile(SCREENSHOT_INPUT, "GENERIC_CONSTRAINT_TASK");
+    const joined = result.draft!.objective.join(" ");
+    expect(joined).toContain("feasible dinner");
   });
 });
