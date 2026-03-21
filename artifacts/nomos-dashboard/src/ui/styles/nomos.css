@@ -6604,3 +6604,316 @@ textarea {
   padding-top: 12px;
   font-style: italic;
 }
+
+/* =========================================================
+   Governance Decision Support Panel (.nm-gds)
+   ========================================================= */
+
+.nm-gds {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgba(165,106,30,0.2);
+  border-radius: 6px;
+  background: rgba(165,106,30,0.02);
+}
+
+.nm-gds__header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nm-gds__title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--nm-text);
+}
+
+.nm-gds__meta {
+  font-size: 10px;
+  color: var(--nm-text-muted);
+  letter-spacing: 0.04em;
+}
+
+.nm-gds__advisory {
+  font-size: 11px;
+  color: #d4903c;
+  background: rgba(165,106,30,0.1);
+  border: 1px solid rgba(165,106,30,0.25);
+  border-radius: 4px;
+  padding: 8px 12px;
+  line-height: 1.55;
+}
+
+.nm-gds__block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-gds__section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+/* Policy comparison grid */
+
+.nm-gds__input-grid {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nm-gds__input-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nm-gds__input-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gds__policy-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
+.nm-gds__policy-id--current {
+  background: rgba(255,255,255,0.07);
+  color: var(--nm-text-muted);
+}
+
+.nm-gds__policy-id--recommended {
+  background: rgba(100,140,230,0.1);
+  color: #8ab4f8;
+  border: 1px solid rgba(100,140,230,0.2);
+}
+
+.nm-gds__input-arrow {
+  font-size: 18px;
+  color: var(--nm-text-muted);
+  margin-top: 14px;
+}
+
+/* Source info */
+
+.nm-gds__source-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.nm-gds__source-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.nm-gds__source-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gds__source-value {
+  font-size: 11.5px;
+  color: var(--nm-text);
+}
+
+.nm-gds__source-missing {
+  font-size: 11px;
+  color: var(--nm-invalid);
+  font-style: italic;
+}
+
+/* Analyse button */
+
+.nm-gds__analyse-btn {
+  align-self: flex-start;
+  padding: 8px 18px;
+  border-radius: 5px;
+  border: 1px solid rgba(165,106,30,0.3);
+  background: rgba(165,106,30,0.1);
+  color: #d4903c;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.12s;
+}
+
+.nm-gds__analyse-btn:hover:not(:disabled) {
+  background: rgba(165,106,30,0.18);
+}
+
+.nm-gds__analyse-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Strength + confidence badges */
+
+.nm-gds__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nm-gds__badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.nm-gds__badge--weak     { background: rgba(255,255,255,0.07); color: var(--nm-text-muted); }
+.nm-gds__badge--moderate { background: rgba(165,106,30,0.2);  color: #d4903c; }
+.nm-gds__badge--strong   { background: rgba(46,106,79,0.2);   color: #4caf82; }
+
+.nm-gds__badge--conf-low      { background: rgba(122,46,46,0.2);  color: #e07070; }
+.nm-gds__badge--conf-moderate { background: rgba(165,106,30,0.15); color: #d4903c; }
+.nm-gds__badge--conf-high     { background: rgba(46,106,79,0.15); color: #4caf82; }
+
+/* Line sections */
+
+.nm-gds__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.nm-gds__section--gains {
+  background: rgba(46,106,79,0.05);
+  border-color: rgba(46,106,79,0.15);
+}
+
+.nm-gds__section--tradeoffs {
+  background: rgba(165,106,30,0.05);
+  border-color: rgba(165,106,30,0.15);
+}
+
+.nm-gds__section--risks {
+  background: rgba(122,46,46,0.04);
+  border-color: rgba(122,46,46,0.15);
+}
+
+.nm-gds__empty-section {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+}
+
+.nm-gds__lines {
+  margin: 0;
+  padding: 0 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nm-gds__line {
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.nm-gds__line--gains     { color: #4caf82; }
+.nm-gds__line--tradeoffs { color: #d4903c; }
+.nm-gds__line--risks     { color: #e07070; }
+.nm-gds__line--summary   { color: var(--nm-text); }
+
+/* Suggestion flags */
+
+.nm-gds__flags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nm-gds__flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.nm-gds__flag--on {
+  background: rgba(46,106,79,0.07);
+  border-color: rgba(46,106,79,0.2);
+}
+
+.nm-gds__flag--off {
+  background: rgba(255,255,255,0.02);
+}
+
+.nm-gds__flag-indicator {
+  font-size: 14px;
+  font-weight: 800;
+  min-width: 20px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.nm-gds__flag--on .nm-gds__flag-indicator  { color: #4caf82; }
+.nm-gds__flag--off .nm-gds__flag-indicator { color: var(--nm-text-muted); }
+
+.nm-gds__flag-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nm-gds__flag-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nm-text);
+}
+
+.nm-gds__flag-reason {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  line-height: 1.5;
+}
+
+.nm-gds__flags-notice {
+  font-size: 10px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Footer */
+
+.nm-gds__footer {
+  font-size: 10.5px;
+  color: var(--nm-text-muted);
+  line-height: 1.6;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 12px;
+}
