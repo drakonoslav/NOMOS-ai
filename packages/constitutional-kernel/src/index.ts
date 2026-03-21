@@ -55,6 +55,16 @@ export { NomosQueryEvaluator, RuleBasedQueryEvaluator } from "./query/query_eval
 export { evaluateConstraint, evaluateCandidateAgainstConstraints } from "./query/constraint_evaluator.js";
 export type { ConstraintEvalResult, CandidateConstraintSummary } from "./query/constraint_evaluator.js";
 
+export type {
+  ConstraintClass,
+  EvaluationOperator,
+  DerivedVariable,
+  AtomicConstraint,
+  MarginResult,
+  AtomicConstraintEvaluation,
+  CandidateConstraintProfile,
+} from "./evaluation/constraint_types.js";
+
 export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
 export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";
 export { normalizeCandidate } from "./evaluation/candidate_normalizer.js";

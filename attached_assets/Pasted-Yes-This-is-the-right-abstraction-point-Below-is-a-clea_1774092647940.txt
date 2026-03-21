@@ -1,0 +1,581 @@
+Yes. This is the right abstraction point.
+
+Below is a clean first-pass type system that turns NOMOS from:
+	•	prompt-specific evaluators
+
+into:
+	•	a general constraint reasoning framework
+
+⸻
+
+Design intent
+
+These interfaces should let NOMOS do this:
+
+raw constraint
+→ atomic constraints
+→ derived variables
+→ operator evaluation
+→ margin result
+→ lawful / degraded / invalid
+
+So the architecture becomes reusable across:
+	•	sleep
+	•	transport
+	•	agriculture
+	•	nutrition
+	•	scheduling
+	•	budgeting
+
+⸻
+
+ConstraintClass
+
+Purpose
+
+Defines the kind of admissibility boundary being enforced.
+
+export type ConstraintClass =
+  | "PROHIBITION"            // forbidden event/state must not occur
+  | "MIN_THRESHOLD"          // value must be >= threshold
+  | "MAX_THRESHOLD"          // value must be <= threshold
+  | "RANGE"                  // value must stay within [min, max]
+  | "CONTINUITY"             // max interruption/gap bound
+  | "DEADLINE"               // event must occur before/after time boundary
+  | "SEQUENCING"             // event ordering must hold
+  | "RESOURCE_PRESERVATION"  // stock/integrity must remain preserved/non-negative
+  | "COMPATIBILITY"          // coupled constraints must jointly hold
+  | "UNCERTAINTY_SENSITIVE"; // admissibility depends on epistemic quality
+
+
+⸻
+
+EvaluationOperator
+
+Purpose
+
+Defines the formal comparison or logical test applied to a derived variable.
+
+export type EvaluationOperator =
+  | "FORBIDS"         // forbidden event present?
+  | "GTE"             // >=
+  | "LTE"             // <=
+  | "BETWEEN"         // lower <= x <= upper
+  | "MAX_GAP_LTE"     // largest gap <= threshold
+  | "MIN_GAP_GTE"     // smallest gap >= threshold
+  | "BEFORE"          // event A before boundary/event B
+  | "AFTER"           // event A after boundary/event B
+  | "WITHIN_WINDOW"   // occurs inside window
+  | "ORDERED_BEFORE"  // event A must precede event B
+  | "NON_NEGATIVE"    // resource/state >= 0
+  | "PRESERVED"       // integrity/structure preserved
+  | "JOINTLY_SATISFIED" // multiple coupled predicates satisfied
+  | "CONFIDENCE_GTE"; // model/epistemic confidence >= threshold
+
+
+⸻
+
+DerivedVariable
+
+Purpose
+
+Represents a value NOMOS must compute from a candidate before evaluation.
+
+export interface DerivedVariable<TValue = number | boolean | string> {
+  /**
+   * Stable identifier used in evaluation and UI.
+   * Example: total_sleep_minutes, longest_wake_gap, drop_risk, soil_disturbance_score
+   */
+  key: string;
+
+  /**
+   * Human-readable label.
+   */
+  label: string;
+
+  /**
+   * Value derived from candidate state/action description.
+   */
+  value: TValue;
+
+  /**
+   * Units if numeric or temporal.
+   * Examples: "minutes", "hours", "kg", "%", "score"
+   */
+  units?: string;
+
+  /**
+   * Where this value came from.
+   * Example: ["sleep_interval_1", "wake_gap_1"]
+   */
+  provenance?: string[];
+
+  /**
+   * Whether this variable was computed deterministically or estimated.
+   */
+  derivationMode: "DETERMINISTIC" | "ESTIMATED" | "HYBRID";
+
+  /**
+   * Optional confidence if not purely deterministic.
+   */
+  confidence?: number;
+
+  /**
+   * Optional explanation of derivation.
+   */
+  notes?: string[];
+}
+
+
+⸻
+
+AtomicConstraint
+
+Purpose
+
+Represents one fully decomposed evaluable rule.
+
+A single natural-language constraint may yield multiple AtomicConstraints.
+
+Example:
+“Total sleep must be at least 7 hours, and no wake period longer than 20 minutes.”
+becomes two atomic constraints.
+
+export interface AtomicConstraint {
+  /**
+   * Stable unique identifier.
+   */
+  id: string;
+
+  /**
+   * Original parent raw constraint text.
+   */
+  raw: string;
+
+  /**
+   * Optional normalized short form.
+   * Example: "total_sleep_minutes >= 420"
+   */
+  normalized?: string;
+
+  /**
+   * Constraint family.
+   */
+  constraintClass: ConstraintClass;
+
+  /**
+   * Operator used to test the constraint.
+   */
+  operator: EvaluationOperator;
+
+  /**
+   * Key of the derived variable this constraint evaluates.
+   * Example: total_sleep_minutes
+   */
+  variableKey: string;
+
+  /**
+   * Human-readable variable label.
+   */
+  variableLabel: string;
+
+  /**
+   * Primary threshold value if applicable.
+   * Examples: 420, 20
+   */
+  threshold?: number | string | boolean;
+
+  /**
+   * Secondary threshold for range/window comparisons.
+   */
+  thresholdUpper?: number | string;
+
+  /**
+   * Units for thresholds.
+   */
+  units?: string;
+
+  /**
+   * Whether violation is immediately disqualifying.
+   * Example: dropping an object may be hard-invalid.
+   */
+  hard: boolean;
+
+  /**
+   * Whether the constraint is required for admissibility
+   * or advisory for margin shaping.
+   */
+  priority: "REQUIRED" | "PREFERRED";
+
+  /**
+   * Variable most likely to govern violation or margin.
+   */
+  decisiveVariableHint?: string;
+
+  /**
+   * Optional temporal context.
+   * Example: pre-lift window, before frost, nightly sleep block
+   */
+  temporalContext?: {
+    type: "INTERVAL" | "WINDOW" | "DEADLINE" | "SEQUENCE";
+    reference?: string;
+    start?: string | number;
+    end?: string | number;
+  };
+
+  /**
+   * Optional coupling to other constraints.
+   */
+  coupledConstraintIds?: string[];
+
+  /**
+   * Optional notes from decomposition.
+   */
+  notes?: string[];
+}
+
+
+⸻
+
+MarginResult
+
+Purpose
+
+Represents distance from failure or constraint boundary.
+
+This is the key type that turns categorical evaluation into continuous evaluation.
+
+export interface MarginResult {
+  /**
+   * Key of the variable whose boundary is being measured.
+   */
+  variableKey: string;
+
+  /**
+   * Human-readable label.
+   */
+  variableLabel: string;
+
+  /**
+   * Operator being evaluated.
+   */
+  operator: EvaluationOperator;
+
+  /**
+   * Actual derived value.
+   */
+  actualValue: number | string | boolean;
+
+  /**
+   * Primary threshold value.
+   */
+  threshold?: number | string | boolean;
+
+  /**
+   * Secondary threshold for range-like cases.
+   */
+  thresholdUpper?: number | string;
+
+  /**
+   * Signed slack where possible.
+   * Positive = safe/admissible side
+   * Zero = boundary
+   * Negative = violated side
+   *
+   * Example:
+   * actual 450 min, threshold 420 min => +30
+   * actual 390 min, threshold 420 min => -30
+   */
+  slack?: number;
+
+  /**
+   * Normalized margin score in [0.00, 1.00].
+   * 1.00 = strongest margin
+   * 0.00 = direct failure
+   */
+  normalizedScore: number;
+
+  /**
+   * Interpretable label.
+   */
+  band: "HIGH" | "MODERATE" | "LOW" | "FAILED";
+
+  /**
+   * Whether this margin is the limiting one among all constraints.
+   */
+  limiting: boolean;
+
+  /**
+   * Whether violation occurred.
+   */
+  violated: boolean;
+
+  /**
+   * Short formal explanation.
+   */
+  reason: string;
+
+  /**
+   * Optional suggested repair.
+   */
+  adjustments?: string[];
+}
+
+
+⸻
+
+Strong companion types
+
+These were not in your requested list, but they complete the architecture.
+
+AtomicConstraintEvaluation
+
+export interface AtomicConstraintEvaluation {
+  constraintId: string;
+  variable: DerivedVariable;
+  satisfied: boolean;
+  margin: MarginResult;
+}
+
+CandidateConstraintProfile
+
+export interface CandidateConstraintProfile {
+  candidateId: string;
+  atomicEvaluations: AtomicConstraintEvaluation[];
+
+  /**
+   * Weakest admissible or failing margin.
+   */
+  limitingMargin: MarginResult;
+
+  /**
+   * Overall categorical interpretation.
+   */
+  status: "LAWFUL" | "DEGRADED" | "INVALID";
+
+  /**
+   * Variable that most strongly governs the outcome.
+   */
+  decisiveVariable: string;
+
+  /**
+   * Compressed explanation.
+   */
+  reason: string;
+
+  /**
+   * Optional candidate-level adjustments.
+   */
+  adjustments?: string[];
+}
+
+
+⸻
+
+Example: sleep prompt mapped into these types
+
+Raw constraint
+
+“Total sleep must be at least 7 hours, and sleep must be continuous (no wake period longer than 20 minutes).”
+
+Atomic constraints
+
+const atomicConstraints: AtomicConstraint[] = [
+  {
+    id: "sleep_total_min",
+    raw: "Total sleep must be at least 7 hours, and sleep must be continuous (no wake period longer than 20 minutes).",
+    normalized: "total_sleep_minutes >= 420",
+    constraintClass: "MIN_THRESHOLD",
+    operator: "GTE",
+    variableKey: "total_sleep_minutes",
+    variableLabel: "Total Sleep",
+    threshold: 420,
+    units: "minutes",
+    hard: true,
+    priority: "REQUIRED",
+    decisiveVariableHint: "sleep duration margin",
+  },
+  {
+    id: "sleep_continuity_gap",
+    raw: "Total sleep must be at least 7 hours, and sleep must be continuous (no wake period longer than 20 minutes).",
+    normalized: "longest_wake_gap_minutes <= 20",
+    constraintClass: "CONTINUITY",
+    operator: "MAX_GAP_LTE",
+    variableKey: "longest_wake_gap_minutes",
+    variableLabel: "Longest Wake Gap",
+    threshold: 20,
+    units: "minutes",
+    hard: true,
+    priority: "REQUIRED",
+    decisiveVariableHint: "sleep continuity",
+  },
+];
+
+Candidate-derived variables for Candidate B
+
+const candidateBVariables: DerivedVariable[] = [
+  {
+    key: "total_sleep_minutes",
+    label: "Total Sleep",
+    value: 480,
+    units: "minutes",
+    provenance: ["sleep_22_00_02_00", "sleep_03_00_07_00"],
+    derivationMode: "DETERMINISTIC",
+  },
+  {
+    key: "longest_wake_gap_minutes",
+    label: "Longest Wake Gap",
+    value: 60,
+    units: "minutes",
+    provenance: ["wake_02_00_03_00"],
+    derivationMode: "DETERMINISTIC",
+  },
+];
+
+Margin result for continuity violation
+
+const margin: MarginResult = {
+  variableKey: "longest_wake_gap_minutes",
+  variableLabel: "Longest Wake Gap",
+  operator: "MAX_GAP_LTE",
+  actualValue: 60,
+  threshold: 20,
+  slack: -40,
+  normalizedScore: 0.0,
+  band: "FAILED",
+  limiting: true,
+  violated: true,
+  reason: "Wake gap exceeds continuity limit. Constraint violated.",
+  adjustments: ["Reduce wake interruption below 20 minutes."],
+};
+
+
+⸻
+
+Architectural payoff
+
+These interfaces let you support both:
+
+Semantic verb constraints
+	•	no drop
+	•	no till
+	•	no release
+
+and
+
+Quantitative temporal constraints
+	•	sleep duration
+	•	wake gap
+	•	nutrient timing
+	•	budget cap
+	•	training spacing
+
+with the same core pipeline.
+
+⸻
+
+What to tell Replit
+
+Paste this exactly:
+
+Define the general NOMOS constraint framework using these exact TypeScript interfaces.
+
+Create a shared types file, e.g.:
+- src/evaluation/constraint_types.ts
+
+Add:
+
+1. ConstraintClass
+A union type with:
+- PROHIBITION
+- MIN_THRESHOLD
+- MAX_THRESHOLD
+- RANGE
+- CONTINUITY
+- DEADLINE
+- SEQUENCING
+- RESOURCE_PRESERVATION
+- COMPATIBILITY
+- UNCERTAINTY_SENSITIVE
+
+2. EvaluationOperator
+A union type with:
+- FORBIDS
+- GTE
+- LTE
+- BETWEEN
+- MAX_GAP_LTE
+- MIN_GAP_GTE
+- BEFORE
+- AFTER
+- WITHIN_WINDOW
+- ORDERED_BEFORE
+- NON_NEGATIVE
+- PRESERVED
+- JOINTLY_SATISFIED
+- CONFIDENCE_GTE
+
+3. DerivedVariable<TValue>
+Include:
+- key
+- label
+- value
+- units?
+- provenance?
+- derivationMode: DETERMINISTIC | ESTIMATED | HYBRID
+- confidence?
+- notes?
+
+4. AtomicConstraint
+Include:
+- id
+- raw
+- normalized?
+- constraintClass
+- operator
+- variableKey
+- variableLabel
+- threshold?
+- thresholdUpper?
+- units?
+- hard
+- priority: REQUIRED | PREFERRED
+- decisiveVariableHint?
+- temporalContext?
+- coupledConstraintIds?
+- notes?
+
+5. MarginResult
+Include:
+- variableKey
+- variableLabel
+- operator
+- actualValue
+- threshold?
+- thresholdUpper?
+- slack?
+- normalizedScore
+- band: HIGH | MODERATE | LOW | FAILED
+- limiting
+- violated
+- reason
+- adjustments?
+
+Also add:
+- AtomicConstraintEvaluation
+- CandidateConstraintProfile
+
+Goal:
+Move NOMOS toward a general constraint reasoning architecture rather than a growing list of special-case evaluators.
+
+
+⸻
+
+Final thought
+
+This is the moment where NOMOS starts becoming:
+
+not a collection of evaluators
+but a typed operating system for constraints
+
+That’s the right move.
