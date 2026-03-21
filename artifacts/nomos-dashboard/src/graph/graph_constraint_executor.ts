@@ -14,7 +14,10 @@
  *   4. restrictEntitiesByAnchorWindow — temporal / spatial window filter
  *   5. aggregateSelectedQuantity — sum / count / max / min
  *   6. compare against threshold — produce pass/fail
- *   7. build explanation lines   — auditable trace
+ *   7. build proof trace         — node-aware auditable record
+ *
+ * Every execution returns both a `GraphConstraintExecutionResult` (with legacy
+ * `explanationLines`) and a `GraphConstraintProofTrace` attached as `result.proof`.
  */
 
 import type { OperandGraph }          from "./operand_graph_types.ts";
@@ -29,6 +32,7 @@ import {
   restrictEntitiesByAnchorWindow,
   aggregateSelectedQuantity,
 } from "./graph_query_engine.ts";
+import { buildConstraintProofTrace } from "./graph_proof_trace.ts";
 
 /* =========================================================
    Comparison helper
@@ -55,8 +59,9 @@ function compare(
 /**
  * Execute one constraint against the graph.
  *
- * Returns an auditable `GraphConstraintExecutionResult` with step-by-step
- * explanation lines suitable for display in a proof trace.
+ * Returns a `GraphConstraintExecutionResult` that includes:
+ *   - `explanationLines`: concise step descriptions (legacy format)
+ *   - `proof`: full node-aware GraphConstraintProofTrace
  */
 export function executeGraphConstraint(
   graph: OperandGraph,
@@ -105,10 +110,10 @@ export function executeGraphConstraint(
       selection.windowMinutes
     );
 
-    const windowDesc = selection.windowMinutes != null
+    const windowDesc  = selection.windowMinutes != null
       ? `${selection.windowMinutes}min `
       : "";
-    const relDesc   = selection.relation ?? "relative to";
+    const relDesc    = selection.relation ?? "relative to";
     const anchorDesc = selection.anchorLabel ?? "(any anchor)";
     lines.push(
       `restricted to ${windowDesc}${relDesc} ${anchorDesc}: ${ids.length} ${ids.length === 1 ? "entity" : "entities"}`
@@ -132,6 +137,9 @@ export function executeGraphConstraint(
     `compared ${observed} ${spec.operator} ${spec.threshold} → ${passed ? "pass" : "fail"}`
   );
 
+  // ── Step 7: build proof trace ─────────────────────────────────────────────
+  const proof = buildConstraintProofTrace(graph, spec);
+
   return {
     constraintId:    spec.constraintId,
     passed,
@@ -140,6 +148,7 @@ export function executeGraphConstraint(
     operator:        spec.operator,
     threshold:       spec.threshold,
     explanationLines: lines,
+    proof,
   };
 }
 
@@ -150,6 +159,7 @@ export function executeGraphConstraint(
 /**
  * Execute all constraints in `specs` against the same graph.
  * Results are returned in the same order as `specs`.
+ * Each result includes a proof trace.
  */
 export function executeGraphConstraintSet(
   graph: OperandGraph,

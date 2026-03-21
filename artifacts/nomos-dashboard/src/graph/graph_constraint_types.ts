@@ -135,4 +135,11 @@ export interface GraphConstraintExecutionResult {
    *   "compared 80 >= 60 → pass"
    */
   explanationLines: string[];
+
+  /**
+   * Node-aware proof trace.
+   * Records which node IDs were selected, excluded, and what windows were
+   * applied at each step.  Always present — every execution produces a trace.
+   */
+  proof: import("./graph_proof_types.ts").GraphConstraintProofTrace;
 }
