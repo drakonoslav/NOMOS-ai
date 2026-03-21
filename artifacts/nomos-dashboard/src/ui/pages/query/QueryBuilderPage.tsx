@@ -494,50 +494,55 @@ export function QueryBuilderPage() {
     if (!effectiveDraft || !effectiveDraft.isEvaluable || !autoState.isConfirmed)
       return;
 
-    // ── Shared compiler pipeline (Law of mode-invariance) ──────────────────
-    // Auto-compile mode MUST go through the same kernel parser as Guided and
-    // Natural Language modes.  The StructuredDraft is a display artefact only;
-    // it is serialized back to canonical heading-formatted text here and then
-    // parsed through the identical server-side rule-based parser endpoint.
-    // This guarantees: semantically equivalent input → identical NomosQuery
-    // regardless of which front-door the user chose.
-    const canonicalText = serializeDraft(effectiveDraft);
-    const query = await parser.parse({
-      rawInput: canonicalText,
-      operatorHints: [
-        "extract constraints conservatively",
-        "do not infer legality",
-      ],
-      allowFallback: true,
-    });
-
-    // Compile constraints from the kernel-parsed result (not from the draft)
-    // so the display matches what the evaluator actually received.
-    const compiledConstraints = compileConstraints(query.state.constraints);
-
-    // Resolve domain routing before the evaluation runs so the decision is
-    // deterministic and stored alongside the result.
-    const governanceState = readGovernanceState();
-    const routingDecision = buildEvaluationRoutingDecision(
-      governanceState,
-      effectiveDraft.intent
-    );
-
+    // Disable the button and clear stale results immediately.
     setAutoState((prev) => ({
       ...prev,
       isEvaluating: true,
-      parsedQuery: query,
       evaluationResult: undefined,
       evaluationError: undefined,
-      compiledConstraints,
-      routingDecision,
     }));
 
     try {
+      // ── Shared compiler pipeline (Law of mode-invariance) ────────────────
+      // Auto-compile serializes the StructuredDraft (display artefact) back to
+      // canonical section-formatted text, then parses it through the SAME
+      // kernel API endpoint used by Guided and Natural Language modes.
+      // This guarantees mode-invariant evaluation: identical semantic input
+      // produces identical NomosQuery regardless of entry mode.
+      const canonicalText = serializeDraft(effectiveDraft);
+      const query = await parser.parse({
+        rawInput: canonicalText,
+        operatorHints: [
+          "extract constraints conservatively",
+          "do not infer legality",
+        ],
+        allowFallback: true,
+      });
+
+      // Compile constraints from the kernel-parsed result (not the draft)
+      // so the constraint display matches what the evaluator received.
+      const compiledConstraints = compileConstraints(query.state.constraints);
+
+      // Resolve domain routing before evaluation so the decision is
+      // deterministic and stored alongside the result.
+      const governanceState = readGovernanceState();
+      const routingDecision = buildEvaluationRoutingDecision(
+        governanceState,
+        effectiveDraft.intent
+      );
+
+      setAutoState((prev) => ({
+        ...prev,
+        parsedQuery: query,
+        compiledConstraints,
+        routingDecision,
+      }));
+
       const [evaluationResult] = await Promise.all([
         callEvaluateApi(query),
         evaluateLiveQuery(query),
       ]);
+
       setAutoState((prev) => ({
         ...prev,
         isEvaluating: false,

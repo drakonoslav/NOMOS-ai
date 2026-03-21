@@ -1,0 +1,246 @@
+Yes — this shows the split very clearly.
+
+Your evaluation is now correct:
+	•	lawful set: A
+	•	invalid: B, C, D
+	•	strongest margin: A
+
+But your compiled draft / canonical declaration is still semantically wrong for this query.
+
+What is wrong in the compiled draft
+
+This part is the problem:
+	•	“A nutrition system is implied, but no computable meal system has been declared yet.”
+	•	“Target macro blocks were not detected.”
+	•	nutrition-specific uncertainty defaults like banana, egg, yogurt
+
+That is not the right reality for this prompt.
+
+This prompt is not:
+	•	a meal-system audit
+	•	a macro-target audit
+	•	a food-label audit
+
+It is:
+
+The correct task type
+
+A temporal candidate-evaluation query inside nutrition.
+
+More specifically:
+	•	domain: nutrition
+	•	task type: constraint evaluation
+	•	subtype: carb timing admissibility / margin ranking
+	•	object: candidate actions
+	•	not: phase plan
+	•	not: target macros
+	•	not: meal system declaration
+
+So NOMOS is now:
+	•	parsing candidates correctly enough
+	•	evaluating correctly
+	•	but still compiling the wrong declaration frame
+
+That means the next bug is not the evaluator.
+It is the query-type classifier + template selection layer.
+
+⸻
+
+What NOMOS should have compiled instead
+
+For this exact prompt, the compiled draft should look more like:
+
+STATE
+	•	A nutrition timing decision query is present.
+	•	The query defines candidate pre-lift fueling actions.
+	•	The query defines explicit temporal carb constraints.
+	•	The task is to determine admissibility and strongest margin across candidates.
+
+CONSTRAINTS
+	•	Fast-digesting carbs within 90 minutes before lifting must be at least 60g.
+	•	Slow-digesting carbs within 60 minutes before lifting must be at most 20g.
+
+UNCERTAINTIES
+	•	Fast vs slow classification is assumed from declared foods:
+	•	cyclic dextrin = fast
+	•	oats = slow
+	•	“Strongest margin” should be interpreted as greatest admissible distance from constraint failure.
+
+CANDIDATES
+	•	A: 80g cyclic dextrin 30 minutes before lifting
+	•	B: 120g oats 30 minutes before lifting
+	•	C: 80g cyclic dextrin 2 hours before lifting
+	•	D: 60g cyclic dextrin 75 minutes before lifting and 30g oats 45 minutes before lifting
+
+OBJECTIVE
+	•	Determine which candidates are admissible under the declared carb timing constraint.
+	•	Among admissible candidates, identify the strongest margin.
+	•	Secondary preference: maximize performance while minimizing gastrointestinal distress.
+
+That is the right semantic frame.
+
+⸻
+
+What this proves
+
+You have two different layers now:
+
+1. Evaluation layer
+
+Now mostly correct for this case.
+
+2. Compilation / declaration layer
+
+Still overfitting everything nutrition-related into:
+	•	meal plan
+	•	macro targets
+	•	food defaults
+	•	audit template
+
+So the compiler is still choosing the wrong nutrition template family.
+
+⸻
+
+The real fix
+
+You need to split nutrition into at least these task families:
+
+Nutrition family A — Meal System Audit
+
+Examples:
+	•	phase plans
+	•	macro drift
+	•	meal structure preservation
+	•	protein placement rules
+
+Nutrition family B — Temporal Fueling Constraint Evaluation
+
+Examples:
+	•	pre-lift carb timing
+	•	post-lift protein window
+	•	caffeine before sleep
+	•	GI risk timing
+
+Nutrition family C — Food Source Truth / Label Audit
+
+Examples:
+	•	verify label-derived macros
+	•	compare foods
+	•	source-truth correction
+
+This query belongs to Nutrition family B, but NOMOS is still compiling it as family A.
+
+⸻
+
+What to tell Replit
+
+Send this exactly:
+
+The evaluator is now correct for the carb-timing case, but the compiled draft / canonical declaration is still wrong.
+
+This query is not a meal-system audit.
+It is a nutrition temporal candidate-evaluation query.
+
+Current problem:
+The compiler is still forcing this prompt into the nutrition meal-audit template family, producing incorrect fields such as:
+- no computable meal system declared
+- no target macro blocks detected
+- banana/egg/yogurt default uncertainty lines
+
+Those fields are not relevant to this task and indicate wrong template selection.
+
+I need a nutrition query-family split and routing fix.
+
+Do the following:
+
+1. Split nutrition into at least these compiler families:
+- NUTRITION_MEAL_AUDIT
+- NUTRITION_TEMPORAL_FUELING
+- NUTRITION_LABEL_AUDIT
+
+2. Add deterministic routing rules:
+NUTRITION_TEMPORAL_FUELING should trigger when the query contains:
+- candidate actions
+- time-relative phrases like "minutes before lifting", "within 90 minutes", "within 60 minutes"
+- threshold constraints over nutrients or food classes
+- admissibility / strongest margin language
+
+3. For NUTRITION_TEMPORAL_FUELING, compiled draft fields should be:
+STATE
+- nutrition timing decision query present
+- candidate fueling actions declared
+- temporal nutrient constraints declared
+- admissibility / margin comparison requested
+
+CONSTRAINTS
+- explicit threshold constraints only
+
+UNCERTAINTIES
+- only classification or margin-definition uncertainties relevant to this query
+- no meal-audit defaults unless actually present
+
+CANDIDATES
+- parsed candidate actions
+
+OBJECTIVE
+- determine admissibility
+- rank admissible candidates by strongest margin
+
+4. Do NOT include these meal-audit-specific lines in temporal fueling queries unless actually present:
+- no computable meal system declared
+- no target macro blocks detected
+- banana default uncertainty
+- egg default uncertainty
+- yogurt unit interpretation
+- fiber/net-carb uncertainty unless the query explicitly depends on it
+
+5. Add regression test:
+For the exact carb-timing query, the compiled draft must:
+- classify as NUTRITION_TEMPORAL_FUELING
+- include the temporal carb constraints
+- include candidates A/B/C/D
+- not include meal-system audit warnings
+- not include missing macro-target statements
+
+6. Add a visible debug field in notes:
+query_family: NUTRITION_TEMPORAL_FUELING
+
+Success condition:
+This carb-timing query compiles as a temporal fueling admissibility problem, not as a meal-plan audit.
+
+
+⸻
+
+The clean mental model
+
+For this prompt, NOMOS should think:
+	•	not “where are the macros?”
+	•	not “where is the meal system?”
+	•	not “where are the phase targets?”
+
+It should think:
+	•	“there are candidate timed actions”
+	•	“there is a temporal nutrient constraint”
+	•	“evaluate admissibility”
+	•	“rank lawful options by margin”
+
+That is the right semantic spine.
+
+⸻
+
+Bottom line
+
+Your system is now partially healed:
+	•	parser/evaluator path: much better
+	•	template/compiler framing: still wrong for this query type
+
+So the next fix is:
+
+nutrition family routing
+
+not more carb math.
+
+If you want, I can draft the exact domain_templates.ts and routing rules for:
+	•	NUTRITION_MEAL_AUDIT
+	•	NUTRITION_TEMPORAL_FUELING
+	•	NUTRITION_LABEL_AUDIT

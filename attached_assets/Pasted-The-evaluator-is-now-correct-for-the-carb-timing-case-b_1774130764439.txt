@@ -1,0 +1,71 @@
+The evaluator is now correct for the carb-timing case, but the compiled draft / canonical declaration is still wrong.
+
+This query is not a meal-system audit.
+It is a nutrition temporal candidate-evaluation query.
+
+Current problem:
+The compiler is still forcing this prompt into the nutrition meal-audit template family, producing incorrect fields such as:
+- no computable meal system declared
+- no target macro blocks detected
+- banana/egg/yogurt default uncertainty lines
+
+Those fields are not relevant to this task and indicate wrong template selection.
+
+I need a nutrition query-family split and routing fix.
+
+Do the following:
+
+1. Split nutrition into at least these compiler families:
+- NUTRITION_MEAL_AUDIT
+- NUTRITION_TEMPORAL_FUELING
+- NUTRITION_LABEL_AUDIT
+
+2. Add deterministic routing rules:
+NUTRITION_TEMPORAL_FUELING should trigger when the query contains:
+- candidate actions
+- time-relative phrases like "minutes before lifting", "within 90 minutes", "within 60 minutes"
+- threshold constraints over nutrients or food classes
+- admissibility / strongest margin language
+
+3. For NUTRITION_TEMPORAL_FUELING, compiled draft fields should be:
+STATE
+- nutrition timing decision query present
+- candidate fueling actions declared
+- temporal nutrient constraints declared
+- admissibility / margin comparison requested
+
+CONSTRAINTS
+- explicit threshold constraints only
+
+UNCERTAINTIES
+- only classification or margin-definition uncertainties relevant to this query
+- no meal-audit defaults unless actually present
+
+CANDIDATES
+- parsed candidate actions
+
+OBJECTIVE
+- determine admissibility
+- rank admissible candidates by strongest margin
+
+4. Do NOT include these meal-audit-specific lines in temporal fueling queries unless actually present:
+- no computable meal system declared
+- no target macro blocks detected
+- banana default uncertainty
+- egg default uncertainty
+- yogurt unit interpretation
+- fiber/net-carb uncertainty unless the query explicitly depends on it
+
+5. Add regression test:
+For the exact carb-timing query, the compiled draft must:
+- classify as NUTRITION_TEMPORAL_FUELING
+- include the temporal carb constraints
+- include candidates A/B/C/D
+- not include meal-system audit warnings
+- not include missing macro-target statements
+
+6. Add a visible debug field in notes:
+query_family: NUTRITION_TEMPORAL_FUELING
+
+Success condition:
+This carb-timing query compiles as a temporal fueling admissibility problem, not as a meal-plan audit.

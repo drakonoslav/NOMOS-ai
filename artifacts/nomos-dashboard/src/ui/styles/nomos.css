@@ -7226,3 +7226,29 @@ textarea {
   text-align: center;
   padding: 12px;
 }
+
+/* Compiler debug panel — extended fields (hardening pass) */
+.compiler-debug-panel__counts { color: #9090b8; white-space: nowrap; }
+.compiler-debug-panel__eval-row td { background: #0d0d1a; }
+.compiler-debug-panel__counts-summary {
+  display: flex;
+  gap: 20px;
+  padding: 10px 0 0;
+  border-top: 1px solid #2a2a3a;
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--nm-text-muted);
+}
+.compiler-debug-panel__counts-summary strong { color: #6fbf73; }
+.compiler-debug-panel__completeness {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #1a2a1a;
+  color: #6fbf73;
+  border: 1px solid #3a5a3a;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}

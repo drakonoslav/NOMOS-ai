@@ -2,16 +2,17 @@
  * CompilerDebugPanel.tsx
  *
  * Temporary debug panel that proves cross-mode compiler equivalence.
- * Displays per-pipeline-stage hashes for:
+ * Displays per-pipeline-stage hashes and counts for all three input modes.
  *
- *   Auto-compile: extractedFields → structuredDraft → canonicalDeclaration → evaluationRequest
- *   Guided / NL:  rawInput → canonicalDeclaration → evaluationRequest
+ * Stages displayed:
+ *   Auto-compile: raw_input → extracted_fields → structured_draft →
+ *                 canonical_declaration → nomos_query → evaluation_request
+ *   Guided / NL:  raw_input → canonical_declaration → nomos_query → evaluation_request
  *
- * A hash collision across modes means the stages produced identical output —
- * proving the mode-invariance law is satisfied.
+ * A hash collision across modes at the same stage proves mode-invariant output.
+ * Counts expose constraint / candidate / objective totals for quick sanity checking.
  *
- * This panel is intentionally temporary (debug only) and should be removed
- * once operational cross-mode equivalence is confirmed.
+ * Hashing: djb2 (32-bit, non-cryptographic, display-only).
  */
 
 import React, { useState } from "react";
@@ -20,7 +21,7 @@ import { StructuredDraft } from "../../../compiler/auto_compiler";
 import { ExtractedFields } from "../../../compiler/field_extractor";
 
 /* =========================================================
-   Hash utility (djb2 — non-cryptographic, for display only)
+   Hash utility — djb2
    ========================================================= */
 
 function djb2(s: string): string {
@@ -45,12 +46,6 @@ function hashText(s: string): string {
 
 export type CompilerMode = "auto" | "guided" | "natural";
 
-export interface CompilerDebugEntry {
-  label: string;
-  hashHex: string;
-  preview?: string;
-}
-
 export interface CompilerDebugPanelProps {
   mode: CompilerMode;
 
@@ -61,72 +56,110 @@ export interface CompilerDebugPanelProps {
   evaluationRequest?: NomosQuery | null;
 }
 
+interface Row {
+  stage: string;
+  hash: string;
+  counts: string;
+  preview: string;
+}
+
 /* =========================================================
-   Component
+   Row builder
    ========================================================= */
 
-export function CompilerDebugPanel({
-  mode,
-  rawInput,
-  extractedFields,
-  structuredDraft,
-  canonicalDeclaration,
-  evaluationRequest,
-}: CompilerDebugPanelProps) {
-  const [open, setOpen] = useState(false);
+function buildRows(props: CompilerDebugPanelProps): Row[] {
+  const { mode, rawInput, extractedFields, structuredDraft, canonicalDeclaration, evaluationRequest } = props;
+  const rows: Row[] = [];
 
-  const entries: CompilerDebugEntry[] = [];
-
+  // raw_input
   if (rawInput !== undefined) {
-    entries.push({
-      label: "raw_input",
-      hashHex: hashText(rawInput),
+    rows.push({
+      stage: "raw_input",
+      hash: hashText(rawInput),
+      counts: `${rawInput.length} chars`,
       preview: rawInput.slice(0, 80).replace(/\n/g, "↵"),
     });
   }
 
-  if (mode === "auto" && extractedFields !== null && extractedFields !== undefined) {
-    entries.push({
-      label: "extracted_fields",
-      hashHex: hashJson(extractedFields),
-      preview: `constraints:${extractedFields.constraints.length} candidates:${extractedFields.candidates.length}`,
+  // extracted_fields (auto-compile only)
+  if (mode === "auto" && extractedFields != null) {
+    rows.push({
+      stage: "extracted_fields",
+      hash: hashJson(extractedFields),
+      counts: `constraints:${extractedFields.constraints.length} candidates:${extractedFields.candidates.length}`,
+      preview: `hasCandidates:${extractedFields.candidates.length > 0} hasConstraints:${extractedFields.constraints.length > 0}`,
     });
   }
 
-  if (mode === "auto" && structuredDraft !== null && structuredDraft !== undefined) {
-    entries.push({
-      label: "structured_draft",
-      hashHex: hashJson({
-        constraints: structuredDraft.constraints,
-        candidates: structuredDraft.candidates,
-        objective: structuredDraft.objective,
-      }),
-      preview: `constraints:${structuredDraft.constraints.length} candidates:${structuredDraft.candidates.length}`,
+  // structured_draft (auto-compile only)
+  if (mode === "auto" && structuredDraft != null) {
+    const evalKey = {
+      constraints: structuredDraft.constraints,
+      candidates:  structuredDraft.candidates,
+      objective:   structuredDraft.objective,
+    };
+    rows.push({
+      stage: "structured_draft",
+      hash: hashJson(evalKey),
+      counts: `constraints:${structuredDraft.constraints.length} candidates:${structuredDraft.candidates.length} objective:${structuredDraft.objective.length}`,
+      preview: `evaluable:${structuredDraft.isEvaluable}`,
     });
   }
 
+  // canonical_declaration — the exact text sent to kernel parser
   if (canonicalDeclaration !== undefined) {
-    entries.push({
-      label: "canonical_declaration",
-      hashHex: hashText(canonicalDeclaration),
+    rows.push({
+      stage: "canonical_declaration",
+      hash: hashText(canonicalDeclaration),
+      counts: `${canonicalDeclaration.length} chars`,
       preview: canonicalDeclaration.slice(0, 80).replace(/\n/g, "↵"),
     });
   }
 
-  if (evaluationRequest !== null && evaluationRequest !== undefined) {
-    const evalKey = {
+  // nomos_query — kernel parser result
+  if (evaluationRequest != null) {
+    const qKey = {
       constraints: evaluationRequest.state.constraints,
-      candidates: evaluationRequest.candidates,
-      objective: evaluationRequest.objective,
+      candidates:  evaluationRequest.candidates,
+      objective:   evaluationRequest.objective,
+      completeness: evaluationRequest.completeness,
     };
-    entries.push({
-      label: "evaluation_request",
-      hashHex: hashJson(evalKey),
-      preview: `constraints:${evaluationRequest.state.constraints.length} candidates:${evaluationRequest.candidates.length}`,
+    const objCount = evaluationRequest.objective ? 1 : 0;
+    rows.push({
+      stage: "nomos_query",
+      hash: hashJson(qKey),
+      counts: `constraints:${evaluationRequest.state.constraints.length} candidates:${evaluationRequest.candidates.length} objectives:${objCount}`,
+      preview: `completeness:${evaluationRequest.completeness} confidence:${evaluationRequest.parserConfidence}`,
+    });
+
+    // evaluation_request — the subset of NomosQuery that drives evaluation
+    const evalReqKey = {
+      constraints: evaluationRequest.state.constraints,
+      candidates:  evaluationRequest.candidates,
+    };
+    rows.push({
+      stage: "evaluation_request",
+      hash: hashJson(evalReqKey),
+      counts: `constraints:${evaluationRequest.state.constraints.length} candidates:${evaluationRequest.candidates.length}`,
+      preview: evaluationRequest.state.constraints.slice(0, 1).map((c) => c.slice(0, 60)).join("") || "—",
     });
   }
 
-  const modeLabel = mode === "auto" ? "Auto-compile" : mode === "guided" ? "Guided" : "Natural Language";
+  return rows;
+}
+
+/* =========================================================
+   Component
+   ========================================================= */
+
+export function CompilerDebugPanel(props: CompilerDebugPanelProps) {
+  const [open, setOpen] = useState(false);
+
+  const rows = buildRows(props);
+  const modeLabel =
+    props.mode === "auto"    ? "Auto-compile"      :
+    props.mode === "guided"  ? "Guided"            :
+                               "Natural Language";
 
   return (
     <div className="compiler-debug-panel">
@@ -137,43 +170,62 @@ export function CompilerDebugPanel({
         aria-expanded={open}
       >
         <span className="compiler-debug-panel__badge">DEBUG</span>
-        <span>Compiler Pipeline Hashes — {modeLabel}</span>
+        <span>Compiler Pipeline — {modeLabel}</span>
         <span className="compiler-debug-panel__chevron">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
         <div className="compiler-debug-panel__body">
           <p className="compiler-debug-panel__note">
-            Matching hashes at the same stage across modes prove mode-invariant compilation.
-            Hashes are non-cryptographic (djb2, 32-bit) — for display only.
+            Matching hashes at <code>canonical_declaration</code>, <code>nomos_query</code>,
+            and <code>evaluation_request</code> across all three modes proves mode-invariant
+            compilation. Hashes: djb2 32-bit (display only, non-cryptographic).
           </p>
+
           <table className="compiler-debug-panel__table">
             <thead>
               <tr>
                 <th>Stage</th>
                 <th>Hash</th>
+                <th>Counts</th>
                 <th>Preview</th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
-                <tr key={e.label}>
-                  <td className="compiler-debug-panel__stage">{e.label}</td>
-                  <td className="compiler-debug-panel__hash">
-                    <code>{e.hashHex}</code>
-                  </td>
-                  <td className="compiler-debug-panel__preview">{e.preview ?? "—"}</td>
+              {rows.map((r) => (
+                <tr key={r.stage} className={r.stage === "evaluation_request" ? "compiler-debug-panel__eval-row" : ""}>
+                  <td className="compiler-debug-panel__stage">{r.stage}</td>
+                  <td className="compiler-debug-panel__hash"><code>{r.hash}</code></td>
+                  <td className="compiler-debug-panel__counts">{r.counts}</td>
+                  <td className="compiler-debug-panel__preview">{r.preview}</td>
                 </tr>
               ))}
-              {entries.length === 0 && (
+              {rows.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="compiler-debug-panel__empty">
-                    No pipeline data yet. Run a compile or parse to see hashes.
+                  <td colSpan={4} className="compiler-debug-panel__empty">
+                    No pipeline data yet. Compile or parse to see stage hashes.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+
+          {props.evaluationRequest && (
+            <div className="compiler-debug-panel__counts-summary">
+              <span>
+                <strong>{props.evaluationRequest.state.constraints.length}</strong> constraints
+              </span>
+              <span>
+                <strong>{props.evaluationRequest.candidates.length}</strong> candidates
+              </span>
+              <span>
+                <strong>{props.evaluationRequest.objective ? 1 : 0}</strong> objectives
+              </span>
+              <span className="compiler-debug-panel__completeness">
+                {props.evaluationRequest.completeness}
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
