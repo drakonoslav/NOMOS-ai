@@ -1,0 +1,216 @@
+Inject prediction into tone output
+
+This is the final step that makes NOMOS feel forward-aware, not just reactive.
+
+You now integrate:
+	•	past (audit)
+	•	present (verification)
+	•	future (prediction)
+
+into a single, controlled voice
+
+⸻
+
+🧠 What we’re doing
+
+We will:
+	1.	Add prediction into ToneResolverInput
+	2.	Insert prediction into output only when appropriate
+	3.	Enforce style guide (no speculation tone, no fluff)
+	4.	Keep placement consistent and restrained
+
+⸻
+
+🧱 1. Extend ToneResolverInput
+
+📁 tone_resolver.ts
+
+Add:
+
+prediction?: {
+  nextFailure: string;
+  confidence: "low" | "moderate" | "high";
+  driver: string;
+};
+
+
+⸻
+
+🧠 2. Add prediction line builder
+
+function predictionLine(input: ToneResolverInput): string | undefined {
+  if (!input.prediction) return;
+
+  const { nextFailure, confidence } = input.prediction;
+
+  if (!nextFailure || confidence === "low") return;
+
+  const clean = sanitizePhrase(nextFailure);
+
+  return `Given current drift, ${clean} is next.`;
+}
+
+
+⸻
+
+🧠 3. Placement rules (VERY IMPORTANT)
+
+Prediction must appear:
+
+after decisive variable, before adjustments
+
+⸻
+
+A. DEGRADED (primary use case)
+
+Update:
+
+body: compactBody([
+  "Feasibility holds.",
+  decisiveVariableLine(input, "The decisive factor is"),
+  predictionLine(input),
+  degradedCauseLine(input),
+  marginLine(input, false),
+  ...
+])
+
+
+⸻
+
+B. LAWFUL (only if drift exists)
+
+body: compactBody([
+  "All constraints satisfied.",
+  decisiveVariableLine(input, "Outcome is governed by"),
+  predictionLine(input),
+  marginLine(input, true),
+  ...
+])
+
+
+⸻
+
+C. INVALID (optional, minimal)
+
+body: compactBody([
+  invalidReason,
+  decisiveVariableLine(input, "Failure is governed by"),
+  predictionLine(input),
+])
+
+
+⸻
+
+🧠 4. Wire prediction from runtime
+
+📁 evaluate_nomos.ts
+
+Import:
+
+import { predictNextFailure } from "../audit/failure_prediction";
+import { extractRunSummaries } from "../audit/audit_timeseries";
+
+
+⸻
+
+Inject before return:
+
+const summaries = extractRunSummaries(audit.getEntries());
+const prediction = predictNextFailure(summaries);
+
+
+⸻
+
+Add to toneInput:
+
+prediction: prediction ?? undefined,
+
+
+⸻
+
+🔥 Resulting outputs
+
+⸻
+
+DEGRADED (ideal case)
+
+DEGRADED
+
+Feasibility holds.
+The decisive factor is robustness margin.
+Given current drift, feasibility constraint is next.
+Constraint margin reduced: resource availability.
+
+
+⸻
+
+LAWFUL (early warning)
+
+LAWFUL
+
+All constraints satisfied.
+Outcome is governed by robustness margin.
+Given current drift, robustness margin is next.
+
+
+⸻
+
+INVALID (post-collapse context)
+
+INVALID
+
+Feasibility violation detected.
+Failure is governed by feasibility constraint.
+Given current drift, system already infeasible is next.
+
+
+⸻
+
+🧠 Guardrails (important)
+
+Prediction must:
+
+✔ be derived from time series only
+✔ not invent new variables
+✔ not override verification
+✔ not soften refusal
+✔ not introduce conversational tone
+
+⸻
+
+🧠 Why this matters
+
+Without prediction:
+
+NOMOS explains decisions
+
+With prediction:
+
+NOMOS anticipates constraint collapse
+
+⸻
+
+🧠 Final insight
+
+This is the moment NOMOS becomes:
+
+a system that enforces reality and forecasts its boundaries
+
+It no longer just says:
+	•	“this is allowed”
+
+It also says:
+	•	“this will soon not be allowed”
+
+⸻
+
+If you want next
+
+👉 add confidence calibration layer
+
+So NOMOS can say:
+
+“Prediction confidence degraded due to insufficient historical depth.”
+
+Just say:
+“Add prediction confidence calibration”

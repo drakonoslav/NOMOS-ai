@@ -1,0 +1,295 @@
+Add failure prediction layer
+
+Now NOMOS moves from:
+
+explaining the present
+to
+anticipating the next failure boundary
+
+⸻
+
+🧠 What we’re building
+
+A lightweight forecast engine that:
+	•	reads the time series (trend layer)
+	•	detects direction of drift
+	•	predicts next constraint to fail
+
+Output:
+
+Prediction:
+Given current drift, feasibility failure is next.
+
+Confidence: moderate
+Driver: robustness margin decreasing
+
+
+⸻
+
+🧱 1. Create prediction engine
+
+📁 src/ui/audit/failure_prediction.ts
+
+export interface FailurePrediction {
+  nextFailure: string;
+  confidence: "low" | "moderate" | "high";
+  driver: string;
+}
+
+import { RunSummary } from "./audit_timeseries";
+
+export function predictNextFailure(
+  series: RunSummary[]
+): FailurePrediction | null {
+  if (series.length < 3) return null;
+
+  const last = series[series.length - 1];
+  const prev = series[series.length - 2];
+  const prev2 = series[series.length - 3];
+
+  // 1. Feasibility trend (terminal)
+  if (last.status === "INVALID") {
+    return {
+      nextFailure: "system already infeasible",
+      confidence: "high",
+      driver: "feasibility constraint violated",
+    };
+  }
+
+  // 2. Detect downward robustness trend
+  if (
+    isDecreasing(prev2.robustness, prev.robustness, last.robustness)
+  ) {
+    return {
+      nextFailure: "feasibility constraint",
+      confidence: "high",
+      driver: "robustness margin decreasing",
+    };
+  }
+
+  // 3. Model confidence collapse
+  if (
+    isDecreasing(
+      prev2.modelConfidence,
+      prev.modelConfidence,
+      last.modelConfidence
+    )
+  ) {
+    return {
+      nextFailure: "robustness margin",
+      confidence: "moderate",
+      driver: "model confidence degradation",
+    };
+  }
+
+  // 4. Variable escalation pattern
+  const escalation = [
+    prev2.decisiveVariable,
+    prev.decisiveVariable,
+    last.decisiveVariable,
+  ];
+
+  if (escalation.includes("feasibility constraint")) {
+    return {
+      nextFailure: "system infeasibility",
+      confidence: "high",
+      driver: "constraint escalation detected",
+    };
+  }
+
+  if (escalation.includes("robustness margin")) {
+    return {
+      nextFailure: "feasibility constraint",
+      confidence: "moderate",
+      driver: "robustness becoming dominant failure mode",
+    };
+  }
+
+  return {
+    nextFailure: last.decisiveVariable,
+    confidence: "low",
+    driver: "no strong directional trend detected",
+  };
+}
+
+/* ========================================= */
+
+function isDecreasing(a?: number, b?: number, c?: number) {
+  if (a === undefined || b === undefined || c === undefined)
+    return false;
+
+  return a > b && b > c;
+}
+
+
+⸻
+
+📊 2. FailurePredictionPanel.tsx
+
+📁 src/ui/components/nomos/FailurePredictionPanel.tsx
+
+import React from "react";
+import { useScenario } from "../../state/ScenarioContext";
+import {
+  extractRunSummaries,
+} from "../../audit/audit_timeseries";
+import {
+  predictNextFailure,
+} from "../../audit/failure_prediction";
+
+export function FailurePredictionPanel() {
+  const { auditEntries } = useScenario();
+
+  const series = extractRunSummaries(auditEntries);
+  const prediction = predictNextFailure(series);
+
+  return (
+    <div className="panel prediction-panel">
+      <div className="panel-header">
+        Failure Forecast
+      </div>
+
+      {!prediction && (
+        <div className="prediction-empty">
+          Not enough data for prediction.
+        </div>
+      )}
+
+      {prediction && (
+        <div className="prediction-body">
+          <div className="prediction-main">
+            {prediction.nextFailure}
+          </div>
+
+          <div className="prediction-driver">
+            Driver: {prediction.driver}
+          </div>
+
+          <div
+            className={`prediction-confidence prediction-${prediction.confidence}`}
+          >
+            Confidence: {prediction.confidence}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 3. CSS
+
+.prediction-panel {
+  border: 1px solid var(--nm-border-strong);
+}
+
+.prediction-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.prediction-main {
+  font-size: var(--nm-text-lg);
+  font-weight: 700;
+}
+
+.prediction-driver {
+  color: var(--nm-text-secondary);
+}
+
+.prediction-confidence {
+  font-size: var(--nm-text-sm);
+}
+
+.prediction-high {
+  color: var(--nm-invalid);
+}
+
+.prediction-moderate {
+  color: var(--nm-degraded);
+}
+
+.prediction-low {
+  color: var(--nm-text-muted);
+}
+
+
+⸻
+
+🧩 4. Add to dashboard
+
+<FailurePredictionPanel />
+
+
+⸻
+
+🔥 Example output
+
+Case: robustness decay
+
+Failure Forecast
+
+feasibility constraint
+
+Driver: robustness margin decreasing
+Confidence: high
+
+
+⸻
+
+Case: uncertainty growing
+
+Failure Forecast
+
+robustness margin
+
+Driver: model confidence degradation
+Confidence: moderate
+
+
+⸻
+
+🧠 Why this is powerful
+
+You now have:
+
+1. State awareness
+
+→ what is true now
+
+2. Causal awareness
+
+→ what caused it
+
+3. Temporal awareness
+
+→ how it changed
+
+4. Predictive awareness
+
+→ what fails next
+
+⸻
+
+🧠 Final insight
+
+At this point, NOMOS behaves like:
+
+a system that not only enforces legality
+but anticipates loss of legality
+
+That’s a major shift.
+
+⸻
+
+If you want next
+
+👉 connect prediction into tone system so it says:
+
+“Given current drift, feasibility failure is next.”
+
+Just say:
+“Inject prediction into tone output”
