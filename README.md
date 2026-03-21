@@ -1,5 +1,30 @@
 # NOMOS — Constitutional AI Reasoning Ecosystem
 
+> **For new reviewers: start here.**
+>
+> | | |
+> |---|---|
+> | **Canonical frontend** | `artifacts/nomos-dashboard` — React + Vite UI (port 24280) |
+> | **Canonical backend** | `artifacts/api-server` — Express API (port 8080, routes at `/api/*`) |
+> | **Shared kernel** | `packages/constitutional-kernel` — library only, bundled into api-server |
+> | **NOT the main app** | `artifacts/mockup-sandbox` — demo sandbox, not started by default |
+> | **NOT source code** | `attached_assets/` — development context files, archival only |
+>
+> **How to run:**
+> ```bash
+> pnpm install
+> pnpm run dev   # starts dashboard + api-server in parallel
+> ```
+>
+> **Key inspection docs:**
+> - [CANONICAL_BUILD_MAP.md](CANONICAL_BUILD_MAP.md) — role classification of every folder
+> - [DEPENDENCY_RULES.md](DEPENDENCY_RULES.md) — allowed import directions
+> - [docs/generated/runtime-diagram.md](docs/generated/runtime-diagram.md) — live runtime flow
+> - [docs/generated/runtime-mermaid.md](docs/generated/runtime-mermaid.md) — Mermaid diagrams
+> - [docs/generated/repo-topology.md](docs/generated/repo-topology.md) — runtime vs build vs docs vs archival
+
+---
+
 NOMOS is a deterministic, constraint-based reasoning engine built in TypeScript.
 It converts unstructured user input into constrained, evaluable declarations and enforces four constitutional laws before any evaluation is permitted.
 

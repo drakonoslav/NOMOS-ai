@@ -1,0 +1,307 @@
+This is very strong source material. It has seriousness, doctrine, and a real thesis.
+
+My main judgment: keep most of the conceptual core, but rewrite the README so it leads with canonical runtime clarity before philosophical depth.
+
+Right now your old README does an excellent job explaining what NOMOS means, but for a new engineer or inspector, it still risks one question:
+
+“What exactly do I run, and which part is canonical?”
+
+That is the missing first screen.
+
+What is already excellent
+
+These parts are worth preserving almost verbatim:
+	•	“Constitutional AI Reasoning Ecosystem” as the framing
+	•	the What NOMOS Is / What NOMOS Is Not distinction
+	•	the Four Constitutional Laws
+	•	the End-to-End Pipeline
+	•	the inspection-oriented tone
+	•	the emphasis on:
+	•	deterministic evaluation
+	•	immutable audit chain
+	•	advisory governance
+	•	role-aware cockpit
+	•	session worklog / replay
+
+That material gives the repo identity.
+
+What should change
+
+The README now needs to serve two jobs:
+	1.	explain the system
+	2.	remove any ambiguity about runtime ownership
+
+So the new version should begin with:
+	•	what the canonical app is
+	•	what folder is the frontend
+	•	what folder is the backend
+	•	what package is shared library only
+	•	what is non-canonical / demo-only
+
+Only after that should it go into the philosophy and pipeline.
+
+Best structural rewrite
+
+I would reorder it like this:
+	1.	Title + one-sentence definition
+	2.	Canonical runtime
+	3.	Quick start
+	4.	Repo map
+	5.	What NOMOS is
+	6.	Four constitutional laws
+	7.	End-to-end pipeline
+	8.	Major subsystems
+	9.	How to inspect
+	10.	What NOMOS is not
+
+That way a reviewer gets practical orientation first, then conceptual depth.
+
+The most important addition
+
+You need a section near the top like this:
+
+## Canonical Runtime
+
+NOMOS has one canonical runtime path:
+
+- Frontend: `artifacts/nomos-dashboard`
+- Backend: `artifacts/api-server`
+- Shared reasoning library: `packages/constitutional-kernel`
+
+Non-canonical:
+- `artifacts/mockup-sandbox` — demo-only / non-production
+- `attached_assets/` — support and archival materials, not source-of-truth runtime code
+
+The root workspace exists to coordinate the dashboard and API server. The root must not boot directly into the kernel package.
+
+That one section would solve a lot.
+
+Your old README’s biggest weakness
+
+It still uses older path assumptions like:
+	•	src/compiler/
+	•	src/audit/
+	•	src/worklog/
+
+But now the project is workspace-based, so those should probably be rewritten as:
+	•	artifacts/nomos-dashboard/src/compiler/
+	•	artifacts/nomos-dashboard/src/audit/
+	•	artifacts/nomos-dashboard/src/worklog/
+
+Otherwise the README can accidentally describe an older mental model.
+
+My recommendation
+
+Have Replit use your old README as the conceptual core, but rewrite it into a new root README that is more inspectable.
+
+Here is the kind of revised version I would use.
+
+⸻
+
+NOMOS — Constitutional AI Reasoning Ecosystem
+
+NOMOS is a deterministic, constraint-based reasoning ecosystem built in TypeScript. It transforms unstructured input into constrained, evaluable declarations and enforces constitutional laws before evaluation is permitted.
+
+It is not a chatbot and not a freeform planner. It is a structured reasoning system with immutable audit history, explicit governance boundaries, and traceable decision support.
+
+Canonical Runtime
+
+NOMOS has one canonical runtime path:
+	•	Frontend: artifacts/nomos-dashboard
+	•	Backend: artifacts/api-server
+	•	Shared reasoning library: packages/constitutional-kernel
+
+Non-canonical or non-runtime folders:
+	•	Demo-only: artifacts/mockup-sandbox
+	•	Support / archival materials: attached_assets/
+
+The workspace root coordinates the dashboard and API server. The root must not boot directly into the kernel package.
+
+Quick Start
+
+pnpm install
+pnpm run dev
+
+Expected result:
+	•	the dashboard opens as the main app
+	•	the API server responds under /api/*
+	•	the kernel is executed by the API server, not as a root app
+
+Production Runtime Path
+
+The authoritative runtime path is:
+
+User
+  -> nomos-dashboard
+  -> api-server
+  -> constitutional-kernel
+
+Core routes:
+	•	/api/healthz
+	•	/api/nomos/state
+	•	/api/nomos/query/parse
+	•	/api/nomos/query/evaluate
+
+Repo Map
+	•	artifacts/nomos-dashboard — canonical UI and cockpit runtime
+	•	artifacts/api-server — canonical backend runtime
+	•	packages/constitutional-kernel — shared deterministic reasoning library
+	•	artifacts/mockup-sandbox — non-canonical demo surface
+	•	scripts/ — workspace and maintenance scripts
+	•	docs/ — inspection and architecture documentation
+	•	attached_assets/ — support or archival assets, not core runtime source-of-truth
+
+See also:
+	•	CANONICAL_BUILD_MAP.md
+	•	DEPENDENCY_RULES.md
+	•	docs/generated/runtime-diagram.md
+
+What NOMOS Is
+
+NOMOS is a Constitutional AI Kernel and reasoning ecosystem that:
+	•	extracts structured facts from raw input
+	•	detects gaps between what is declared and what is required
+	•	supports field-level repair of incomplete declarations
+	•	serializes confirmed drafts into canonical stable artifacts
+	•	evaluates only confirmed complete declarations against typed constraints
+	•	persists immutable audit history for every confirmed decision
+	•	tracks decisive variable trends and failure predictions
+	•	produces policy recommendations and governance support summaries
+	•	computes ecosystem health with formula-level traceability
+	•	presents the system through a role-aware cockpit and guided workflows
+	•	records session worklog and replay as deterministic operational trace
+
+Four Constitutional Laws
+
+Law	Invariant
+I	NOMOS never evaluates raw input
+II	Only a confirmed canonicalDeclaration may be submitted for evaluation
+III	Governance is advisory until explicit human action
+IV	Historical records, frozen policy snapshots, and audit records are immutable
+
+End-to-End Pipeline
+
+Raw Input (natural language)
+    │
+    ▼ Intent detection → domain template selection
+    ▼ Field extraction → ExtractedFields
+    ▼ Gap detection → missingRequired / isEvaluable
+    ▼ Structured draft assembly → StructuredDraft
+    ▼ User-confirmed field patching
+    ▼ Canonical declaration serialization → canonicalDeclaration (frozen)
+    ▼ Constraint evaluation → EvaluationReport + ConstraintTrace
+    ▼ Audit record persistence → AuditRecord (immutable, version-linked)
+    ▼ Decisive variable trend tracking → DecisiveVariableTrendReport
+    ▼ Failure prediction → calibration → bounded adjustment
+    ▼ Policy bench → recommendation → regime comparison
+    ▼ Governance decision support → deliberation summary
+    ▼ Human governance action (promote / rollback / hold)
+    ▼ Governance audit record (immutable)
+    ▼ Outcome review → learning summary → playbook extraction
+    ▼ Decision → outcome linkage
+    ▼ Ecosystem loop summary
+    ▼ Ecosystem health index + traceability
+    ▼ Ecosystem cockpit snapshot
+    ▼ Role-aware cockpit UI
+    ▼ Session worklog
+    ▼ Session replay / narrative reconstruction
+
+Major Subsystems
+
+Subsystem	Location	Responsibility
+Dashboard UI	artifacts/nomos-dashboard/src/ui/	cockpit, role views, workflows, page composition
+Compiler	artifacts/nomos-dashboard/src/compiler/	raw input to structured canonical declaration flow
+Audit layer	artifacts/nomos-dashboard/src/audit/	evaluation, audit, governance, prediction, health
+Worklog / replay	artifacts/nomos-dashboard/src/worklog/	session trace and reconstruction
+API server	artifacts/api-server	runtime backend and /api/* surface
+Kernel	packages/constitutional-kernel	deterministic reasoning library used by backend
+
+Health Index
+
+NOMOS computes a deterministic four-component health index:
+
+Component	Weight	Summary
+Stability	35%	failure rate + streak modifiers
+Calibration quality	25%	exact/directional match scoring with penalties
+Governance effectiveness	25%	met and partial-rate based scoring
+Policy churn	15%	bounded churn score with drift modifier
+
+Bands:
+	•	poor: 0–24
+	•	fragile: 25–49
+	•	stable: 50–74
+	•	strong: 75–100
+
+How to Inspect
+
+Start here:
+	1.	REVIEW_GUIDE.md
+	2.	CANONICAL_BUILD_MAP.md
+	3.	ARCHITECTURE.md
+	4.	MODULE_MAP.md
+	5.	DEPENDENCY_RULES.md
+	6.	SYSTEM_RULES.md
+	7.	TYPES_INDEX.md
+	8.	docs/generated/runtime-diagram.md
+
+If you only have 15 minutes, use the inspection path in REVIEW_GUIDE.md.
+
+Tests
+
+pnpm --filter @workspace/nomos-dashboard run test
+
+The test suite is deterministic and intended to validate structured reasoning behavior rather than freeform generation.
+
+What NOMOS Is Not
+	•	not a chatbot or language model
+	•	not an auto-promotion engine
+	•	not a self-modifying runtime
+	•	not a black box
+	•	not a wizard that executes governance automatically
+
+Guided workflows are navigation and inspection aids, not autonomous action.
+
+⸻
+
+Bottom line
+
+Your old README is good enough to preserve, but it should now become the middle and lower half of the new README, not the opening.
+
+The opening must now be about:
+	•	canonical runtime
+	•	workspace truth
+	•	what to run
+	•	what is non-canonical
+
+That is what makes the repo inspectable.
+
+Paste this note to Replit if you want it to use your old README correctly:
+
+Use my previous README as conceptual source material, but rewrite the root README for inspectability-first structure.
+
+Preserve:
+- the NOMOS definition
+- Four Constitutional Laws
+- End-to-End Pipeline
+- What NOMOS Is / What NOMOS Is Not
+- subsystem descriptions
+
+But move these below new top sections:
+1) Canonical Runtime
+2) Quick Start
+3) Production Runtime Path
+4) Repo Map
+
+Update all paths to current workspace reality:
+- artifacts/nomos-dashboard
+- artifacts/api-server
+- packages/constitutional-kernel
+
+Make the README impossible to misread:
+- nomos-dashboard = canonical frontend
+- api-server = canonical backend
+- constitutional-kernel = shared library only
+- mockup-sandbox = demo-only
+- attached_assets = support/archive, not source-of-truth runtime
+
+And I can also turn your pasted README into a final polished root README.md ready to drop in.

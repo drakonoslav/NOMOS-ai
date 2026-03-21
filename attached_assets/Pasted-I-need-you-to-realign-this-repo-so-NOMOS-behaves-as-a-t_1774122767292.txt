@@ -1,0 +1,268 @@
+I need you to realign this repo so NOMOS behaves as a true data-logic machine, not a logic-themed app shell.
+
+Core intent:
+NOMOS is supposed to be a deterministic, typed, constitutional reasoning machine.
+The kernel should be the machine.
+The API server should be the only execution gateway into that machine.
+The dashboard should be a UI and inspection surface, not a second partial engine.
+
+Right now the repo appears split between:
+1) a real logic core in packages/constitutional-kernel
+2) mirrored or duplicated logic in artifacts/nomos-dashboard
+
+That split is the main architectural problem.
+Fix the repo so the zipper closes cleanly around one source of truth.
+
+==================================================
+PRIMARY ARCHITECTURAL RULES
+==================================================
+
+1) SINGLE SOURCE OF TRUTH
+All evaluative truth must live in:
+- packages/constitutional-kernel
+
+That includes:
+- parsing outputs after normalization
+- candidate evaluation logic
+- constraint logic
+- scoring logic
+- nutrition/domain rule logic
+- canonical declaration semantics
+- constitutional gating semantics
+
+The dashboard must not carry mirrored business logic that can drift.
+
+2) SOLE EXECUTION GATEWAY
+Only this package may execute the kernel:
+- artifacts/api-server
+
+The root workspace must not boot the kernel directly.
+The dashboard must not directly execute or simulate kernel truth.
+
+3) UI IS PRESENTATION, NOT TRUTH
+The dashboard may:
+- render results
+- format records
+- display traces
+- provide role-aware views
+- collect user inputs
+- request parse/evaluate/state endpoints
+
+The dashboard must not:
+- reimplement kernel rules
+- maintain hand-synced mirrored normalization tables
+- maintain duplicate evaluation semantics
+- build alternate truth pipelines in parallel to the kernel
+
+4) PERSISTENCE MUST MATCH CLAIMS
+Any feature described as:
+- immutable audit
+- governance history
+- worklog persistence
+- replay
+- traceability
+must either:
+A) persist durably through a real persistence layer
+or
+B) be explicitly labeled demo/in-memory/non-durable
+
+Do not leave ambiguous language in docs or code comments.
+
+5) LLM IS ADAPTER, NOT MACHINE TRUTH
+If LLM-assisted parsing or proposing exists, treat it as adapter logic only.
+That means:
+- LLM may extract/suggest/propose
+- deterministic kernel types must still normalize and validate final machine state
+- final truth must come from typed deterministic kernel pathways
+
+==================================================
+WHAT I NEED YOU TO DO
+==================================================
+
+PART 1 — AUDIT THE SPLIT-BRAIN LOGIC
+
+Inspect the repo for places where dashboard code mirrors kernel logic.
+Look especially for:
+- comments saying logic “mirrors” kernel/core
+- hand-maintained duplicate types
+- duplicate normalization tables
+- duplicate scoring rules
+- duplicate compiler/evaluator semantics
+- domain logic duplicated for UI convenience
+
+Create a file:
+ /MACHINE_ALIGNMENT_REPORT.md
+
+In it, list:
+- every duplicated logic area you find
+- kernel source file
+- dashboard duplicate file
+- whether the dashboard code is:
+  - presentation-only
+  - contract/type duplication
+  - actual business-logic duplication
+  - unsafe drift risk
+
+Also provide:
+- recommended action for each item:
+  - delete
+  - move to kernel
+  - convert to shared contract
+  - keep as presentation adapter only
+
+==================================================
+PART 2 — ENFORCE KERNEL OWNERSHIP
+
+Refactor so that packages/constitutional-kernel is the unquestioned source of truth.
+
+Requirements:
+- move duplicated business logic out of dashboard where safe
+- if dashboard needs types/contracts, expose them from shared packages instead of hand-copying
+- if shared contract types are needed, create a clean shared contract layer rather than keeping manual mirrors in UI
+- do not break runtime behavior
+
+Target result:
+- dashboard asks API
+- API invokes kernel
+- kernel returns typed results
+- dashboard renders them
+
+==================================================
+PART 3 — API SERVER AS THE ONLY GATEWAY
+
+Refactor runtime ownership so:
+- artifacts/api-server is the only place that runs kernel execution flows
+- root package.json does not run nomos-core or kernel directly
+- no dashboard runtime path directly imports kernel execution code in a way that bypasses API
+
+If the root scripts still boot the kernel directly, fix that.
+The canonical runtime must be:
+
+User
+ -> nomos-dashboard
+ -> api-server
+ -> constitutional-kernel
+
+==================================================
+PART 4 — CONTRACT / TYPE HYGIENE
+
+Where the dashboard currently carries mirrored types or eval structures:
+- replace hand-synced copies with shared exports if possible
+- if direct sharing is too messy, create a dedicated shared contract package or shared types module
+- prefer generated or imported contracts over manual sync
+
+Goal:
+No important semantic type should need to be manually kept in sync in two places.
+
+==================================================
+PART 5 — PERSISTENCE HONESTY PASS
+
+Inspect claims around:
+- immutable audit
+- governance audit trail
+- worklog
+- replay
+- traceability
+- health history
+- historical records
+
+Then determine whether these are actually durable in current runtime.
+
+Create or update:
+ /PERSISTENCE_TRUTH_TABLE.md
+
+For each subsystem, label it as one of:
+- DURABLE
+- IN_MEMORY_ONLY
+- DERIVED_AT_RUNTIME
+- STUB / NOT FULLY WIRED
+
+If a feature is currently in-memory only, update local README/docs language to make that explicit unless you can wire it to a real persistence layer safely.
+
+Do not falsely present in-memory demo behavior as durable machine infrastructure.
+
+==================================================
+PART 6 — LLM BOUNDARY CLEANUP
+
+Inspect any LLM/OpenAI related code in or around the kernel.
+
+Refactor and document the boundary so it is clear that:
+- LLM modules are proposal/extraction adapters
+- deterministic normalization and evaluation remain the final machine truth
+- no final machine verdict depends on raw unvalidated LLM output alone
+
+If needed, add a short doc:
+ /LLM_BOUNDARY.md
+
+This document should state:
+- where LLM is allowed
+- where LLM is forbidden
+- how LLM outputs are normalized before machine use
+
+==================================================
+PART 7 — REPO/DOC ALIGNMENT
+
+Update the root README and relevant package READMEs so they accurately describe the machine architecture.
+
+They must clearly state:
+- constitutional-kernel = machine core / source of truth
+- api-server = sole execution gateway
+- nomos-dashboard = UI / presentation / inspection surface
+- mockup-sandbox = demo-only if still present
+- attached_assets = support/archive, not source-of-truth logic
+
+Do not describe the dashboard as if it itself is the logic engine.
+
+==================================================
+PART 8 — KEEP THE APP WORKING
+
+Important:
+Do not do a theoretical rewrite.
+Preserve working behavior.
+This is a machine-alignment pass, not a product reinvention.
+
+That means:
+- keep existing API routes working
+- keep the dashboard working
+- keep the workspace runnable
+- make the minimum structural moves needed to eliminate ambiguity and drift
+
+==================================================
+DELIVERABLES REQUIRED
+==================================================
+
+When done, provide:
+
+1) MACHINE_ALIGNMENT_REPORT.md
+- duplicated logic found
+- drift risks
+- exact fixes applied
+- exact fixes deferred
+
+2) PERSISTENCE_TRUTH_TABLE.md
+- which features are durable vs in-memory
+
+3) updated README/docs
+- architecture described truthfully
+
+4) concise summary of code changes
+Include:
+- files moved
+- files deleted
+- files converted to shared contracts
+- files left in place for compatibility
+- any remaining split-brain areas that still need a later pass
+
+==================================================
+SUCCESS CRITERIA
+==================================================
+
+Success means:
+- one clear machine core
+- one execution gateway
+- zero ambiguous mirrored truth paths
+- honest persistence claims
+- dashboard acts as UI, not shadow engine
+- repo becomes inspectable as a real data-logic machine
+
+If something cannot be safely changed without breaking the app, keep compatibility but explicitly document the remaining gap instead of hiding it.

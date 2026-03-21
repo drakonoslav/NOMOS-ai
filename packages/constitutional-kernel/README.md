@@ -1,3 +1,17 @@
+# `packages/constitutional-kernel` — Constitutional Kernel
+
+## Role: `SHARED_LIBRARY`
+## Canonical: YES
+## Runtime-critical: YES (bundled into api-server)
+## Deployable: NO — this is a library, not a standalone entrypoint
+## Direct root entrypoint: NO — execute only through `artifacts/api-server`
+
+## Allowed to depend on: nothing in this repo (self-contained)
+## May be imported by: `artifacts/api-server` only
+## Must NOT be imported by: `artifacts/nomos-dashboard`, `artifacts/mockup-sandbox`
+
+---
+
 # NOMOS
 
 **A constitutional system governing lawful action under reality.**
