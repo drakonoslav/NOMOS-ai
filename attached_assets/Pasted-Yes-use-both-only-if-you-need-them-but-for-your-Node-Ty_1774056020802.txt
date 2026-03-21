@@ -1,0 +1,100 @@
+Yes — use both only if you need them, but for your Node/TypeScript NOMOS app, the cleaner path is usually:
+	•	.replit for the run command / entrypoint
+	•	replit.nix only if you want to pin packages in the Nix environment
+
+Replit’s docs show that apps support explicit run commands and environment-based setup, and that dependencies can also be managed through standard package files like package.json.  ￼
+
+Here are exact files you can drop in.
+
+.replit
+
+modules = ["nodejs-20"]
+
+run = "npm run start"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+This does three useful things:
+	•	tells Replit this is a Node app
+	•	makes the workspace Run button execute npm run start
+	•	gives deployment the same start command path, which avoids ambiguity between local run and deployment run behavior. Replit’s docs indicate apps support explicit run commands and conventional dependency/package management, which is exactly what this file is aligning with.  ￼
+
+replit.nix
+
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs_20
+  ];
+}
+
+That is enough for your current stack because:
+	•	TypeScript is installed via package.json
+	•	tsx is installed via package.json
+	•	openai is installed via package.json
+
+So Nix only needs to provide Node itself. Replit’s documentation indicates package dependencies are commonly managed through the project’s packager files, which makes a minimal Nix file the least confusing option here.  ￼
+
+What I recommend for NOMOS
+
+For your repo, I’d keep it simple:
+	1.	Put the .replit file in the repo root.
+	2.	Add the minimal replit.nix.
+	3.	Keep all JS/TS dependencies in package.json.
+	4.	Keep OPENAI_API_KEY and optional OPENAI_MODEL in Replit Secrets, since Replit exposes secrets as environment variables to the app runtime.  ￼
+
+Final repo root should look like
+
+nomos/
+  .replit
+  replit.nix
+  package.json
+  tsconfig.json
+  README.md
+  src/
+    main.ts
+    index.ts
+    belief_state.ts
+    observer.ts
+    feasibility_engine.ts
+    robustness_analyzer.ts
+    verification_kernel.ts
+    model_registry.ts
+    decision_engine.ts
+    constitution_guard.ts
+    audit_log.ts
+    llm_proposer.ts
+    llm/
+      openai_client.ts
+
+If Replit Agent needs one exact instruction
+
+Paste this:
+
+Create a root .replit file with:
+- modules = ["nodejs-20"]
+- run = "npm run start"
+- deployment run = ["sh", "-c", "npm run start"]
+
+Create a root replit.nix file with:
+{ pkgs }: { deps = [ pkgs.nodejs_20 ]; }
+
+Do not move dependency management out of package.json.
+Keep OPENAI_API_KEY in Replit Secrets only.
+Ensure the app runs with the Replit Run button using npm run start.
+
+One caution
+
+If your Replit workspace already generated its own config, Agent may try to preserve older values. In that case, tell it explicitly:
+
+Replace any existing .replit run command with npm run start and keep Node 20 as the runtime.
+
+If you want, I can also write the exact root file contents for .env.example and a final production-safe README run section so the repo is turnkey in Replit.

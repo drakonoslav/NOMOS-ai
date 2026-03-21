@@ -1,0 +1,193 @@
+Yes — below are the exact root file contents.
+
+⸻
+
+.env.example
+
+# NOMOS environment template
+# Copy this to .env for local development only.
+# In Replit, do NOT commit real secrets here.
+# Put real values in Replit Secrets.
+
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Optional: override the default model used by src/llm/openai_client.ts
+OPENAI_MODEL=gpt-5.4
+
+# Optional: set Node environment explicitly
+NODE_ENV=development
+
+
+⸻
+
+Final production-safe README.md run section
+
+Drop this into your README under a section like ## Run, ## Replit Setup, or ## Deployment.
+
+## Run
+
+NOMOS is designed so that:
+- the model may propose
+- the kernel may verify
+- only the lawful may act
+
+The runtime chain is:
+
+```text
+belief
+  → observer
+  → model
+  → llm_proposer
+  → decision_engine
+  → verification_kernel
+  → constitution_guard
+  → audit_log
+
+Local Development
+
+1. Install dependencies
+
+npm install
+
+2. Configure environment
+Copy the template:
+
+cp .env.example .env
+
+Then set:
+	•	OPENAI_API_KEY
+	•	optionally OPENAI_MODEL
+
+3. Typecheck
+
+npm run check
+
+4. Run
+
+npm run start
+
+Replit Setup
+
+1. Add Secrets
+In Replit, open Secrets and add:
+	•	OPENAI_API_KEY
+	•	optionally OPENAI_MODEL
+
+Do not place real secrets in source files or commit them to the repository.
+
+2. Install dependencies
+Replit usually installs from package.json, but if needed run:
+
+npm install
+
+3. Run the app
+Use the Replit Run button or execute:
+
+npm run start
+
+Required Root Files
+
+The repo should contain these root files for turnkey Replit execution:
+
+.replit
+replit.nix
+package.json
+tsconfig.json
+.env.example
+README.md
+
+Expected Replit Configuration
+
+.replit
+
+modules = ["nodejs-20"]
+
+run = "npm run start"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+replit.nix
+
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs_20
+  ];
+}
+
+Production Safety Notes
+	•	Keep OPENAI_API_KEY in Replit Secrets only.
+	•	Do not expose OpenAI calls in browser/client code.
+	•	Keep model calls server-side in src/llm/openai_client.ts.
+	•	Keep the model in proposer-only role.
+	•	Do not bypass:
+	•	decision_engine
+	•	verification_kernel
+	•	constitution_guard
+
+Runtime Authority Rule
+
+The OpenAI model may generate proposals, but proposals are never self-authorizing.
+
+Every proposal is provisional until it passes:
+	•	feasibility screening
+	•	robustness screening
+	•	verification
+	•	constitutional authorization
+
+Common Commands
+
+npm run start
+npm run check
+npm run build
+npm run dev
+
+Troubleshooting
+
+Missing API key
+If startup fails with a missing API key error:
+	•	confirm OPENAI_API_KEY is set in Replit Secrets
+	•	or confirm .env exists locally and contains the key
+
+Model call fails
+If the OpenAI request fails:
+	•	NOMOS should fall back to deterministic proposals when enabled
+	•	the system should continue through the lawful screening pipeline
+
+TypeScript import issues
+Make sure:
+	•	package.json includes "type": "module"
+	•	tsconfig.json uses module: "NodeNext" and moduleResolution: "NodeNext"
+
+Minimal Startup Check
+
+A healthy startup path should look like:
+	1.	belief initialized
+	2.	observer updates belief from measurement
+	3.	model confidence scored
+	4.	llm_proposer generates proposals
+	5.	decision engine screens candidates
+	6.	verification kernel sets status
+	7.	constitution guard applies, degrades, or refuses
+	8.	audit log records the outcome
+
+---
+
+## Optional `.gitignore` addition
+
+You didn’t ask for it, but this belongs at the root too:
+
+```gitignore
+node_modules
+dist
+.env
+
+The next clean step is to write the exact final root README.md as one complete file with all sections merged into a single polished document.

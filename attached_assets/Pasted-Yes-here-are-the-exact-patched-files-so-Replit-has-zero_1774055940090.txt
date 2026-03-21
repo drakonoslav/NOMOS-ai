@@ -1,0 +1,120 @@
+Yes — here are the exact patched files so Replit has zero ambiguity.
+
+package.json
+
+This version is minimal, explicit, and Replit-friendly for a TypeScript Node app using tsx and the official OpenAI SDK.
+
+{
+  "name": "nomos-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NOMOS — a constitutional system governing lawful action under reality.",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "start:ts-node": "node --loader ts-node/esm src/main.ts",
+    "check": "tsc --noEmit",
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts"
+  },
+  "dependencies": {
+    "openai": "^4.56.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.2"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
+
+src/index.ts
+
+This exports the full kernel, including the new proposer and OpenAI wrapper path.
+
+/**
+ * index.ts
+ *
+ * Package barrel for NOMOS.
+ * Only the lawful may act.
+ */
+
+export * from "./belief_state";
+export * from "./observer";
+export * from "./feasibility_engine";
+export * from "./robustness_analyzer";
+export * from "./verification_kernel";
+
+export * from "./model_registry";
+export * from "./decision_engine";
+export * from "./constitution_guard";
+export * from "./audit_log";
+
+export * from "./llm_proposer";
+export * from "./llm/openai_client";
+
+Recommended tsconfig.json
+
+If Replit is still finicky, this is the clean config I’d use with the above package.json:
+
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "noEmitOnError": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+
+Replit setup checklist
+
+In Replit, make sure these are true:
+	1.	Secrets
+	•	OPENAI_API_KEY
+	•	optional: OPENAI_MODEL
+	2.	Run command
+	•	npm run start
+	3.	Install
+	•	run npm install
+	4.	Typecheck
+	•	run npm run check
+
+What to tell Replit Agent
+
+Paste this exactly:
+
+Patch the repo to use this exact package.json and src/index.ts.
+
+Requirements:
+- Keep type: module
+- Use tsx for npm run start
+- Export all NOMOS modules from src/index.ts including:
+  - belief_state
+  - observer
+  - feasibility_engine
+  - robustness_analyzer
+  - verification_kernel
+  - model_registry
+  - decision_engine
+  - constitution_guard
+  - audit_log
+  - llm_proposer
+  - llm/openai_client
+- Do not move authority out of verification_kernel or constitution_guard
+- Keep the LLM as proposer only
+- Ensure npm install, npm run check, and npm run start all work in Replit
+
+If you want, the next clean step is for me to write the exact replit.nix or .replit config too.

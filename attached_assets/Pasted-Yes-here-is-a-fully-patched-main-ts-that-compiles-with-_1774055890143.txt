@@ -1,0 +1,772 @@
+Yes — here is a fully patched main.ts that compiles with the new async llm_proposer path.
+
+It assumes:
+	•	llm_proposer.ts is the async version I just gave you
+	•	openai_client.ts exists at src/llm/openai_client.ts
+	•	your other kernel files are already in place
+
+This version:
+	•	wraps execution in async function main()
+	•	awaits proposer.propose(...)
+	•	preserves the constitutional chain
+	•	keeps deterministic fallback enabled so the demo still runs if the model call fails
+
+⸻
+
+src/main.ts
+
+/**
+ * main.ts
+ *
+ * End-to-end demo for the constitutional kernel with async llm_proposer integration.
+ *
+ * Full chain:
+ *   belief -> observer -> model -> llm_proposer -> decision_engine
+ *          -> verification_kernel -> constitution_guard -> audit_log
+ *
+ * Constitutional principle:
+ *   The LLM may propose.
+ *   It may not certify.
+ *   It may not actuate.
+ *
+ * All proposals remain provisional until screened by:
+ *   - feasibility_engine
+ *   - robustness_analyzer
+ *   - verification_kernel
+ */
+
+import {
+  BeliefState,
+  ParameterBelief,
+  MeasurementSnapshot,
+  BeliefStateManager,
+} from "./belief_state";
+import { Observer, ObserverModel } from "./observer";
+import {
+  ConstraintDefinition,
+  DependencyStamp,
+  FeasibilityInput,
+} from "./feasibility_engine";
+import { VerificationKernel } from "./verification_kernel";
+import {
+  ModelRegistry,
+  RegisteredModel,
+  ModelConfidence,
+} from "./model_registry";
+import {
+  DecisionEngine,
+  CandidatePlan,
+} from "./decision_engine";
+import {
+  decideAuthority,
+  assertMayAct,
+} from "./constitution_guard";
+import {
+  AuditLog,
+  AuditActionOutcome,
+} from "./audit_log";
+import {
+  LLMProposer,
+  MissionContext,
+  LLMProposal,
+} from "./llm_proposer";
+
+function nowMs(): number {
+  return Date.now();
+}
+
+function norm(v: number[]): number {
+  return Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+}
+
+function meanControlValue(controlSequence: number[][]): number {
+  if (controlSequence.length === 0) return 0;
+  const total = controlSequence.reduce((sum, step) => sum + (step[0] ?? 0), 0);
+  return total / controlSequence.length;
+}
+
+/**
+ * One-step nominal roll-out helper for turning provisional LLM control sketches
+ * into CandidatePlan nominal summaries.
+ */
+function simulateNominalPlan(
+  modelRegistry: ModelRegistry,
+  x0: number[],
+  r0: number[],
+  disturbances: number[],
+  controlSequence: number[][],
+  t0Sec: number,
+  dtSec: number
+): { nominalX: number[]; nominalU: number[]; nominalR: number[] } {
+  let x = [...x0];
+  let r = [...r0];
+  let t = t0Sec;
+
+  for (const step of controlSequence) {
+    const u = step;
+    x = modelRegistry.predictNextState(x, u, r, disturbances, t, dtSec);
+
+    /**
+     * Tiny mock resource depletion:
+     * fuel decreases with |u[0]|.
+     */
+    const fuelBurn = 0.08 * Math.abs(u[0] ?? 0) + 0.01;
+    r = [Math.max(0, (r[0] ?? 0) - fuelBurn)];
+
+    t += dtSec;
+  }
+
+  return {
+    nominalX: x,
+    nominalU: [meanControlValue(controlSequence)],
+    nominalR: r,
+  };
+}
+
+/**
+ * Convert a nominal plan into FeasibilityInput.
+ */
+function makeFeasibilityInput(
+  nominalX: number[],
+  nominalU: number[],
+  nominalR: number[],
+  tSec: number,
+  theta: Record<string, number>,
+  currentDependencyStamp: DependencyStamp,
+  solutionDependencyStamp: DependencyStamp,
+  equalityConstraints: ConstraintDefinition[],
+  inequalityConstraints: ConstraintDefinition[],
+  terminalConstraints: ConstraintDefinition[],
+  conservationConstraints: ConstraintDefinition[]
+): FeasibilityInput {
+  return {
+    x: nominalX,
+    u: nominalU,
+    r: nominalR,
+    t: tSec,
+    xT: nominalX,
+    rT: nominalR,
+    theta,
+    equalityConstraints,
+    inequalityConstraints,
+    terminalConstraints,
+    conservationConstraints,
+    resources: [{ name: "fuel", index: 0, lowerBound: 0 }],
+    currentDependencyStamp,
+    solutionDependencyStamp,
+  };
+}
+
+async function main(): Promise<void> {
+  /**
+   * ------------------------------------------------------------------
+   * 1) MODEL SETUP
+   * ------------------------------------------------------------------
+   */
+
+  const primaryModel: RegisteredModel = {
+    signature: {
+      id: "mock-primary",
+      version: "1.0.0",
+      delayAware: true,
+      stateDim: 2,
+      measurementDim: 2,
+      parameterNames: ["dragCoeff", "idleDrain"],
+      description: "Tiny mock mission model with explicit delay awareness.",
+    },
+    implementation: {
+      predictNextState: (
+        x: number[],
+        u: number[],
+        _r: number[],
+        w: number[],
+        theta: Record<string, number>,
+        _t: number,
+        dt: number
+      ): number[] => {
+        const position = x[0] ?? 0;
+        const energy = x[1] ?? 0;
+        const thrust = u[0] ?? 0;
+        const externalDrag = w[0] ?? 0;
+        const dragCoeff = theta.dragCoeff ?? 0.1;
+        const idleDrain = theta.idleDrain ?? 0.05;
+
+        const drag = dragCoeff * externalDrag;
+        const newPosition = position + dt * (thrust - drag);
+        const newEnergy = energy + dt * (-0.2 * Math.abs(thrust) - idleDrain);
+
+        return [newPosition, newEnergy];
+      },
+
+      predictMeasurement: (
+        x: number[],
+        _u: number[],
+        _r: number[],
+        _w: number[],
+        _theta: Record<string, number>,
+        _t: number
+      ): number[] => {
+        return [x[0] ?? 0, x[1] ?? 0];
+      },
+
+      measurementJacobian: () => {
+        return [
+          [1, 0],
+          [0, 1],
+        ];
+      },
+
+      fisherInformationMinEigenvalue: () => 1.0,
+    },
+    fallbackModelId: "mock-fallback",
+  };
+
+  const fallbackModel: RegisteredModel = {
+    signature: {
+      id: "mock-fallback",
+      version: "1.0.0",
+      delayAware: true,
+      stateDim: 2,
+      measurementDim: 2,
+      parameterNames: ["dragCoeff", "idleDrain"],
+      description: "More conservative fallback model.",
+    },
+    implementation: {
+      predictNextState: (
+        x: number[],
+        u: number[],
+        _r: number[],
+        w: number[],
+        theta: Record<string, number>,
+        _t: number,
+        dt: number
+      ): number[] => {
+        const position = x[0] ?? 0;
+        const energy = x[1] ?? 0;
+        const thrust = 0.8 * (u[0] ?? 0);
+        const externalDrag = w[0] ?? 0;
+        const dragCoeff = (theta.dragCoeff ?? 0.1) * 1.2;
+        const idleDrain = (theta.idleDrain ?? 0.05) * 1.1;
+
+        const drag = dragCoeff * externalDrag;
+        const newPosition = position + dt * (thrust - drag);
+        const newEnergy = energy + dt * (-0.25 * Math.abs(thrust) - idleDrain);
+
+        return [newPosition, newEnergy];
+      },
+
+      predictMeasurement: (
+        x: number[],
+        _u: number[],
+        _r: number[],
+        _w: number[],
+        _theta: Record<string, number>,
+        _t: number
+      ): number[] => {
+        return [x[0] ?? 0, x[1] ?? 0];
+      },
+
+      measurementJacobian: () => {
+        return [
+          [1, 0],
+          [0, 1],
+        ];
+      },
+
+      fisherInformationMinEigenvalue: () => 0.9,
+    },
+  };
+
+  /**
+   * ------------------------------------------------------------------
+   * 2) PARAMETER BELIEF AND MODEL REGISTRY
+   * ------------------------------------------------------------------
+   */
+
+  const initialParameterBelief: ParameterBelief = {
+    mean: {
+      dragCoeff: 0.1,
+      idleDrain: 0.05,
+    },
+    variance: {
+      dragCoeff: 0.01,
+      idleDrain: 0.005,
+    },
+    identifiable: {
+      dragCoeff: true,
+      idleDrain: true,
+    },
+  };
+
+  const modelRegistry = new ModelRegistry(initialParameterBelief);
+  modelRegistry.registerModel(primaryModel);
+  modelRegistry.registerModel(fallbackModel);
+  modelRegistry.setActiveModel("mock-primary");
+
+  /**
+   * ------------------------------------------------------------------
+   * 3) INITIAL BELIEF
+   * ------------------------------------------------------------------
+   */
+
+  const t0 = nowMs();
+
+  const initialBelief: BeliefState = {
+    xHat: [0.0, 1.0],
+    thetaHat: initialParameterBelief,
+    uncertainty: {
+      epsilonX: 0.05,
+      covariance: [
+        [0.01, 0],
+        [0, 0.01],
+      ],
+      lower: [-0.05, 0.95],
+      upper: [0.05, 1.05],
+    },
+    confidence: "MEDIUM",
+    identifiability: "FULL",
+    staleByMs: 0,
+    provenance: ["bootstrap"],
+    timestamp: t0,
+  };
+
+  const beliefManager = new BeliefStateManager(initialBelief);
+
+  /**
+   * ------------------------------------------------------------------
+   * 4) MOCK MEASUREMENT
+   * ------------------------------------------------------------------
+   */
+
+  const measurement: MeasurementSnapshot = {
+    z: [0.12, 0.96],
+    epsilonZ: 0.03,
+    timestamp: t0 + 100,
+    delayMs: 40,
+    source: "mock_sensor",
+  };
+
+  const controlAtObserve = [0.2];
+  const resourcesAtObserve = [0.85];
+  const disturbancesAtObserve = [0.1];
+
+  /**
+   * ------------------------------------------------------------------
+   * 5) OBSERVER UPDATE
+   * ------------------------------------------------------------------
+   */
+
+  const observer = new Observer();
+
+  const observerResult = observer.observe({
+    priorBelief: beliefManager.getBelief(),
+    measurement,
+    model: modelRegistry.getActiveModel().implementation as ObserverModel,
+    control: controlAtObserve,
+    resources: resourcesAtObserve,
+    disturbances: disturbancesAtObserve,
+    currentTime: measurement.timestamp,
+    requiredEpsilonX: 0.08,
+    requiredFisherMin: 0.2,
+  });
+
+  const updatedBelief = observerResult.belief;
+
+  /**
+   * ------------------------------------------------------------------
+   * 6) MODEL CONFIDENCE / MISMATCH
+   * ------------------------------------------------------------------
+   */
+
+  const modelConfidence: ModelConfidence = modelRegistry.scoreConfidence({
+    residualNorm: observerResult.residuals.innovationNorm,
+    residualTolerance: measurement.epsilonZ,
+    invariantResidualNorm: 0.0,
+    invariantTolerance: 0.02,
+    predictionErrorNorm: Math.max(0, updatedBelief.uncertainty.epsilonX - 0.04),
+    predictionTolerance: 0.10,
+    timestamp: measurement.timestamp,
+  });
+
+  const mismatch = modelRegistry.detectMismatch(
+    observerResult.residuals.innovationNorm,
+    measurement.epsilonZ,
+    0.0,
+    0.02
+  );
+
+  if (mismatch.mismatchDetected && modelConfidence.degraded) {
+    const switched = modelRegistry.switchFallbackModel();
+    if (switched) {
+      console.log(`[model] switched to fallback model: ${switched.signature.id}`);
+    }
+  }
+
+  /**
+   * ------------------------------------------------------------------
+   * 7) MISSION CONTEXT + LLM PROPOSER
+   * ------------------------------------------------------------------
+   */
+
+  const missionContext: MissionContext = {
+    missionId: "tiny-mock-mission",
+    objectiveText:
+      "Move position toward 1.0 while preserving energy, fuel, and bounded lawful operation.",
+    currentTime: measurement.timestamp,
+    horizonSteps: 4,
+    controlDim: 1,
+    stateDim: 2,
+    resourceDim: 1,
+  };
+
+  const proposer = new LLMProposer();
+
+  const proposalBundle = await proposer.propose({
+    missionContext,
+    belief: updatedBelief,
+    modelSignature: modelRegistry.getActiveSignature(),
+    operatorHints: [
+      "prefer conservative actuation",
+      "maintain positive energy margin",
+      "do not exhaust fuel",
+    ],
+    deterministicFallback: true,
+  });
+
+  console.log(`[llm_proposer] generated proposals: ${proposalBundle.proposals.length}`);
+  if (proposalBundle.reasons.length > 0) {
+    console.log("[llm_proposer] notes:");
+    for (const reason of proposalBundle.reasons) {
+      console.log(`  - ${reason}`);
+    }
+  }
+
+  /**
+   * ------------------------------------------------------------------
+   * 8) CONSTRAINT SCHEMA
+   * ------------------------------------------------------------------
+   */
+
+  const currentDependencyStamp: DependencyStamp = {
+    version: "mission-config-v1",
+    keys: ["units:si", "constraints:v1", "params:v1", "sensor:calibrated"],
+  };
+
+  const solutionDependencyStamp: DependencyStamp = {
+    version: "mission-config-v1",
+    keys: ["units:si", "constraints:v1", "params:v1", "sensor:calibrated"],
+  };
+
+  const equalityConstraints: ConstraintDefinition[] = [
+    {
+      name: "state_dimension_guard",
+      evaluate: (x) => (x.length === 2 ? 0 : 1),
+      tolerance: 1e-9,
+    },
+  ];
+
+  const inequalityConstraints: ConstraintDefinition[] = [
+    {
+      name: "energy_positive_margin",
+      evaluate: (x) => -((x[1] ?? 0) - 0.20),
+      margin: 0.02,
+    },
+    {
+      name: "position_upper_bound",
+      evaluate: (x) => (x[0] ?? 0) - 1.50,
+      margin: 0.05,
+    },
+  ];
+
+  const terminalConstraints: ConstraintDefinition[] = [
+    {
+      name: "terminal_target_nearness",
+      evaluate: (x) => Math.abs((x[0] ?? 0) - 1.0) - 0.75,
+      margin: 0.0,
+    },
+  ];
+
+  const conservationConstraints: ConstraintDefinition[] = [
+    {
+      name: "finite_state_check",
+      evaluate: (x, _u, r) => {
+        const bad = [...x, ...r].some((v) => !Number.isFinite(v)) ? 1 : 0;
+        return bad;
+      },
+      tolerance: 1e-9,
+    },
+  ];
+
+  /**
+   * ------------------------------------------------------------------
+   * 9) TURN PROPOSALS INTO CANDIDATE PLANS
+   * ------------------------------------------------------------------
+   */
+
+  const controlProposals = proposalBundle.proposals.filter(
+    (p): p is LLMProposal => p.kind === "CONTROL_PLAN" && !!p.planSketch
+  );
+
+  const candidatePlans: CandidatePlan[] = controlProposals.map((proposal) => {
+    const controlSequence = proposal.planSketch!.controlSequence;
+
+    const nominal = simulateNominalPlan(
+      modelRegistry,
+      updatedBelief.xHat,
+      resourcesAtObserve,
+      disturbancesAtObserve,
+      controlSequence,
+      measurement.timestamp / 1000,
+      1.0
+    );
+
+    const feasibilityInput = makeFeasibilityInput(
+      nominal.nominalX,
+      nominal.nominalU,
+      nominal.nominalR,
+      measurement.timestamp / 1000,
+      modelRegistry.getParameterBelief().mean,
+      currentDependencyStamp,
+      solutionDependencyStamp,
+      equalityConstraints,
+      inequalityConstraints,
+      terminalConstraints,
+      conservationConstraints
+    );
+
+    const maxControl = Math.max(
+      ...controlSequence.map((s) => Math.abs(s[0] ?? 0)),
+      0
+    );
+    const sensitivityScale = 1 + maxControl * 6;
+
+    return proposer.toCandidatePlan({
+      proposal,
+      nominalX: nominal.nominalX,
+      nominalU: nominal.nominalU,
+      nominalR: nominal.nominalR,
+      feasibilityInput,
+      robustnessConfig: {
+        epsilonMin: 0.03,
+        delayPresent: true,
+        analyzedOnDelayedModel: true,
+        sensitivityMatrix: [
+          [1.1 * sensitivityScale, 0.1],
+          [0.05, 1.0 + 0.5 * sensitivityScale],
+        ],
+      },
+    });
+  });
+
+  console.log(`[planner] candidate plans from proposer: ${candidatePlans.length}`);
+
+  /**
+   * ------------------------------------------------------------------
+   * 10) DECISION ENGINE
+   * ------------------------------------------------------------------
+   */
+
+  const decisionEngine = new DecisionEngine();
+  const decision = decisionEngine.decide(candidatePlans);
+
+  if (
+    !decision.lawful ||
+    !decision.selectedPlan ||
+    !decision.feasibility ||
+    !decision.robustness
+  ) {
+    console.log("[decision] no lawful plan selected");
+    console.dir(decision, { depth: null });
+    return;
+  }
+
+  console.log(`[decision] selected plan: ${decision.selectedPlan.id}`);
+  console.log("[decision] ranking:", decision.ranking);
+
+  /**
+   * ------------------------------------------------------------------
+   * 11) ADAPTATION STATUS
+   * ------------------------------------------------------------------
+   */
+
+  const actualState = updatedBelief.xHat;
+  const nominalState = decision.selectedPlan.nominalX;
+  const distanceToNominal = norm([
+    (actualState[0] ?? 0) - (nominalState[0] ?? 0),
+    (actualState[1] ?? 0) - (nominalState[1] ?? 0),
+  ]);
+
+  const adaptation = {
+    inRecoveryTube: distanceToNominal <= 0.75,
+    objectiveDrift: Math.abs((actualState[0] ?? 0) - 1.0),
+    objectiveTolerance: 0.90,
+    invariantError: 0.0,
+    invariantTolerance: 0.02,
+  };
+
+  /**
+   * ------------------------------------------------------------------
+   * 12) VERIFICATION SUPREMACY
+   * ------------------------------------------------------------------
+   */
+
+  const verificationKernel = new VerificationKernel();
+
+  const verification = verificationKernel.verify({
+    belief: updatedBelief,
+    feasibility: decision.feasibility,
+    robustness: decision.robustness,
+    observer: observerResult,
+    adaptation,
+    model: {
+      confidenceScore: modelConfidence.score,
+      degraded: modelConfidence.degraded,
+      residualNorm: modelConfidence.residualNorm,
+      residualTolerance: measurement.epsilonZ,
+    },
+  });
+
+  console.log(`[verification] status: ${verification.status}`);
+  if (verification.reasons.length > 0) {
+    console.log("[verification] reasons:");
+    for (const reason of verification.reasons) {
+      console.log(`  - ${reason}`);
+    }
+  }
+
+  /**
+   * ------------------------------------------------------------------
+   * 13) CONSTITUTION GUARD
+   * ------------------------------------------------------------------
+   */
+
+  const authority = decideAuthority(verification);
+
+  let actionOutcome: AuditActionOutcome;
+  let controlAction: number[] | undefined;
+
+  if (authority.mayAct) {
+    controlAction = decision.selectedPlan.controlSequence[0];
+    assertMayAct(verification);
+    actionOutcome = "APPLIED";
+    console.log(`[actuation] APPLY control: ${JSON.stringify(controlAction)}`);
+  } else if (authority.mustDegrade) {
+    controlAction = [0.1];
+    actionOutcome = "DEGRADED_ACTION_APPLIED";
+    console.log(`[actuation] APPLY DEGRADED control: ${JSON.stringify(controlAction)}`);
+  } else {
+    actionOutcome = "REFUSED";
+    console.log("[actuation] REFUSE action");
+  }
+
+  /**
+   * ------------------------------------------------------------------
+   * 14) AUDIT LOG
+   * ------------------------------------------------------------------
+   */
+
+  const auditLog = new AuditLog();
+
+  auditLog.write({
+    id: "audit-0001",
+    timestamp: nowMs(),
+    measurement,
+    belief: updatedBelief,
+    modelSignature: modelRegistry.getActiveSignature(),
+    modelConfidence,
+    feasibility: decision.feasibility,
+    robustness: decision.robustness,
+    verification,
+    selectedPlanId: decision.selectedPlan.id,
+    controlAction,
+    outcome: actionOutcome,
+    notes: [
+      "Tiny constitutional kernel demo with async llm_proposer integrated.",
+      `Mismatch detected: ${mismatch.mismatchDetected}`,
+      `Observer innovation norm: ${observerResult.residuals.innovationNorm.toFixed(6)}`,
+      `Proposals generated: ${proposalBundle.proposals.length}`,
+    ],
+  });
+
+  console.log("[audit] latest record:");
+  console.dir(auditLog.latest(), { depth: null });
+
+  console.log("[audit] summary:");
+  console.log(auditLog.summarize());
+
+  /**
+   * ------------------------------------------------------------------
+   * 15) OPTIONAL: one-step world propagation under chosen control
+   * ------------------------------------------------------------------
+   */
+
+  if (controlAction) {
+    const oneStep = modelRegistry.predictNextState(
+      updatedBelief.xHat,
+      controlAction,
+      resourcesAtObserve,
+      disturbancesAtObserve,
+      measurement.timestamp / 1000,
+      1.0
+    );
+
+    console.log("[simulation] one-step predicted next state:", oneStep);
+  }
+
+  /**
+   * ------------------------------------------------------------------
+   * 16) HUMAN-READABLE SYNTHESIS
+   * ------------------------------------------------------------------
+   */
+
+  console.log("\n--- Constitutional Demo Summary ---");
+  console.log(`Belief state xHat         : ${JSON.stringify(updatedBelief.xHat)}`);
+  console.log(`Belief epsilonX           : ${updatedBelief.uncertainty.epsilonX.toFixed(6)}`);
+  console.log(`Identifiability           : ${updatedBelief.identifiability}`);
+  console.log(`Model confidence          : ${modelConfidence.score.toFixed(3)}`);
+  console.log(`LLM proposals             : ${proposalBundle.proposals.length}`);
+  console.log(`Selected plan             : ${decision.selectedPlan.id}`);
+  console.log(`Robustness epsilon        : ${decision.robustness.epsilon.toFixed(6)}`);
+  console.log(`Verification status       : ${verification.status}`);
+  console.log(`Audit outcome             : ${actionOutcome}`);
+}
+
+main().catch((err) => {
+  console.error("[fatal]", err);
+  process.exit(1);
+});
+
+
+⸻
+
+Two small follow-up fixes
+
+1. Export the proposer in src/index.ts
+
+export * from "./llm_proposer";
+
+2. Make sure package.json uses a runner that supports top-level async entry flow cleanly
+
+{
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "check": "tsc --noEmit",
+    "build": "tsc"
+  }
+}
+
+
+⸻
+
+What changed structurally
+
+The only real runtime shift is:
+	•	proposer.propose(...) is now awaited
+	•	main() is async
+	•	the fatal path is handled by main().catch(...)
+
+So your execution chain now remains intact while supporting a real model call:
+
+belief → observer → model → llm_proposer → decision_engine → verification_kernel → constitution_guard → audit_log
+
+The next practical step is patching package.json and index.ts together so Replit has zero ambiguity.
