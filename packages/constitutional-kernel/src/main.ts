@@ -308,6 +308,17 @@ const observerResult = observer.observe({
 
 const updatedBelief = observerResult.belief;
 
+console.log("[observer] result:");
+console.log(`  innovation norm      : ${observerResult.residuals.innovationNorm.toFixed(6)}`);
+console.log(`  observability rank   : ${observerResult.observabilityRank}`);
+console.log(`  observable           : ${observerResult.observable}`);
+console.log(`  info sufficient      : ${observerResult.informationSufficient}`);
+console.log(`  identifiability      : ${updatedBelief.identifiability}`);
+console.log(`  belief epsilonX      : ${updatedBelief.uncertainty.epsilonX.toFixed(6)}`);
+console.log(`  confidence           : ${updatedBelief.confidence}`);
+console.log(`  stale by             : ${updatedBelief.staleByMs} ms`);
+console.log(`  provenance           : ${updatedBelief.provenance.join(" → ")}`);
+
 /**
  * ------------------------------------------------------------------
  * 6) MODEL CONFIDENCE / MISMATCH

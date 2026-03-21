@@ -40,11 +40,17 @@ packages/constitutional-kernel/
 # From workspace root
 pnpm install
 
-# Run the demo
+# Run the demo (from workspace root)
 pnpm --filter @workspace/constitutional-kernel exec tsx src/main.ts
 
-# Typecheck
+# Or run directly from the package directory
+pnpm start
+
+# Typecheck (from workspace root)
 pnpm --filter @workspace/constitutional-kernel exec tsc --noEmit
+
+# Or from the package directory
+pnpm check
 ```
 
 The demo exercises the full constitutional chain:

@@ -8,7 +8,7 @@ export * from "./belief_state.js";
 export * from "./observer.js";
 export * from "./feasibility_engine.js";
 export { RobustnessAnalyzer } from "./robustness_analyzer.js";
-export type { RobustnessReport, RobustnessConfig } from "./robustness_analyzer.js";
+export type { RobustnessReport, RobustnessConfig, CandidatePlan as BaseCandidatePlan } from "./robustness_analyzer.js";
 export * from "./verification_kernel.js";
 
 export * from "./model_registry.js";
