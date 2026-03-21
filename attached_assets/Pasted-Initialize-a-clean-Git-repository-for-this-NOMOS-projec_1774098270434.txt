@@ -1,0 +1,89 @@
+Initialize a clean Git repository for this NOMOS project and prepare it for external architectural review.
+
+This is not just version control — this repository must clearly expose the system as a structured reasoning engine.
+
+Do the following:
+
+1. Initialize Git
+- git init
+- create initial commit with all current files
+
+2. Prepare for GitHub export
+- create a README.md
+- create a .gitignore for Node / React / TypeScript
+- ensure no build artifacts or node_modules are included
+
+3. Create a clear architecture-oriented folder structure (do not move logic incorrectly, only organize if needed):
+
+/src
+  /compiler
+    auto_compiler.ts
+    field_extractor.ts
+    gap_detector.ts
+    draft_patcher.ts
+    draft_serializer.ts
+
+  /nutrition
+    food_primitive.ts
+    meal_types.ts
+    macro_engine.ts
+    correction_engine.ts
+
+  /audit
+    audit_types.ts
+    audit_store.ts
+    audit_versioning.ts
+
+  /ui
+    /components
+      /compiler
+      /audit
+    /pages
+
+4. Add a high-quality README.md that explains:
+
+- What NOMOS is:
+  A deterministic + structured reasoning engine that converts messy input into constrained evaluable systems.
+
+- The pipeline:
+  raw input → field extraction → gap detection → structured draft → patching → canonical serialization → evaluation → audit history
+
+- Core design principles:
+  - deterministic over probabilistic
+  - constraints before evaluation
+  - label-grounded truth (for nutrition domain)
+  - minimal correction over redesign
+  - canonical declaration as source of truth
+
+- Key modules and their responsibilities
+
+5. Add ARCHITECTURE.md
+
+This file must describe:
+
+- full pipeline flow
+- data contracts between modules
+- what is deterministic vs what is flexible
+- how constraints are enforced
+- how evaluation is gated by gap detection
+
+6. Add SYSTEM_RULES.md
+
+Define:
+- "NOMOS never evaluates raw input"
+- "NOMOS only evaluates confirmed structured drafts"
+- "Label truth overrides assumptions"
+- "Minimal correction preferred over restructuring"
+- "Missing required fields block evaluation"
+
+7. Commit everything cleanly:
+
+Initial commit message:
+"Initialize NOMOS reasoning engine architecture with compiler, constraint system, UI bridge, and audit persistence"
+
+8. Provide:
+- instructions to push to GitHub
+- repo summary
+
+Goal:
+This repository must be readable as a reasoning engine, not just a frontend app, so it can be reviewed and extended for handling complex quantitative systems.
