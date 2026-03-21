@@ -20,6 +20,11 @@ import { autoCompile, StructuredDraft } from "../../../compiler/auto_compiler";
 import { IntentType } from "../../../compiler/domain_templates";
 import { detectIntent } from "../../../compiler/intent_detector";
 import { patchDraftField, revalidateDraft } from "../../../compiler/draft_patcher";
+import { buildSerializedDraftRecord } from "../../../compiler/draft_serializer";
+import { buildAuditId, buildVersionId } from "../../../audit/audit_versioning";
+import { saveAuditRecord, listAuditRecords, deleteAuditRecord, clearAuditRecords } from "../../../audit/audit_store";
+import { AuditRecord } from "../../../audit/audit_types";
+import { AuditHistoryPanel } from "../../components/audit/AuditHistoryPanel";
 
 import "./query-builder.css";
 
@@ -73,6 +78,8 @@ interface AutoCompileState {
   draft: StructuredDraft | null;
   patchedDraft: StructuredDraft | null;
   activeField: string | null;
+  activeAuditId: string | null;
+  activeVersionId: string | null;
   isEvaluating: boolean;
   evaluationResult?: EvaluationResult;
   evaluationError?: string;
@@ -87,6 +94,8 @@ function buildEmptyAutoState(): AutoCompileState {
     draft: null,
     patchedDraft: null,
     activeField: null,
+    activeAuditId: null,
+    activeVersionId: null,
     isEvaluating: false,
     evaluationResult: undefined,
     evaluationError: undefined,
@@ -247,6 +256,10 @@ export function QueryBuilderPage() {
 
   const [autoState, setAutoState] = useState<AutoCompileState>(
     buildEmptyAutoState()
+  );
+
+  const [auditRecords, setAuditRecords] = useState<AuditRecord[]>(() =>
+    listAuditRecords()
   );
 
   /* --- Guided / Natural handlers --- */
@@ -426,9 +439,51 @@ export function QueryBuilderPage() {
 
   const effectiveDraft = autoState.patchedDraft ?? autoState.draft;
 
+  const serializedRecord = effectiveDraft && autoState.isConfirmed
+    ? buildSerializedDraftRecord(effectiveDraft)
+    : null;
+
+  function buildAutoAuditRecord(params: {
+    evaluationResult: AuditRecord["evaluationResult"];
+    isConfirmed: boolean;
+  }): AuditRecord | null {
+    if (!effectiveDraft) return null;
+    const canonical = buildSerializedDraftRecord(effectiveDraft);
+    const auditId = autoState.activeAuditId ?? buildAuditId();
+    return {
+      id: auditId,
+      versionId: buildVersionId(),
+      parentVersionId: autoState.activeVersionId ?? null,
+      timestamp: new Date().toISOString(),
+      intent: effectiveDraft.intent,
+      title: effectiveDraft.title,
+      isEvaluable: effectiveDraft.isEvaluable,
+      isConfirmed: params.isConfirmed,
+      canonicalDeclaration: canonical.canonicalText,
+      compileResult: autoState.draft
+        ? { intent: autoState.intent, template: null, extracted: null, gaps: null, draft: autoState.draft }
+        : null,
+      patchedDraft: autoState.patchedDraft,
+      evaluationResult: params.evaluationResult,
+    };
+  }
+
+  function persistAuditRecord(record: AuditRecord) {
+    saveAuditRecord(record);
+    setAuditRecords(listAuditRecords());
+    setAutoState((prev) => ({
+      ...prev,
+      activeAuditId: record.id,
+      activeVersionId: record.versionId,
+    }));
+  }
+
   function handleAutoConfirm() {
     if (!effectiveDraft?.isEvaluable) return;
     setAutoState((prev) => ({ ...prev, isConfirmed: true }));
+
+    const record = buildAutoAuditRecord({ evaluationResult: null, isConfirmed: true });
+    if (record) persistAuditRecord(record);
   }
 
   function handleAutoRevise() {
@@ -466,6 +521,12 @@ export function QueryBuilderPage() {
         isEvaluating: false,
         evaluationResult,
       }));
+
+      const record = buildAutoAuditRecord({
+        evaluationResult: { status: evaluationResult.overallStatus ?? "COMPLETE", payload: evaluationResult },
+        isConfirmed: true,
+      });
+      if (record) persistAuditRecord(record);
     } catch (err) {
       setAutoState((prev) => ({
         ...prev,
@@ -477,6 +538,35 @@ export function QueryBuilderPage() {
 
   function handleAutoReset() {
     setAutoState(buildEmptyAutoState());
+  }
+
+  function handleLoadAuditRecord(record: AuditRecord) {
+    const loadDraft = record.patchedDraft ?? record.compileResult?.draft ?? null;
+    setAutoState({
+      rawInput: record.canonicalDeclaration,
+      intent: record.intent as IntentType,
+      hasCompiled: true,
+      isConfirmed: record.isConfirmed,
+      draft: record.compileResult?.draft ?? null,
+      patchedDraft: record.patchedDraft,
+      activeField: null,
+      activeAuditId: record.id,
+      activeVersionId: record.versionId,
+      isEvaluating: false,
+      evaluationResult: undefined,
+      evaluationError: undefined,
+    });
+    void loadDraft;
+  }
+
+  function handleDeleteAuditRecord(id: string) {
+    deleteAuditRecord(id);
+    setAuditRecords(listAuditRecords());
+  }
+
+  function handleClearAuditRecords() {
+    clearAuditRecords();
+    setAuditRecords([]);
   }
 
   /* =========================================================
@@ -581,6 +671,15 @@ export function QueryBuilderPage() {
             onCancel={handleCancelFieldEdit}
           />
 
+          {serializedRecord && (
+            <div className="nm-serialized-panel">
+              <div className="nm-serialized-panel__title">CANONICAL DECLARATION</div>
+              <pre className="nm-serialized-panel__body">
+                {serializedRecord.canonicalText}
+              </pre>
+            </div>
+          )}
+
           {effectiveDraft && (
             <div className="nm-query-evaluate">
               <button
@@ -620,6 +719,14 @@ export function QueryBuilderPage() {
           {autoState.evaluationResult && (
             <EvaluationResultPanel result={autoState.evaluationResult} />
           )}
+
+          <AuditHistoryPanel
+            records={auditRecords}
+            activeAuditId={autoState.activeAuditId}
+            onLoad={handleLoadAuditRecord}
+            onDelete={handleDeleteAuditRecord}
+            onClear={handleClearAuditRecords}
+          />
         </div>
       )}
 

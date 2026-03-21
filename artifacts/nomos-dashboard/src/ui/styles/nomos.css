@@ -2587,3 +2587,143 @@ textarea {
   cursor: pointer;
   accent-color: var(--nm-accent, #7aa2ff);
 }
+
+/* =========================================================
+   Canonical declaration panel
+   ========================================================= */
+
+.nm-serialized-panel {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.nm-serialized-panel__title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.nm-serialized-panel__body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--nm-surface-2, #0d0d0d);
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+/* =========================================================
+   Audit history panel
+   ========================================================= */
+
+.nm-audit-history {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.nm-audit-history__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.nm-audit-history__title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.nm-audit-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nm-audit-history__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  background: var(--nm-surface-2, #0d0d0d);
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+}
+
+.nm-audit-history__item--active {
+  border-color: var(--nm-accent, #7aa2ff);
+}
+
+.nm-audit-history__item-body {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+
+.nm-audit-history__item-body:hover .nm-audit-history__item-title {
+  text-decoration: underline;
+}
+
+.nm-audit-history__item-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.nm-audit-history__item-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--nm-text-muted);
+  flex-wrap: wrap;
+}
+
+.nm-audit-history__intent {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.nm-audit-history__evaluable {
+  color: var(--nm-lawful, #2e6a4f);
+  font-weight: 600;
+}
+
+.nm-audit-history__incomplete {
+  color: var(--nm-degraded, #a56a1e);
+  font-weight: 600;
+}
+
+.nm-audit-history__version {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin-top: 4px;
+  opacity: 0.6;
+}
+
+.nm-audit-history__delete {
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--nm-invalid, #7a2e2e);
+}

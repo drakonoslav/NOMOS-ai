@@ -1,0 +1,391 @@
+Yes — that’s the right next step.
+
+Serialization gives you a canonical artifact.
+Persistence gives you institutional memory.
+
+That is the jump from:
+	•	compile once
+to
+	•	track decisions across time
+
+⸻
+
+What audit persistence should store
+
+Each run should save:
+	•	canonical declaration
+	•	compile result
+	•	patched draft state
+	•	evaluation result
+	•	timestamp
+	•	diffable version id
+
+And ideally also:
+	•	intent
+	•	title
+	•	isEvaluable
+	•	confirmed status
+
+⸻
+
+Message to Replit
+
+Build audit-history persistence for NOMOS.
+
+Goal:
+Persist every confirmed compiled draft and evaluation so NOMOS can maintain a real decision history across time.
+
+Create:
+- src/audit/audit_types.ts
+- src/audit/audit_store.ts
+- src/audit/audit_versioning.ts
+- update QueryBuilderPage.tsx to save confirmed/evaluated drafts
+- optionally add src/ui/components/audit/AuditHistoryPanel.tsx
+
+Requirements:
+
+1. Each audit record must store:
+- id
+- versionId
+- parentVersionId?
+- timestamp
+- intent
+- title
+- isEvaluable
+- isConfirmed
+- canonicalDeclaration
+- compileResult
+- patchedDraft
+- evaluationResult
+
+2. Versioning:
+- every saved record gets a stable versionId
+- if saved from a previously loaded record, store parentVersionId
+- support later diffing between versions
+
+3. Storage:
+- implement deterministic local persistence first
+- localStorage is acceptable for first pass
+- do not add server/database complexity yet
+
+4. Store API:
+- saveAuditRecord(record)
+- listAuditRecords()
+- getAuditRecord(id)
+- deleteAuditRecord(id)
+- clearAuditRecords()
+
+5. QueryBuilderPage behavior:
+- when a draft is confirmed, allow saving canonical declaration to audit history
+- when evaluation runs, save evaluation result into the same record or create a new version
+- do not save raw messy input as the source of truth; save canonical declaration and structured draft
+
+6. Optional UI:
+- simple AuditHistoryPanel listing records by title, timestamp, intent, versionId
+- clicking a record should allow reloading it later
+
+7. Keep everything deterministic.
+8. Do not use LLM logic here.
+
+Success condition:
+NOMOS can persist a decision history of canonical declarations and evaluations with version lineage.
+
+
+⸻
+
+audit_types.ts
+
+import { StructuredDraft, AutoCompileResult } from "../compiler/auto_compiler";
+
+export interface AuditEvaluationResult {
+  status?: string;
+  payload?: unknown;
+}
+
+export interface AuditRecord {
+  id: string;
+  versionId: string;
+  parentVersionId?: string | null;
+
+  timestamp: string;
+
+  intent: string;
+  title: string;
+
+  isEvaluable: boolean;
+  isConfirmed: boolean;
+
+  canonicalDeclaration: string;
+
+  compileResult: AutoCompileResult | null;
+  patchedDraft: StructuredDraft | null;
+  evaluationResult: AuditEvaluationResult | null;
+}
+
+
+⸻
+
+audit_versioning.ts
+
+export function buildVersionId(): string {
+  return `ver_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function buildAuditId(): string {
+  return `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+
+⸻
+
+audit_store.ts
+
+import { AuditRecord } from "./audit_types";
+
+const STORAGE_KEY = "nomos_audit_history_v1";
+
+export function listAuditRecords(): AuditRecord[] {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw) as AuditRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveAuditRecord(record: AuditRecord): void {
+  const records = listAuditRecords();
+  const existingIndex = records.findIndex((r) => r.id === record.id);
+
+  if (existingIndex >= 0) {
+    records[existingIndex] = record;
+  } else {
+    records.unshift(record);
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+export function getAuditRecord(id: string): AuditRecord | null {
+  const records = listAuditRecords();
+  return records.find((r) => r.id === id) ?? null;
+}
+
+export function deleteAuditRecord(id: string): void {
+  const records = listAuditRecords().filter((r) => r.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+export function clearAuditRecords(): void {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+
+⸻
+
+QueryBuilderPage.tsx additions
+
+Add save-on-confirm and save-on-evaluate behavior.
+
+import { buildAuditId, buildVersionId } from "../../../audit/audit_versioning";
+import { saveAuditRecord } from "../../../audit/audit_store";
+import { AuditRecord } from "../../../audit/audit_types";
+
+Add state:
+
+const [activeAuditId, setActiveAuditId] = useState<string | null>(null);
+const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+
+Add helper:
+
+function buildAuditRecord(params: {
+  canonicalDeclaration: string;
+  compileResult: any;
+  patchedDraft: any;
+  evaluationResult: any;
+  isConfirmed: boolean;
+}): AuditRecord | null {
+  if (!draft) return null;
+
+  return {
+    id: activeAuditId ?? buildAuditId(),
+    versionId: buildVersionId(),
+    parentVersionId: activeVersionId ?? null,
+    timestamp: new Date().toISOString(),
+    intent: draft.intent,
+    title: draft.title,
+    isEvaluable: draft.isEvaluable,
+    isConfirmed: params.isConfirmed,
+    canonicalDeclaration: params.canonicalDeclaration,
+    compileResult: compileResult ?? null,
+    patchedDraft: params.patchedDraft ?? null,
+    evaluationResult: params.evaluationResult ?? null,
+  };
+}
+
+Update confirm:
+
+function handleConfirm() {
+  if (!draft?.isEvaluable) return;
+  setIsConfirmed(true);
+
+  const canonical = buildSerializedDraftRecord(draft);
+  const record = buildAuditRecord({
+    canonicalDeclaration: canonical.canonicalText,
+    compileResult,
+    patchedDraft: draft,
+    evaluationResult: null,
+    isConfirmed: true,
+  });
+
+  if (record) {
+    saveAuditRecord(record);
+    setActiveAuditId(record.id);
+    setActiveVersionId(record.versionId);
+  }
+}
+
+Update evaluate:
+
+function handleEvaluate() {
+  if (!draft || !draft.isEvaluable || !isConfirmed) return;
+
+  const canonical = buildSerializedDraftRecord(draft);
+
+  const evaluationResult = {
+    status: "PENDING_RUNTIME",
+    payload: null,
+  };
+
+  const record = buildAuditRecord({
+    canonicalDeclaration: canonical.canonicalText,
+    compileResult,
+    patchedDraft: draft,
+    evaluationResult,
+    isConfirmed: true,
+  });
+
+  if (record) {
+    saveAuditRecord(record);
+    setActiveAuditId(record.id);
+    setActiveVersionId(record.versionId);
+  }
+
+  console.log("Evaluating canonical draft:", canonical);
+}
+
+
+⸻
+
+Optional AuditHistoryPanel.tsx
+
+import React from "react";
+import { AuditRecord } from "../../../audit/audit_types";
+
+export function AuditHistoryPanel({
+  records,
+  onLoad,
+}: {
+  records: AuditRecord[];
+  onLoad: (record: AuditRecord) => void;
+}) {
+  if (!records.length) return null;
+
+  return (
+    <div className="nm-audit-history">
+      <div className="nm-audit-history__title">AUDIT HISTORY</div>
+
+      <div className="nm-audit-history__list">
+        {records.map((record) => (
+          <button
+            key={record.versionId}
+            type="button"
+            className="nm-audit-history__item"
+            onClick={() => onLoad(record)}
+          >
+            <div className="nm-audit-history__item-title">{record.title}</div>
+            <div className="nm-audit-history__item-meta">
+              {record.intent} · {record.timestamp} · {record.versionId}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+CSS additions
+
+.nm-audit-history {
+  border: 1px solid var(--nm-border);
+  border-radius: 12px;
+  background: var(--nm-surface, #111);
+  padding: 16px;
+}
+
+.nm-audit-history__title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.nm-audit-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-audit-history__item {
+  text-align: left;
+  border: 1px solid var(--nm-border);
+  border-radius: 10px;
+  background: var(--nm-surface-2, #0d0d0d);
+  padding: 12px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nm-audit-history__item-title {
+  font-weight: 600;
+}
+
+.nm-audit-history__item-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--nm-text-muted);
+}
+
+
+⸻
+
+Why this matters
+
+Now NOMOS can do something it could not do before:
+	•	remember what was declared
+	•	remember what was confirmed
+	•	remember what was evaluated
+	•	preserve lineage across revisions
+
+That is the start of real procedural memory.
+
+What this unlocks next
+
+Once persistence exists, the strongest next step is:
+
+audit diff view
+
+Compare:
+	•	version A canonical declaration
+	•	version B canonical declaration
+	•	evaluation changes
+	•	decisive variable changes
+
+That’s when NOMOS becomes not just a decision engine, but a history-aware reasoning system.
