@@ -206,13 +206,35 @@ export function normalizeConstraint(raw: string): NormalizedConstraint {
     text.includes("label truth") ||
     text.includes("label priority") ||
     (text.includes("label") && text.includes("override") && text.includes("food")) ||
-    (text.includes("labels") && text.includes("provided") && text.includes("override"))
+    (text.includes("labels") && text.includes("provided") && text.includes("override")) ||
+    // "Use attached food labels as source truth where provided."
+    (text.includes("label") && text.includes("as source truth")) ||
+    (text.includes("labels") && text.includes("source truth")) ||
+    (text.includes("food label") && text.includes("source truth")) ||
+    (text.includes("attached") && text.includes("label") && text.includes("source truth"))
   ) {
     return {
       raw,
       kind: "NUTRITION_SOURCE_TRUTH",
       key: "label_priority",
       decisiveVariable: "macro source conflict",
+    };
+  }
+
+  // "Do not infer food behavior that is not supported by declared labels or source data."
+  // Restricts inferences to only declared/labelled evidence — an allowed-action boundary.
+  if (
+    (text.includes("do not infer") && text.includes("food")) ||
+    (text.includes("not infer") && text.includes("declared")) ||
+    text.includes("not supported by declared labels") ||
+    text.includes("not supported by declared") ||
+    (text.includes("infer") && text.includes("declared labels"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_ALLOWED_ACTION",
+      key: "inference_scope",
+      decisiveVariable: "disallowed food inference",
     };
   }
 

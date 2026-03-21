@@ -1,0 +1,48 @@
+The current runtime behavior is internally inconsistent.
+
+Observed contradiction in the UI:
+- overall decisive variable = "protein placement violation"
+- note says "All constraints evaluated deterministically. No interpretation fallback used."
+- but candidate cards still contain fallback text:
+  "Constraint type could not be deterministically classified; evaluation requires manual review."
+- and adjustments still say "Clarify constraint semantics ..." for every constraint
+
+This means the tests may be passing, but the runtime transformation/render pipeline is still wrong.
+
+Please debug the full runtime path from evaluation result -> mapper -> panel render.
+
+Requirements:
+
+1. Add a runtime inspection log for one evaluation:
+- raw evaluation result from nomos-core
+- mapped dashboard evaluation object
+- final candidate card props passed into EvaluationResultPanel
+
+2. Verify whether fallback text is still present in raw candidate.reason or candidate.adjustments after deterministic compilation.
+
+3. Enforce this invariant:
+If a candidate is marked as deterministic and no interpretation fallback was used, then:
+- candidate.reason must not contain:
+  "could not be deterministically classified"
+  "manual review"
+  "constraint interpretation"
+- candidate.adjustments must not contain:
+  "Clarify constraint semantics"
+
+4. Add a sanitization step in evaluation_mapper.ts:
+If compiled constraints resolved to deterministic types, strip any stale fallback reason strings and stale fallback adjustments before rendering.
+
+5. Add a strict assertion:
+If footer note says "No interpretation fallback used" but any candidate still contains fallback text, throw or log a pipeline consistency error.
+
+6. Check for stale UI state / stale audit-history reload:
+Make sure the rendered evaluation is coming from the latest evaluation result, not a previously saved degraded result.
+
+7. Add a regression test that asserts:
+- decisive variable = protein placement violation
+- candidate.reason does NOT include fallback text
+- candidate.adjustments does NOT include clarify-semantics spam
+- footer note and candidate body are logically consistent
+
+Success condition:
+If deterministic nutrition constraints are recognized, the rendered candidate cards must show only typed reasons and typed adjustments, with no semantic fallback residue.

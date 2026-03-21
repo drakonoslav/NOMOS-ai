@@ -253,7 +253,12 @@ const RULES: CompilerRule[] = [
       t.includes("label truth") ||
       t.includes("label priority") ||
       (t.includes("label") && t.includes("override") && t.includes("food")) ||
-      (t.includes("labels") && t.includes("provided") && t.includes("override")),
+      (t.includes("labels") && t.includes("provided") && t.includes("override")) ||
+      // "Use attached food labels as source truth where provided."
+      (t.includes("label") && t.includes("as source truth")) ||
+      (t.includes("labels") && t.includes("source truth")) ||
+      (t.includes("food label") && t.includes("source truth")) ||
+      (t.includes("attached") && t.includes("label") && t.includes("source truth")),
     produce: (raw) => ({
       raw,
       kind: "SOURCE_TRUTH",
@@ -262,6 +267,26 @@ const RULES: CompilerRule[] = [
       lhs: "macro_source",
       rhs: "attached_labels",
       decisiveVariable: "macro source conflict",
+    }),
+  },
+
+  /* ---------- ALLOWED_ACTION: inference scope ---------- */
+  {
+    match: (t) =>
+      // "Do not infer food behavior that is not supported by declared labels or source data."
+      (t.includes("do not infer") && t.includes("food")) ||
+      (t.includes("not infer") && t.includes("declared")) ||
+      t.includes("not supported by declared labels") ||
+      t.includes("not supported by declared") ||
+      (t.includes("infer") && t.includes("declared labels")),
+    produce: (raw) => ({
+      raw,
+      kind: "ALLOWED_ACTION",
+      key: "inference_scope",
+      operator: "SUBSET_OF",
+      lhs: "inference_basis",
+      rhs: "declared_labels_and_source_data",
+      decisiveVariable: "disallowed food inference",
     }),
   },
 ];

@@ -453,14 +453,25 @@ function evalNutritionStructuralLock(
 
 /* =========================================================
    NUTRITION_ALLOWED_ACTION
-   Scope: only gram amounts or unit counts of already-present foods may be adjusted.
-   Violations: adding new foods, substituting, replacing, or removing food items.
+   Dispatches to sub-evaluator by key.
    ========================================================= */
 
 function evalNutritionAllowedAction(
   candidate: NormalizedCandidate,
   constraint: NormalizedConstraint
 ): CandidateEvaluationDraft {
+  const key = constraint.key ?? "adjustment_scope";
+  if (key === "inference_scope") {
+    return evalInferenceScope(candidate);
+  }
+  return evalAdjustmentScope(candidate);
+}
+
+/* ---------- adjustment_scope ----------
+   Scope: only gram amounts or unit counts of already-present foods may be adjusted.
+   Violations: adding new foods, substituting, replacing, or removing food items.
+*/
+function evalAdjustmentScope(candidate: NormalizedCandidate): CandidateEvaluationDraft {
   const lower = candidate.raw.toLowerCase();
 
   const outOfScope =
@@ -501,7 +512,7 @@ function evalNutritionAllowedAction(
       id: candidate.id,
       status: "DEGRADED",
       reason: "Food alteration risk detected. Scope constraint under reduced margin.",
-      decisiveVariable: "food adjustment scope",
+      decisiveVariable: "disallowed food adjustment",
       confidence: "moderate",
       adjustments: ["Confirm no new foods are introduced."],
     };
@@ -511,7 +522,64 @@ function evalNutritionAllowedAction(
     id: candidate.id,
     status: "LAWFUL",
     reason: "Adjustments within declared food set. Constraint satisfied.",
-    decisiveVariable: "food adjustment scope",
+    decisiveVariable: "disallowed food adjustment",
+    confidence: "high",
+  };
+}
+
+/* ---------- inference_scope ----------
+   "Do not infer food behavior that is not supported by declared labels or source data."
+   Violations: using estimated or assumed data not backed by declared labels.
+*/
+function evalInferenceScope(candidate: NormalizedCandidate): CandidateEvaluationDraft {
+  const lower = candidate.raw.toLowerCase();
+
+  const inferenceViolation =
+    lower.includes("assume ") ||
+    lower.includes("assumed ") ||
+    lower.includes("inferred ") ||
+    lower.includes("estimate the") ||
+    lower.includes("estimated value") ||
+    lower.includes("generic assumption") ||
+    lower.includes("using typical") ||
+    lower.includes("using standard") ||
+    (lower.includes("estimate") && !lower.includes("declared") && !lower.includes("label"));
+
+  const borderline =
+    lower.includes("likely") ||
+    lower.includes("probably") ||
+    lower.includes("approximate");
+
+  if (inferenceViolation) {
+    return {
+      id: candidate.id,
+      status: "INVALID",
+      reason: "Candidate applies inferences not backed by declared labels. Inference scope violated.",
+      decisiveVariable: "disallowed food inference",
+      confidence: "high",
+      adjustments: [
+        "Use only declared food label data or explicitly declared source-truth values.",
+        "Do not apply generic or assumed macro values.",
+      ],
+    };
+  }
+
+  if (borderline) {
+    return {
+      id: candidate.id,
+      status: "DEGRADED",
+      reason: "Candidate uses approximate language. Inference scope at reduced margin.",
+      decisiveVariable: "disallowed food inference",
+      confidence: "moderate",
+      adjustments: ["Confirm all macro values are backed by declared labels."],
+    };
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: "Candidate stays within declared data. Inference scope satisfied.",
+    decisiveVariable: "disallowed food inference",
     confidence: "high",
   };
 }
