@@ -1,0 +1,248 @@
+Build a windowed aggregation layer on top of CandidateEvent so NOMOS can compute derived variables such as fast_carbs_grams_within_90min.
+
+Goal:
+Given structured CandidateEvent objects, compute reusable derived variables by:
+- filtering events by domain/type/tags
+- filtering by time window relative to a reference event
+- summing quantities
+- computing maxima/minima where needed
+
+Create:
+- src/evaluation/windowed_aggregator.ts
+
+This layer should be generic and reusable, not specific to only one prompt.
+
+==================================================
+1. TYPES
+==================================================
+
+Use the existing CandidateEvent type.
+
+Add these types:
+
+export interface EventWindowFilter {
+  /**
+   * Reference anchor, e.g. "lifting"
+   */
+  referenceEvent?: string;
+
+  /**
+   * Inclusive lower bound in minutes relative to reference.
+   * Example: -90 means 90 min before
+   */
+  minOffsetMinutes?: number;
+
+  /**
+   * Inclusive upper bound in minutes relative to reference.
+   * Example: 0 means up to the moment of lifting
+   */
+  maxOffsetMinutes?: number;
+}
+
+export interface EventSelector {
+  domain?: string;
+  action?: string;
+  subject?: string;
+  nutrientSpeed?: "FAST" | "SLOW" | "UNKNOWN";
+  requiredTags?: string[];
+}
+
+export interface AggregationResult {
+  key: string;
+  label: string;
+  value: number;
+  units: string;
+  matchedEventIds: string[];
+  notes: string[];
+}
+
+==================================================
+2. CORE GENERIC HELPERS
+==================================================
+
+Implement these exact functions:
+
+export function filterEventsByWindow(
+  events: CandidateEvent[],
+  window: EventWindowFilter
+): CandidateEvent[]
+
+export function filterEventsBySelector(
+  events: CandidateEvent[],
+  selector: EventSelector
+): CandidateEvent[]
+
+export function sumEventQuantities(
+  events: CandidateEvent[],
+  units = "g"
+): AggregationResult
+
+export function maxEventOffsetMagnitude(
+  events: CandidateEvent[],
+  units = "minutes"
+): AggregationResult
+
+Behavior:
+- window filtering should only include events with a defined timeOffsetMinutes
+- selector filtering should match all specified fields
+- requiredTags means every listed tag must be present
+- quantity summation should ignore events with undefined quantity
+- always return matchedEventIds and notes
+
+==================================================
+3. WINDOW FILTER SEMANTICS
+==================================================
+
+Use relative offsets in minutes.
+
+Examples:
+- 30 minutes before lifting => timeOffsetMinutes = -30
+- 2 hours before lifting => timeOffsetMinutes = -120
+
+For pre-lift windows:
+- "within 90 minutes before lifting" means offsets in [-90, 0]
+- "within 60 minutes before lifting" means offsets in [-60, 0]
+
+So:
+filterEventsByWindow(events, {
+  referenceEvent: "lifting",
+  minOffsetMinutes: -90,
+  maxOffsetMinutes: 0
+})
+
+must include:
+- -75
+- -45
+- -30
+
+and exclude:
+- -120
+
+==================================================
+4. GENERIC FILTER RULES
+==================================================
+
+Implement filterEventsBySelector with these semantics:
+
+- domain exact match if specified
+- action exact match if specified
+- subject exact match if specified (case-insensitive)
+- nutrientSpeed exact match if specified
+- requiredTags => all required tags must be contained in event.tags
+
+Case-insensitive matching for string comparisons.
+
+==================================================
+5. DERIVED VARIABLE BUILDERS
+==================================================
+
+Implement these reusable functions:
+
+export function computeFastCarbsWithinWindow(
+  events: CandidateEvent[],
+  referenceEvent: string,
+  windowMinutes: number
+): AggregationResult
+
+export function computeSlowCarbsWithinWindow(
+  events: CandidateEvent[],
+  referenceEvent: string,
+  windowMinutes: number
+): AggregationResult
+
+Definitions:
+- FAST means nutrientSpeed === "FAST"
+- SLOW means nutrientSpeed === "SLOW"
+- use window [-windowMinutes, 0]
+
+AggregationResult keys:
+- fast_carbs_grams_within_90min
+- slow_carbs_grams_within_60min
+
+Labels:
+- "Fast Carbs Within 90 Min"
+- "Slow Carbs Within 60 Min"
+
+Units:
+- "g"
+
+==================================================
+6. EXACT IMPLEMENTATION REQUIREMENTS
+==================================================
+
+For computeFastCarbsWithinWindow:
+1. filter events by reference window
+2. filter remaining events by nutrientSpeed = FAST
+3. sum quantities
+4. return:
+{
+  key,
+  label,
+  value,
+  units,
+  matchedEventIds,
+  notes
+}
+
+Same for computeSlowCarbsWithinWindow.
+
+==================================================
+7. EXAMPLES THAT MUST WORK
+==================================================
+
+Given Candidate D events:
+- 60g cyclic dextrin at -75, nutrientSpeed FAST
+- 30g oats at -45, nutrientSpeed SLOW
+
+computeFastCarbsWithinWindow(events, "lifting", 90)
+=> value = 60
+=> matchedEventIds = [event1]
+
+computeSlowCarbsWithinWindow(events, "lifting", 60)
+=> value = 30
+=> matchedEventIds = [event2]
+
+Given Candidate C event:
+- 80g cyclic dextrin at -120
+
+computeFastCarbsWithinWindow(events, "lifting", 90)
+=> value = 0
+=> matchedEventIds = []
+
+==================================================
+8. OPTIONAL EXTRA HELPER
+==================================================
+
+Add:
+export function deriveNutritionWindowVariables(
+  candidateId: string,
+  events: CandidateEvent[]
+): AggregationResult[]
+
+It should return at least:
+- fast_carbs_grams_within_90min
+- slow_carbs_grams_within_60min
+
+This will feed directly into atomic constraint evaluation later.
+
+==================================================
+9. DO NOT DO
+==================================================
+
+Do not:
+- perform final admissibility evaluation here
+- assign LAWFUL / DEGRADED / INVALID here
+- hardcode prompt-specific logic outside the reusable nutrition window functions
+- depend on LLM output
+
+This is a deterministic derivation layer only.
+
+==================================================
+10. DESIRED EFFECT
+==================================================
+
+NOMOS should now be able to compute derived state variables like:
+- fast_carbs_grams_within_90min = 60
+- slow_carbs_grams_within_60min = 30
+
+from CandidateEvent arrays, so the next evaluation layer can compare those values against thresholds.

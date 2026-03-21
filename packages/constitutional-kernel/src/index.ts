@@ -65,6 +65,28 @@ export type {
   CandidateConstraintProfile,
 } from "./evaluation/constraint_types.js";
 
+export type { EventDomain, NutrientSpeed, CandidateEvent, ParsedCandidateEvents } from "./evaluation/event_types.js";
+
+export {
+  parseCandidateEvents,
+  splitCandidateIntoEventPhrases,
+  detectQuantity,
+  detectTimeOffset,
+  detectNutritionSubject,
+  detectAction,
+} from "./evaluation/candidate_event_parser.js";
+
+export type { EventWindowFilter, EventSelector, AggregationResult } from "./evaluation/windowed_aggregator.js";
+export {
+  filterEventsByWindow,
+  filterEventsBySelector,
+  sumEventQuantities,
+  maxEventOffsetMagnitude,
+  computeFastCarbsWithinWindow,
+  computeSlowCarbsWithinWindow,
+  deriveNutritionWindowVariables,
+} from "./evaluation/windowed_aggregator.js";
+
 export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
 export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";
 export { normalizeCandidate } from "./evaluation/candidate_normalizer.js";

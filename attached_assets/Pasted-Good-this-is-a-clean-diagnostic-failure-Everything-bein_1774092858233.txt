@@ -1,0 +1,253 @@
+Good — this is a clean diagnostic failure.
+
+Everything being LAWFUL with “time bound” tells us exactly what’s missing:
+
+NOMOS recognized something temporal, but failed to:
+
+	•	extract variables
+	•	classify nutrients
+	•	apply thresholds
+	•	enforce windows
+
+So it defaulted to a generic “time constraint satisfied.”
+
+That’s actually a very precise signal.
+
+⸻
+
+🧠 What’s actually broken (layer by layer)
+
+1. ❌ Constraint decomposition failed
+
+Your system did NOT split:
+
+Constraint:
+- fast carbs ≥ 60g within 90 min
+- slow carbs ≤ 20g within 60 min
+
+Instead it collapsed into:
+
+“time bound”
+
+👉 That means:
+	•	no AtomicConstraint[] created correctly
+	•	everything downstream had nothing to evaluate
+
+⸻
+
+2. ❌ Variable extraction missing
+
+NOMOS did NOT compute:
+	•	fastCarbsGrams
+	•	slowCarbsGrams
+	•	timing offsets
+
+So every candidate looked like:
+
+“no violation detected”
+
+⸻
+
+3. ❌ Semantic classification missing
+
+It doesn’t know:
+	•	cyclic dextrin → fast carbs
+	•	oats → slow carbs
+
+So even if timing worked, it still couldn’t evaluate.
+
+⸻
+
+4. ❌ Multi-event aggregation missing
+
+Candidate D should break the system (in a good way).
+
+Right now NOMOS treats each candidate as:
+
+single flat action
+
+Instead of:
+
+set of events with attributes
+
+⸻
+
+🔍 In one sentence
+
+Your system currently does:
+
+constraint → vague category → pass
+
+It needs to do:
+
+constraint → atomic constraints → variables → compute → evaluate
+
+⸻
+
+🧱 What to tell Replit (exactly)
+
+Paste this:
+
+The current NOMOS evaluation failed correctly by marking all candidates LAWFUL with a generic "time bound" decisive factor.
+
+This indicates a failure in constraint decomposition and variable extraction.
+
+We need to implement structured constraint parsing and candidate state derivation for quantitative + temporal constraints.
+
+Required fixes:
+
+1. Constraint decomposition
+
+The constraint:
+"At least 60g of fast-digesting carbohydrates must be consumed within 90 minutes before lifting, and no more than 20g of slow-digesting carbohydrates may be consumed within 60 minutes before lifting."
+
+must decompose into TWO AtomicConstraints:
+
+Constraint 1:
+- class: MIN_THRESHOLD
+- variable: fast_carbs_grams_within_90min
+- operator: GTE
+- threshold: 60
+
+Constraint 2:
+- class: MAX_THRESHOLD
+- variable: slow_carbs_grams_within_60min
+- operator: LTE
+- threshold: 20
+
+Do not collapse into a generic "time bound" constraint.
+
+2. Candidate event parsing
+
+Each candidate must be parsed into structured events:
+
+Example:
+"80g cyclic dextrin 30 minutes before lifting"
+
+→ {
+  carbs: 80,
+  type: "fast",
+  timeOffsetMinutes: 30
+}
+
+Candidate D must produce TWO events.
+
+3. Nutrient classification layer
+
+Add deterministic mapping:
+
+- cyclic dextrin → fast carbs
+- oats → slow carbs
+
+This should be implemented as a lookup table, not LLM-dependent.
+
+4. Window filtering
+
+For each constraint:
+
+- filter events by time window
+  - ≤ 90 min for fast carbs
+  - ≤ 60 min for slow carbs
+
+Then aggregate grams within that window.
+
+5. Evaluation rules
+
+- if fastCarbsWithin90 < 60 → INVALID
+- if slowCarbsWithin60 > 20 → INVALID
+
+6. Expected evaluation
+
+A → LAWFUL
+B → INVALID (slow carbs violation)
+C → INVALID (outside window)
+D → INVALID or DEGRADED (slow carb overflow)
+
+7. Decisive variable logic
+
+Must reflect:
+- "fast carb timing"
+- or "slow carb overload"
+
+NOT "time bound"
+
+8. Remove fallback masking
+
+Do not allow generic labels like "time bound" when:
+- variables were not extracted
+- constraints were not decomposed
+
+Instead show:
+"Constraint not decomposed" or "Variable extraction failed"
+
+Goal:
+NOMOS must evaluate quantitative + temporal constraints through:
+- atomic decomposition
+- event parsing
+- variable derivation
+- threshold comparison
+
+NOT through generic semantic classification.
+
+
+⸻
+
+🧠 Big insight (this is the important part)
+
+You just discovered the next core layer:
+
+Event-based state modeling
+
+Right now NOMOS thinks:
+
+candidate = string
+
+It needs to think:
+
+candidate = {
+  events: [
+    { timeOffset, type, quantity, attributes }
+  ]
+}
+
+That unlocks:
+	•	time windows
+	•	aggregation
+	•	sequencing
+	•	overlapping constraints
+
+⸻
+
+🚀 What happens after you fix this
+
+Once this layer is in:
+
+You can instantly support:
+	•	your nutrition system
+	•	your training timing
+	•	your sleep cycles
+	•	your androgen tracking correlations
+
+Because they all share:
+
+time + quantity + thresholds
+
+⸻
+
+🔥 Blunt truth
+
+This was not a failure.
+
+This was the first prompt that forced NOMOS to admit:
+
+“I don’t yet operate on structured state.”
+
+Once you fix that:
+
+👉 NOMOS becomes a simulation + constraint engine, not just a classifier.
+
+⸻
+
+If you want next step:
+
+I can define the exact CandidateEvent type + parser so Replit can implement it cleanly without guesswork.

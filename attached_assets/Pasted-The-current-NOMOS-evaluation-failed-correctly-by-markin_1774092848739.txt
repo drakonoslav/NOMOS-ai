@@ -1,0 +1,100 @@
+The current NOMOS evaluation failed correctly by marking all candidates LAWFUL with a generic "time bound" decisive factor.
+
+This indicates a failure in constraint decomposition and variable extraction.
+
+We need to implement structured constraint parsing and candidate state derivation for quantitative + temporal constraints.
+
+Required fixes:
+
+1. Constraint decomposition
+
+The constraint:
+"At least 60g of fast-digesting carbohydrates must be consumed within 90 minutes before lifting, and no more than 20g of slow-digesting carbohydrates may be consumed within 60 minutes before lifting."
+
+must decompose into TWO AtomicConstraints:
+
+Constraint 1:
+- class: MIN_THRESHOLD
+- variable: fast_carbs_grams_within_90min
+- operator: GTE
+- threshold: 60
+
+Constraint 2:
+- class: MAX_THRESHOLD
+- variable: slow_carbs_grams_within_60min
+- operator: LTE
+- threshold: 20
+
+Do not collapse into a generic "time bound" constraint.
+
+2. Candidate event parsing
+
+Each candidate must be parsed into structured events:
+
+Example:
+"80g cyclic dextrin 30 minutes before lifting"
+
+→ {
+  carbs: 80,
+  type: "fast",
+  timeOffsetMinutes: 30
+}
+
+Candidate D must produce TWO events.
+
+3. Nutrient classification layer
+
+Add deterministic mapping:
+
+- cyclic dextrin → fast carbs
+- oats → slow carbs
+
+This should be implemented as a lookup table, not LLM-dependent.
+
+4. Window filtering
+
+For each constraint:
+
+- filter events by time window
+  - ≤ 90 min for fast carbs
+  - ≤ 60 min for slow carbs
+
+Then aggregate grams within that window.
+
+5. Evaluation rules
+
+- if fastCarbsWithin90 < 60 → INVALID
+- if slowCarbsWithin60 > 20 → INVALID
+
+6. Expected evaluation
+
+A → LAWFUL
+B → INVALID (slow carbs violation)
+C → INVALID (outside window)
+D → INVALID or DEGRADED (slow carb overflow)
+
+7. Decisive variable logic
+
+Must reflect:
+- "fast carb timing"
+- or "slow carb overload"
+
+NOT "time bound"
+
+8. Remove fallback masking
+
+Do not allow generic labels like "time bound" when:
+- variables were not extracted
+- constraints were not decomposed
+
+Instead show:
+"Constraint not decomposed" or "Variable extraction failed"
+
+Goal:
+NOMOS must evaluate quantitative + temporal constraints through:
+- atomic decomposition
+- event parsing
+- variable derivation
+- threshold comparison
+
+NOT through generic semantic classification.

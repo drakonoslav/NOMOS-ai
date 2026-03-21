@@ -1,0 +1,338 @@
+Implement a structured event model for candidates so NOMOS can evaluate quantitative and temporal constraints cleanly.
+
+Goal:
+Move from treating a candidate as a flat string to treating it as a set of typed events.
+
+Create:
+- src/evaluation/event_types.ts
+- src/evaluation/candidate_event_parser.ts
+
+==================================================
+1. TYPES
+==================================================
+
+Add these exact TypeScript interfaces and types.
+
+export type EventDomain =
+  | "NUTRITION"
+  | "SLEEP"
+  | "TRANSPORT"
+  | "AGRICULTURE"
+  | "GENERIC";
+
+export type NutrientSpeed =
+  | "FAST"
+  | "SLOW"
+  | "UNKNOWN";
+
+export interface CandidateEvent {
+  /**
+   * Stable local event id within the candidate.
+   * Example: "A_e1"
+   */
+  id: string;
+
+  /**
+   * Candidate id this event belongs to.
+   * Example: "A"
+   */
+  candidateId: string;
+
+  /**
+   * High-level domain.
+   */
+  domain: EventDomain;
+
+  /**
+   * Raw event text fragment.
+   * Example: "80g cyclic dextrin 30 minutes before lifting"
+   */
+  raw: string;
+
+  /**
+   * Normalized action verb when detectable.
+   * Examples: "consume", "sleep", "carry", "toss", "harvest"
+   */
+  action?: string;
+
+  /**
+   * Primary object/substance/entity involved.
+   * Examples: "cyclic dextrin", "oats", "object"
+   */
+  subject?: string;
+
+  /**
+   * Numeric quantity if present.
+   * Example: 80
+   */
+  quantity?: number;
+
+  /**
+   * Quantity units.
+   * Examples: "g", "minutes", "hours"
+   */
+  quantityUnits?: string;
+
+  /**
+   * Relative time offset in minutes before or after reference event.
+   * Pre-lift examples:
+   *   30 minutes before lifting => -30
+   *   2 hours before lifting => -120
+   * Post-event could be positive.
+   */
+  timeOffsetMinutes?: number;
+
+  /**
+   * Named reference anchor if present.
+   * Examples: "lifting", "bedtime", "frost"
+   */
+  referenceEvent?: string;
+
+  /**
+   * Nutrient classification if domain is nutrition.
+   */
+  nutrientSpeed?: NutrientSpeed;
+
+  /**
+   * Optional tags used by evaluators.
+   * Examples: ["carb", "fast_digesting", "pre_lift"]
+   */
+  tags: string[];
+
+  /**
+   * Parsing confidence for this event.
+   * 0.0 to 1.0
+   */
+  confidence: number;
+
+  /**
+   * Notes about any ambiguity.
+   */
+  notes?: string[];
+}
+
+export interface ParsedCandidateEvents {
+  candidateId: string;
+  raw: string;
+  events: CandidateEvent[];
+  notes: string[];
+}
+
+==================================================
+2. PARSER BEHAVIOR
+==================================================
+
+Implement a deterministic parser that can extract multiple events from one candidate string.
+
+Required function signatures:
+
+export function parseCandidateEvents(
+  candidateId: string,
+  raw: string
+): ParsedCandidateEvents
+
+export function splitCandidateIntoEventPhrases(raw: string): string[]
+
+Behavior:
+- Split a candidate into event-like phrases using commas and "and" conservatively.
+- Preserve the original raw string.
+- Return one or more CandidateEvent objects.
+- If parsing fails, still return one generic event with raw text preserved.
+
+==================================================
+3. SPLITTING RULES
+==================================================
+
+Use these rules for splitCandidateIntoEventPhrases(raw):
+
+1. Split on commas first.
+2. Then split on " and " only when it appears to connect separate actions.
+3. Trim whitespace.
+4. Remove empty fragments.
+5. Preserve phrase order.
+
+Example:
+"Consume 60g cyclic dextrin 75 minutes before lifting and 30g oats 45 minutes before lifting."
+
+should become two phrases:
+- "Consume 60g cyclic dextrin 75 minutes before lifting"
+- "30g oats 45 minutes before lifting"
+
+==================================================
+4. NUTRITION EVENT PARSING RULES
+==================================================
+
+The parser must detect, when possible:
+
+A. Quantity
+Regex examples:
+- /(\d+(?:\.\d+)?)\s*g\b/i
+- /(\d+(?:\.\d+)?)\s*grams?\b/i
+
+B. Time offset
+Examples:
+- "30 minutes before lifting" => -30
+- "2 hours before lifting" => -120
+- "45 min before lifting" => -45
+- "within 90 minutes before lifting" is a constraint phrase, not a candidate event phrase
+
+Regex examples:
+- /(\d+(?:\.\d+)?)\s*(minutes|min|hours|hour|hrs|hr)\s+before\s+([a-z ]+)/i
+- convert hours to minutes
+
+C. Action
+Detect verbs like:
+- consume
+- eat
+- drink
+If no explicit verb is present but food/substance exists, default action = "consume"
+
+D. Subject
+Deterministically detect:
+- cyclic dextrin
+- oats
+
+E. Nutrient speed classification
+Use deterministic lookup:
+- cyclic dextrin => FAST
+- oats => SLOW
+- otherwise => UNKNOWN
+
+F. Tags
+Examples:
+- cyclic dextrin => ["carb", "fast_digesting"]
+- oats => ["carb", "slow_digesting"]
+- if time offset before lifting exists => add "pre_lift"
+
+==================================================
+5. REQUIRED LOOKUP TABLE
+==================================================
+
+Add a deterministic nutrient lookup like:
+
+const NUTRITION_LOOKUP: Record<string, { nutrientSpeed: NutrientSpeed; tags: string[] }> = {
+  "cyclic dextrin": {
+    nutrientSpeed: "FAST",
+    tags: ["carb", "fast_digesting"],
+  },
+  "oats": {
+    nutrientSpeed: "SLOW",
+    tags: ["carb", "slow_digesting"],
+  },
+};
+
+Use case-insensitive matching.
+
+==================================================
+6. REQUIRED IMPLEMENTATION DETAILS
+==================================================
+
+Implement these helpers:
+
+function detectQuantity(raw: string): { quantity?: number; quantityUnits?: string }
+function detectTimeOffset(raw: string): { timeOffsetMinutes?: number; referenceEvent?: string }
+function detectNutritionSubject(raw: string): { subject?: string; nutrientSpeed?: NutrientSpeed; tags: string[] }
+function detectAction(raw: string, fallbackDomain: EventDomain): string | undefined
+
+Then build parseCandidateEvents by:
+1. split into phrases
+2. parse each phrase
+3. create CandidateEvent objects
+4. if nutrition-like phrase is detected, domain = "NUTRITION"
+5. otherwise fallback to "GENERIC"
+
+==================================================
+7. EXAMPLES THAT MUST PARSE CORRECTLY
+==================================================
+
+Candidate A:
+"Consume 80g cyclic dextrin 30 minutes before lifting."
+
+Expected event:
+{
+  candidateId: "A",
+  domain: "NUTRITION",
+  action: "consume",
+  subject: "cyclic dextrin",
+  quantity: 80,
+  quantityUnits: "g",
+  timeOffsetMinutes: -30,
+  referenceEvent: "lifting",
+  nutrientSpeed: "FAST",
+  tags: ["carb", "fast_digesting", "pre_lift"]
+}
+
+Candidate B:
+"Consume 120g oats 30 minutes before lifting."
+
+Expected event:
+{
+  candidateId: "B",
+  domain: "NUTRITION",
+  action: "consume",
+  subject: "oats",
+  quantity: 120,
+  quantityUnits: "g",
+  timeOffsetMinutes: -30,
+  referenceEvent: "lifting",
+  nutrientSpeed: "SLOW",
+  tags: ["carb", "slow_digesting", "pre_lift"]
+}
+
+Candidate C:
+"Consume 80g cyclic dextrin 2 hours before lifting."
+
+Expected event:
+timeOffsetMinutes = -120
+
+Candidate D:
+"Consume 60g cyclic dextrin 75 minutes before lifting and 30g oats 45 minutes before lifting."
+
+Expected events:
+Event 1:
+- subject: cyclic dextrin
+- quantity: 60
+- timeOffsetMinutes: -75
+- nutrientSpeed: FAST
+
+Event 2:
+- subject: oats
+- quantity: 30
+- timeOffsetMinutes: -45
+- nutrientSpeed: SLOW
+
+==================================================
+8. FALLBACK RULE
+==================================================
+
+If deterministic parsing cannot extract structured values,
+still return one event:
+
+{
+  id: "<candidateId>_e1",
+  candidateId,
+  domain: "GENERIC",
+  raw,
+  tags: [],
+  confidence: 0.2,
+  notes: ["Deterministic event parsing failed."]
+}
+
+Do not throw.
+Do not silently return no events.
+
+==================================================
+9. OUTPUT REQUIREMENT
+==================================================
+
+The parser must be deterministic, typed, and reusable by future evaluators.
+
+This is NOT evaluation logic yet.
+This is event extraction only.
+
+Desired effect:
+NOMOS should be able to turn candidate text into structured event data so later layers can:
+- filter by time window
+- sum quantities
+- evaluate thresholds
+- compute margins
