@@ -1,0 +1,219 @@
+Yes — this is the right convergence point.
+
+Everything you’ve built (bench → recommendation → playbook → crosswalk) now needs a single synthesis layer that a human can actually act on without mentally stitching pieces together.
+
+This is where NOMOS stops being a system of components and becomes a decision instrument.
+
+⸻
+
+What to tell Replit
+
+Build governance deliberation summary for NOMOS.
+
+Goal:
+Produce a final, concise, human-readable governance brief that combines:
+- policy bench evidence
+- recommendation layer
+- expected gains / tradeoffs / risks
+- playbook-to-decision crosswalk
+
+This is the last step before a human commits promotion or rollback.
+
+Create:
+- src/audit/governance_deliberation_types.ts
+- src/audit/governance_deliberation_summary.ts
+- src/ui/components/audit/GovernanceDeliberationPanel.tsx
+
+Requirements:
+
+1. Add canonical types.
+
+interface GovernanceDeliberationSummary {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  currentPolicyVersionId: string | null;
+  recommendedPolicyVersionId: string | null;
+
+  recommendation: "promote" | "rollback" | "hold";
+  recommendationStrength: "weak" | "moderate" | "strong";
+  confidence: "low" | "moderate" | "high";
+
+  keyEvidenceLines: string[];
+  gainsLines: string[];
+  tradeoffLines: string[];
+  riskLines: string[];
+
+  supportingHeuristics: string[];
+  cautioningHeuristics: string[];
+
+  synthesisLines: string[];
+
+  finalDecisionPrompt: string;
+}
+
+2. Build deterministic function:
+- buildGovernanceDeliberationSummary(
+    benchResult,
+    recommendationResult,
+    playbookCrosswalk,
+    decisionContext
+  )
+
+3. Evidence synthesis rules:
+
+Key evidence must summarize:
+- exact-match performance
+- direction-match performance
+- aggressiveness changes
+- unresolved-rate behavior
+
+Example:
+- "Policy v3 improves exact-match rate vs v2 with similar direction-match."
+- "Aggressiveness is reduced without increasing unresolved outcomes."
+
+4. Gains / tradeoffs / risks:
+
+- Gains: improvements relative to current policy
+- Tradeoffs: measurable regressions or compromises
+- Risks: forward-looking uncertainty or known fragility
+
+5. Playbook integration:
+
+- supportingHeuristics: titles of heuristics marked "supports"
+- cautioningHeuristics: titles of heuristics marked "cautions"
+
+6. Synthesis rules:
+
+Generate 2–4 synthesis lines combining:
+- evidence
+- recommendation
+- doctrine alignment
+
+Example:
+- "Recommendation aligns with governance doctrine favoring conservative promotion under elevated unresolved risk."
+- "Caution remains due to shallow evaluation history."
+
+7. Recommendation logic (already computed upstream):
+Do not recompute recommendation — only reflect it.
+
+8. Final decision prompt:
+
+Generate a neutral, structured prompt such as:
+
+- "Promote policy v3 over v2 given improved exact-match performance and acceptable tradeoffs?"
+- "Hold current policy pending additional evidence due to shallow history?"
+- "Rollback to v2 given increased aggressiveness without exact-match improvement?"
+
+9. UI:
+
+Create GovernanceDeliberationPanel showing:
+
+Sections:
+- Recommendation (promote / rollback / hold)
+- Confidence + strength
+- Key Evidence
+- Gains
+- Tradeoffs
+- Risks
+- Supporting Doctrines
+- Caution Doctrines
+- Final Decision Prompt
+
+10. Keep everything deterministic.
+11. Do not use LLM generation.
+12. This layer must not execute governance — only present the final brief.
+
+Success condition:
+For any governance decision, NOMOS produces a single coherent deliberation summary that a human can use to confidently decide whether to promote, rollback, or hold.
+
+
+⸻
+
+What this actually gives you
+
+Right now, your system has:
+	•	truth (audit engine)
+	•	correction (constraint engine)
+	•	history (audit + governance logs)
+	•	learning (playbook extraction)
+	•	context (crosswalk)
+
+This step adds:
+
+👉 decision clarity
+
+Instead of:
+	•	scrolling panels
+	•	mentally merging signals
+
+You get:
+
+“Here’s the evidence, here’s what improves, here’s what breaks, here’s what doctrine says — do you want to promote?”
+
+⸻
+
+What it should feel like
+
+A good deliberation summary should read like:
+
+Recommendation: Promote v3 (moderate strength, high confidence)
+
+Evidence
+	•	v3 improves exact-match rate vs v2
+	•	No increase in unresolved outcomes
+	•	Aggressiveness reduced
+
+Gains
+	•	Better exact-match stability
+	•	Lower over-aggressive corrections
+
+Tradeoffs
+	•	Slight reduction in direction-match rate
+
+Risks
+	•	Limited evaluation window (5 runs)
+
+Supporting doctrines
+	•	Prefer conservative promotion under elevated unresolved rate
+
+Caution doctrines
+	•	Avoid strong promotion under shallow history
+
+Synthesis
+	•	Evidence supports promotion with acceptable tradeoffs
+	•	Doctrine alignment is positive but limited by shallow history
+
+Decision
+→ Promote v3 or hold for more evidence?
+
+⸻
+
+The key design principle
+
+This layer must:
+	•	compress → not expand
+	•	clarify → not reinterpret
+	•	present tension → not resolve it automatically
+
+If it ever feels like it’s deciding instead of informing, it’s wrong.
+
+⸻
+
+What comes after this (final loop closure)
+
+After governance deliberation summary, the strongest next step is:
+
+👉 decision → outcome linkage
+
+So NOMOS can later say:
+	•	this exact deliberation led to promotion
+	•	expected gains were X
+	•	actual outcomes were Y
+
+That fully closes the loop between:
+
+prediction → decision → outcome → learning → doctrine → next decision
+
+At that point, you don’t just have a system.
+
+You have a controlled reasoning ecosystem.

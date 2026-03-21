@@ -1,0 +1,177 @@
+Yes — that’s the right next step.
+
+That makes the playbook operational without making it automatic.
+
+You want a live decision to be able to say:
+	•	these doctrines support promotion
+	•	these doctrines caution against it
+	•	these doctrines are not relevant here
+
+So the human can see not only:
+	•	bench evidence
+	•	recommendation
+	•	gains/tradeoffs/risks
+
+but also:
+	•	which learned governance doctrines apply right now
+
+That is a very strong layer.
+
+What to tell Replit
+
+Build playbook-to-decision crosswalk for NOMOS.
+
+Goal:
+For any live governance decision, show which extracted governance playbook heuristics:
+- support promotion
+- caution against promotion
+- are relevant but neutral
+- are not relevant
+
+This layer is advisory only.
+It must not auto-promote or auto-block governance actions.
+
+Create:
+- src/audit/playbook_crosswalk_types.ts
+- src/audit/playbook_to_decision_crosswalk.ts
+- src/ui/components/audit/PlaybookDecisionCrosswalkPanel.tsx
+
+Requirements:
+
+1. Add canonical crosswalk types.
+
+interface PlaybookDecisionContext {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+  currentPolicyVersionId: string | null;
+  recommendedPolicyVersionId: string | null;
+
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+
+  recommendationStrength: "weak" | "moderate" | "strong";
+  confidence: "low" | "moderate" | "high";
+}
+
+interface HeuristicCrosswalkEntry {
+  heuristicId: string;
+  title: string;
+  rule: string;
+  domain: "nutrition" | "training" | "schedule" | "generic" | "mixed";
+
+  relevance: "supports" | "cautions" | "neutral" | "not_relevant";
+  reasonLines: string[];
+}
+
+interface PlaybookDecisionCrosswalk {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  supportingHeuristics: HeuristicCrosswalkEntry[];
+  cautioningHeuristics: HeuristicCrosswalkEntry[];
+  neutralHeuristics: HeuristicCrosswalkEntry[];
+
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildPlaybookDecisionContext(...)
+- evaluateHeuristicRelevance(heuristic, decisionContext)
+- buildPlaybookDecisionCrosswalk(playbook, decisionContext)
+
+3. Relevance rules:
+- supports:
+  heuristic aligns with expected gains or recommendation pattern
+- cautions:
+  heuristic warns against current decision conditions
+- neutral:
+  heuristic is domain-relevant but not strongly for or against
+- not_relevant:
+  heuristic does not apply to the current domain or conditions
+
+4. Example support cases:
+- heuristic: "In nutrition, prefer conservative promotion when unresolved-rate is already elevated."
+- current decision: recommended policy is more conservative and unresolved-rate risk is elevated
+-> relevance = supports
+
+5. Example caution cases:
+- heuristic: "Avoid strong promotion under shallow-history windows."
+- current decision has shallow evidence window and strong recommendation
+-> relevance = cautions
+
+6. Example reason lines:
+- "This heuristic supports promotion because the recommendation reduces aggressiveness under elevated unresolved risk."
+- "This heuristic cautions against promotion because the current evidence window is shallow."
+- "This doctrine is domain-relevant but not strongly implicated by the current decision."
+
+7. UI:
+Create PlaybookDecisionCrosswalkPanel showing:
+- supporting heuristics
+- cautioning heuristics
+- neutral heuristics
+- summary lines
+
+8. Keep everything deterministic.
+9. Do not use LLM generation here.
+10. This layer must remain advisory and separate from governance action execution.
+
+Success condition:
+For a live governance decision, NOMOS can show which learned doctrines support or caution against the decision, making historical playbook knowledge directly usable in real decision support.
+
+Why this matters
+
+This closes the loop between:
+	•	historical governance learning
+	•	extracted playbook doctrine
+	•	live governance decision support
+
+Without this, the playbook is useful but passive.
+
+With this, NOMOS can say:
+	•	“bench evidence supports v3”
+	•	“two governance heuristics support promotion”
+	•	“one caution heuristic applies because history is shallow”
+
+That’s much more decision-useful.
+
+What the output should eventually look like
+
+For example:
+
+Supporting doctrines
+	•	In nutrition, prefer conservative promotion when unresolved-rate is already elevated.
+	•	This supports promotion because the recommended policy reduces aggressiveness while unresolved risk remains elevated.
+
+Cautioning doctrines
+	•	Avoid strong promotion under shallow-history windows.
+	•	This cautions against promotion because only 3 resolved follow-up runs exist.
+
+Neutral doctrines
+	•	Rollback is often justified when aggressiveness rises without exact-match improvement.
+	•	Domain-relevant, but not directly implicated because current recommendation is a promotion, not a rollback.
+
+That is exactly the kind of bridge you want.
+
+The key discipline
+
+This layer should never say:
+	•	“therefore promote”
+
+It should say:
+	•	“these doctrines support promotion”
+	•	“these doctrines caution against it”
+
+The human still decides.
+
+What comes after this
+
+After the playbook-to-decision crosswalk, the strongest next step is:
+
+governance deliberation summary
+
+A final pre-action synthesis that combines:
+	•	bench evidence
+	•	recommendation
+	•	gains/tradeoffs/risks
+	•	playbook crosswalk
+
+into one concise, reviewable governance brief before a human commits promotion or rollback.

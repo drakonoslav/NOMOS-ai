@@ -1,0 +1,140 @@
+Yes — that’s the right next step.
+
+That gives NOMOS a way to learn from governance history as a class, not just one action at a time.
+
+So it can answer things like:
+	•	promotions that reduce aggressiveness tend to work better in nutrition
+	•	unresolved-rate tradeoffs are repeatedly underestimated
+	•	conservative policies perform better under shallow history
+	•	certain rollback patterns are repeatedly corrective
+
+That is strong, and still disciplined.
+
+What to tell Replit
+
+Build governance learning summary for NOMOS.
+
+Goal:
+Summarize patterns across many governance decisions so NOMOS can learn about its governance process without becoming self-authorizing.
+
+This layer is observational and advisory only.
+It must not auto-promote, auto-rollback, or self-modify policy.
+
+Create:
+- src/audit/governance_learning_types.ts
+- src/audit/governance_learning_summary.ts
+- src/ui/components/audit/GovernanceLearningSummaryPanel.tsx
+
+Requirements:
+
+1. Add canonical learning summary types.
+
+interface GovernanceLearningPattern {
+  label: string;
+  domain: "nutrition" | "training" | "schedule" | "generic" | "mixed";
+
+  supportingActionCount: number;
+  summary: string;
+}
+
+interface GovernanceLearningSummary {
+  totalGovernanceActions: number;
+  reviewableActions: number;
+
+  successfulPromotionPatterns: GovernanceLearningPattern[];
+  recurringTradeoffPatterns: GovernanceLearningPattern[];
+  recurringRiskPatterns: GovernanceLearningPattern[];
+  recurringGovernanceMistakes: GovernanceLearningPattern[];
+
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildSuccessfulPromotionPatterns(governanceOutcomeReviews)
+- buildRecurringTradeoffPatterns(governanceOutcomeReviews)
+- buildRecurringRiskPatterns(governanceOutcomeReviews)
+- buildRecurringGovernanceMistakes(governanceOutcomeReviews)
+- buildGovernanceLearningSummary(governanceOutcomeReviews)
+
+3. Pattern rules:
+- successful promotion pattern:
+  repeated cases where promotions met expectations under similar conditions
+- recurring tradeoff pattern:
+  repeated cases where one metric improved but another worsened
+- recurring risk pattern:
+  repeated cases where shallow history, unresolved outcomes, or aggressiveness caused issues
+- recurring governance mistake:
+  repeated cases where expected gains did not materialize or a tradeoff was underestimated
+
+4. Domain awareness:
+- compute domain-specific patterns where possible
+- allow "mixed" only when pattern spans multiple domains clearly
+
+5. Example summary lines:
+- "Nutrition promotions that reduced aggressiveness most often met expectations."
+- "Unresolved-rate increases were repeatedly underestimated after conservative policy changes."
+- "Shallow-history promotions most often produced inconclusive outcomes."
+- "Rollback actions after aggressive policies were more often corrective than promotional changes."
+
+6. UI:
+Create GovernanceLearningSummaryPanel showing:
+- total governance actions
+- reviewable actions
+- successful promotion patterns
+- recurring tradeoff patterns
+- recurring risk patterns
+- recurring governance mistakes
+- summary lines
+
+7. Keep everything deterministic.
+8. Do not use LLM generation here.
+9. Do not generate policy actions from this layer.
+10. This is a learning summary, not an active control layer.
+
+Success condition:
+NOMOS can summarize recurring governance patterns across many reviewed decisions without changing governance automatically.
+
+Why this matters
+
+This lets NOMOS say:
+	•	not just “that promotion worked”
+	•	but “this kind of promotion tends to work”
+
+That is a much higher level of institutional learning.
+
+What it should eventually say
+
+Examples:
+	•	“Nutrition promotions that lowered aggressiveness most often met expectations.”
+	•	“Policies introduced under shallow history were frequently followed by insufficient follow-up or mixed outcomes.”
+	•	“Tradeoffs in unresolved-rate were repeatedly underestimated after conservative policy changes.”
+	•	“Rollback actions were more often beneficial than aggressive promotions in schedule mode.”
+
+That is exactly the kind of reflective layer you want.
+
+The key discipline
+
+NOMOS should still stop at:
+	•	summarize
+	•	compare
+	•	recommend
+
+It should not:
+	•	self-promote
+	•	self-rollback
+	•	self-rewrite governance rules
+
+That keeps it governed.
+
+What comes after this
+
+After governance learning summary, the strongest next step is:
+
+governance playbook extraction
+
+A layer that turns repeated successful patterns into explicit human-readable governance heuristics, such as:
+	•	“In nutrition, prefer conservative policy promotion when unresolved-rate is already elevated.”
+	•	“Avoid strong promotion under shallow-history windows.”
+	•	“Rollback is often justified when aggressiveness rises without exact-match improvement.”
+
+That would turn governance learning into reusable doctrine.

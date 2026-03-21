@@ -1,0 +1,97 @@
+Build playbook-to-decision crosswalk for NOMOS.
+
+Goal:
+For any live governance decision, show which extracted governance playbook heuristics:
+- support promotion
+- caution against promotion
+- are relevant but neutral
+- are not relevant
+
+This layer is advisory only.
+It must not auto-promote or auto-block governance actions.
+
+Create:
+- src/audit/playbook_crosswalk_types.ts
+- src/audit/playbook_to_decision_crosswalk.ts
+- src/ui/components/audit/PlaybookDecisionCrosswalkPanel.tsx
+
+Requirements:
+
+1. Add canonical crosswalk types.
+
+interface PlaybookDecisionContext {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+  currentPolicyVersionId: string | null;
+  recommendedPolicyVersionId: string | null;
+
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+
+  recommendationStrength: "weak" | "moderate" | "strong";
+  confidence: "low" | "moderate" | "high";
+}
+
+interface HeuristicCrosswalkEntry {
+  heuristicId: string;
+  title: string;
+  rule: string;
+  domain: "nutrition" | "training" | "schedule" | "generic" | "mixed";
+
+  relevance: "supports" | "cautions" | "neutral" | "not_relevant";
+  reasonLines: string[];
+}
+
+interface PlaybookDecisionCrosswalk {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  supportingHeuristics: HeuristicCrosswalkEntry[];
+  cautioningHeuristics: HeuristicCrosswalkEntry[];
+  neutralHeuristics: HeuristicCrosswalkEntry[];
+
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildPlaybookDecisionContext(...)
+- evaluateHeuristicRelevance(heuristic, decisionContext)
+- buildPlaybookDecisionCrosswalk(playbook, decisionContext)
+
+3. Relevance rules:
+- supports:
+  heuristic aligns with expected gains or recommendation pattern
+- cautions:
+  heuristic warns against current decision conditions
+- neutral:
+  heuristic is domain-relevant but not strongly for or against
+- not_relevant:
+  heuristic does not apply to the current domain or conditions
+
+4. Example support cases:
+- heuristic: "In nutrition, prefer conservative promotion when unresolved-rate is already elevated."
+- current decision: recommended policy is more conservative and unresolved-rate risk is elevated
+-> relevance = supports
+
+5. Example caution cases:
+- heuristic: "Avoid strong promotion under shallow-history windows."
+- current decision has shallow evidence window and strong recommendation
+-> relevance = cautions
+
+6. Example reason lines:
+- "This heuristic supports promotion because the recommendation reduces aggressiveness under elevated unresolved risk."
+- "This heuristic cautions against promotion because the current evidence window is shallow."
+- "This doctrine is domain-relevant but not strongly implicated by the current decision."
+
+7. UI:
+Create PlaybookDecisionCrosswalkPanel showing:
+- supporting heuristics
+- cautioning heuristics
+- neutral heuristics
+- summary lines
+
+8. Keep everything deterministic.
+9. Do not use LLM generation here.
+10. This layer must remain advisory and separate from governance action execution.
+
+Success condition:
+For a live governance decision, NOMOS can show which learned doctrines support or caution against the decision, making historical playbook knowledge directly usable in real decision support.

@@ -1,0 +1,172 @@
+Yes — that’s the right next step.
+
+That makes governance itself auditable, not just the policies.
+
+Then NOMOS can ask:
+	•	what did we expect from this promotion?
+	•	what actually happened after the change?
+	•	did exact-match improve?
+	•	did aggressiveness fall?
+	•	were the tradeoffs worth it?
+
+That is how governance stops being administrative history and becomes evaluated intervention history.
+
+What to tell Replit
+
+Build post-governance outcome review for NOMOS.
+
+Goal:
+Allow NOMOS to review policy promotions and rollbacks after enough later runs have accumulated, so it can compare expected gains/tradeoffs/risks against actual post-governance outcomes.
+
+Create:
+- src/audit/post_governance_review_types.ts
+- src/audit/post_governance_outcome_review.ts
+- src/ui/components/audit/PostGovernanceOutcomePanel.tsx
+
+Requirements:
+
+1. Add canonical outcome review types.
+
+interface GovernanceOutcomeExpectation {
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+}
+
+interface GovernanceOutcomeObserved {
+  postActionRuns: number;
+
+  exactMatchDelta: number | null;
+  directionMatchDelta: number | null;
+  tooAggressiveDelta: number | null;
+  tooWeakDelta: number | null;
+  unresolvedDelta: number | null;
+
+  summaryLines: string[];
+}
+
+interface GovernanceOutcomeReview {
+  actionId: string;
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  action: "promote" | "rollback";
+  fromPolicyVersionId: string | null;
+  toPolicyVersionId: string;
+
+  expectation: GovernanceOutcomeExpectation;
+  observed: GovernanceOutcomeObserved;
+
+  outcomeClass:
+    | "met_expectations"
+    | "partially_met"
+    | "did_not_meet"
+    | "insufficient_followup";
+
+  reviewLines: string[];
+}
+
+interface GovernanceOutcomeReviewReport {
+  totalGovernanceActions: number;
+  reviewableActions: number;
+  outcomeCounts: Record<
+    "met_expectations" | "partially_met" | "did_not_meet" | "insufficient_followup",
+    number
+  >;
+
+  reviews: GovernanceOutcomeReview[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- collectPostGovernanceRuns(governanceAction, auditRecords)
+- comparePrePostGovernanceMetrics(governanceAction, auditRecords)
+- classifyGovernanceOutcome(expectation, observed)
+- buildGovernanceOutcomeReview(governanceAction, auditRecords)
+- buildGovernanceOutcomeReviewReport(governanceAuditTrail, auditRecords)
+
+3. Pre/post comparison rules:
+- compare metrics before governance action vs after governance action
+- use the same domain only
+- compare:
+  - exact match rate
+  - direction match rate
+  - too aggressive rate
+  - too weak rate
+  - unresolved rate
+- require a minimum follow-up window before strong conclusions
+
+4. Outcome classification:
+- met_expectations:
+  clear improvement aligned with expected gains and no major contradictory regressions
+- partially_met:
+  mixed result; some gains occurred but tradeoffs or regressions remain
+- did_not_meet:
+  expected gains did not materialize or outcomes worsened materially
+- insufficient_followup:
+  not enough later runs to evaluate fairly
+
+5. Example review lines:
+- "Exact-match rate improved after promotion, consistent with expected gains."
+- "Aggressiveness fell, but unresolved outcomes increased."
+- "Observed outcomes did not support the expected improvement."
+- "Follow-up window is too shallow for a reliable governance outcome review."
+
+6. UI:
+Create PostGovernanceOutcomePanel showing:
+- governance action
+- expected gains/tradeoffs/risks
+- observed post-action metric deltas
+- outcome class
+- review lines
+
+7. Keep everything deterministic.
+8. Do not auto-rollback or auto-promote from this layer.
+9. This layer is measurement and review only.
+
+Success condition:
+NOMOS can evaluate whether a past policy governance decision actually delivered the benefits that were expected.
+
+Why this matters
+
+Now NOMOS can evaluate not just:
+	•	predictions
+	•	policies
+	•	governance decisions
+
+but also:
+	•	the outcomes of governance decisions
+
+That is a very complete loop.
+
+What this should eventually let NOMOS say
+
+Examples:
+	•	“Promotion of nutrition policy v3 met expectations: exact-match improved and aggressiveness decreased.”
+	•	“Rollback to v2 only partially met expectations: unresolved outcomes fell, but direction-match did not improve.”
+	•	“The last promotion did not meet expectations; exact-match fell and aggressiveness rose.”
+	•	“Outcome review remains inconclusive because only 2 follow-up runs exist.”
+
+That is exactly the kind of disciplined review language you want.
+
+The right guard
+
+Tell Replit this too:
+
+Add a hard guard:
+If postActionRuns < 3, outcomeClass must be insufficient_followup unless explicitly overridden later by policy.
+
+That keeps the system honest.
+
+What comes after this
+
+After post-governance outcome review, the strongest next step is:
+
+governance learning summary
+
+A layer that summarizes across many governance decisions:
+	•	which kinds of promotions tend to work
+	•	which tradeoffs are repeatedly underestimated
+	•	which domains respond well to conservative policies
+	•	which governance mistakes recur
+
+That would make NOMOS capable of learning about its own governance process without becoming self-authorizing.

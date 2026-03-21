@@ -1,0 +1,106 @@
+Build decision → outcome linkage for NOMOS.
+
+Goal:
+Link each governance deliberation summary to the actual governance action taken and then to the later observed outcomes, so NOMOS can trace:
+
+deliberation -> action -> expected gains -> actual outcomes
+
+This closes the loop between prediction, governance, and learning.
+
+Create:
+- src/audit/decision_outcome_link_types.ts
+- src/audit/decision_outcome_linkage.ts
+- src/ui/components/audit/DecisionOutcomeLinkPanel.tsx
+
+Requirements:
+
+1. Add canonical types.
+
+interface GovernanceDecisionRecord {
+  decisionId: string;
+  timestamp: string;
+
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  deliberationSummaryId: string;
+  currentPolicyVersionId: string | null;
+  recommendedPolicyVersionId: string | null;
+
+  decision: "promote" | "rollback" | "hold";
+  chosenPolicyVersionId: string | null;
+
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+
+  humanReason: string;
+}
+
+interface DecisionOutcomeLink {
+  decisionId: string;
+  deliberationSummaryId: string;
+  governanceActionId: string | null;
+  governanceOutcomeReviewId: string | null;
+
+  decision: "promote" | "rollback" | "hold";
+  chosenPolicyVersionId: string | null;
+
+  expectedGains: string[];
+  expectedTradeoffs: string[];
+  expectedRisks: string[];
+
+  actualOutcomeClass:
+    | "met_expectations"
+    | "partially_met"
+    | "did_not_meet"
+    | "insufficient_followup"
+    | null;
+
+  actualOutcomeLines: string[];
+
+  linkageSummaryLines: string[];
+}
+
+interface DecisionOutcomeLinkReport {
+  totalLinkedDecisions: number;
+  links: DecisionOutcomeLink[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildGovernanceDecisionRecord(deliberationSummary, humanDecision, humanReason)
+- linkDecisionToGovernanceAction(decisionRecord, governanceAuditTrail)
+- linkDecisionToOutcomeReview(decisionRecord, governanceOutcomeReviews)
+- buildDecisionOutcomeLink(decisionRecord, governanceAuditTrail, governanceOutcomeReviews)
+- buildDecisionOutcomeLinkReport(decisionRecords, governanceAuditTrail, governanceOutcomeReviews)
+
+3. Linking rules:
+- a deliberation summary may produce a governance decision
+- a governance decision may produce a governance action
+- a governance action may later have an outcome review
+- all linking must be done by stable ids, not fuzzy matching
+
+4. Summary lines should support statements like:
+- "This deliberation led to promotion of policy v3."
+- "Expected gains included improved exact-match performance."
+- "Later outcome review classified the action as partially_met."
+- "Observed outcome: aggressiveness fell, but unresolved outcomes increased."
+
+5. UI:
+Create DecisionOutcomeLinkPanel showing:
+- deliberation summary reference
+- chosen decision
+- chosen policy
+- expected gains / tradeoffs / risks
+- linked governance action
+- linked outcome review
+- outcome class
+- linkage summary lines
+
+6. Keep everything deterministic.
+7. Do not use LLM generation.
+8. Do not infer missing links if ids are unavailable.
+9. A hold decision should still be storable and linkable, even if no governance action follows.
+
+Success condition:
+NOMOS can trace a specific governance deliberation to the decision taken and then to the later observed outcome, preserving the full chain of accountability.

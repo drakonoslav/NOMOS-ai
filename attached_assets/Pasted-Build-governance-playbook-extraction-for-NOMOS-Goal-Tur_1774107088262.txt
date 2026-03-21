@@ -1,0 +1,83 @@
+Build governance playbook extraction for NOMOS.
+
+Goal:
+Turn repeated governance-learning patterns into explicit human-readable governance heuristics.
+
+This layer is advisory only.
+It must not auto-promote, auto-rollback, or self-modify policy.
+It should extract reusable governance doctrine from repeated reviewed outcomes.
+
+Create:
+- src/audit/governance_playbook_types.ts
+- src/audit/governance_playbook_extraction.ts
+- src/ui/components/audit/GovernancePlaybookPanel.tsx
+
+Requirements:
+
+1. Add canonical playbook types.
+
+interface GovernanceHeuristic {
+  id: string;
+  domain: "nutrition" | "training" | "schedule" | "generic" | "mixed";
+
+  title: string;
+  rule: string;
+
+  supportCount: number;
+  confidence: "low" | "moderate" | "high";
+
+  sourcePatternLabels: string[];
+  rationaleLines: string[];
+  cautionLines: string[];
+}
+
+interface GovernancePlaybook {
+  totalHeuristics: number;
+  heuristics: GovernanceHeuristic[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- extractGovernanceHeuristics(governanceLearningSummary)
+- scoreHeuristicConfidence(patternSupportCount, domainConsistency, contradictionCount)
+- buildGovernancePlaybook(governanceLearningSummary)
+
+3. Heuristic extraction rules:
+- only create a heuristic if a pattern is repeated enough to justify doctrine
+- repeated successful promotion patterns may become "prefer" heuristics
+- repeated tradeoff/risk patterns may become "avoid" or "use caution" heuristics
+- repeated governance mistakes may become "do not" heuristics
+
+4. Example heuristic forms:
+- "In nutrition, prefer conservative policy promotion when unresolved-rate is already elevated."
+- "Avoid strong promotion under shallow-history windows."
+- "Rollback is often justified when aggressiveness rises without exact-match improvement."
+- "Use caution when promoting a policy that improves direction-match but increases unresolved outcomes."
+
+5. Confidence rules:
+- low if support count is small or pattern is mixed
+- moderate if repeated with some consistency
+- high if repeated clearly with low contradiction
+
+6. Add rationale lines:
+- explain what repeated reviewed outcomes support the heuristic
+
+7. Add caution lines:
+- explain where the heuristic may not generalize or where evidence is limited
+
+8. UI:
+Create GovernancePlaybookPanel showing:
+- heuristic title
+- rule text
+- domain
+- support count
+- confidence
+- rationale lines
+- caution lines
+
+9. Keep everything deterministic.
+10. Do not use LLM generation here.
+11. This panel is doctrine extraction only, not active governance.
+
+Success condition:
+NOMOS can extract reusable governance heuristics from repeated reviewed governance outcomes and present them as a human-readable playbook.
