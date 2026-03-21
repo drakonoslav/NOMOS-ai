@@ -1,0 +1,158 @@
+Yes — that’s the right next step.
+
+This is where NOMOS becomes historically reproducible, not just inspectable.
+
+You want every prediction to carry its own policy provenance:
+	•	which policy snapshot made it
+	•	which bounded adjustment state was active
+	•	which calibration window was used
+	•	which rule version was in force
+
+So later NOMOS can say:
+	•	“I predicted protein placement violation”
+	•	“under policy v3”
+	•	“with confidenceBias -0.15”
+	•	“using a 5-run calibration window”
+
+That is very strong.
+
+What to tell Replit
+
+Build policy freeze + versioning for NOMOS.
+
+Goal:
+Every prediction must record the exact policy regime that produced it, so NOMOS can later reproduce not just what it predicted, but under which policy state it predicted it.
+
+Create:
+- src/audit/policy_versioning_types.ts
+- src/audit/policy_versioning.ts
+- update prediction storage to persist policy snapshot references
+- update audit history records to include frozen policy metadata
+- add src/ui/components/audit/PolicyVersionPanel.tsx
+
+Requirements:
+
+1. Add canonical policy freeze types.
+
+interface FrozenPolicySnapshot {
+  policyVersionId: string;
+  createdAt: string;
+
+  basePredictionRule: string;
+  confidenceRule: string;
+  escalationRule: string;
+  uncertaintyRule: string;
+
+  calibrationWindow: number;
+
+  boundedAdjustmentState: {
+    confidenceBias: number;
+    escalationBias: number;
+    uncertaintyBias: number;
+  };
+
+  calibrationState: {
+    totalPredictions: number;
+    resolvedPredictions: number;
+    exactMatchRate: number | null;
+    directionMatchRate: number | null;
+    tooAggressiveRate: number | null;
+    tooWeakRate: number | null;
+  };
+
+  explanationLines: string[];
+}
+
+interface FrozenPredictionRecord {
+  sourceVersionId: string;
+  predictionTimestamp: string;
+
+  predictedVariable: string | null;
+  confidence: "low" | "moderate" | "high";
+  riskDirection: "decreasing" | "stable" | "rising";
+
+  frozenPolicyVersionId: string;
+  frozenPolicySnapshot: FrozenPolicySnapshot;
+}
+
+2. Build deterministic functions:
+- buildFrozenPolicySnapshot(...)
+- buildPolicyVersionId(snapshot)
+- freezePredictionWithPolicy(prediction, snapshot)
+- compareFrozenPolicies(before, after)
+
+3. Policy versioning rules:
+- identical policy snapshots must produce the same policyVersionId
+- policyVersionId must change if:
+  - bounded adjustment state changes
+  - calibration window changes
+  - any base/confidence/escalation/uncertainty rule text changes
+
+4. Store frozen policy snapshot with every saved prediction.
+Do not rely only on live current policy state.
+
+5. Update audit persistence so prediction records include:
+- frozenPolicyVersionId
+- frozenPolicySnapshot
+
+6. Add UI panel:
+PolicyVersionPanel should show:
+- policyVersionId
+- calibration window
+- bounded adjustment state
+- compact summary of active policy rules
+- explanation lines
+
+7. Add comparison helper:
+compareFrozenPolicies(before, after) should report:
+- whether policy regime changed
+- which fields changed
+- whether calibration window changed
+- whether bounded biases changed
+
+8. Keep everything deterministic.
+9. Do not mutate historical frozen policy snapshots after storage.
+
+Success condition:
+Each stored prediction can be traced back to the exact policy snapshot that produced it, making NOMOS historically reproducible.
+
+Why this matters
+
+Without this, future NOMOS can say:
+	•	“I predicted X”
+
+But not:
+	•	“I predicted X under policy regime Y”
+
+That means calibration history becomes blurry.
+
+With policy freeze, you can later compare:
+	•	predictions made under policy v1
+	•	predictions made under policy v2
+	•	whether policy changes improved calibration
+	•	whether bounded adjustment helped or hurt
+
+That is a much more serious system.
+
+What this unlocks next
+
+Once policy freeze exists, you can do:
+	•	calibration by policy version
+	•	accuracy comparison across policy regimes
+	•	rollback if a new policy performs worse
+	•	exact replay of old predictions
+
+That is a huge win.
+
+What comes after this
+
+After policy freeze + versioning, the strongest next step is:
+
+policy regime comparison
+
+So NOMOS can say:
+	•	policy v2 reduced over-aggressive predictions
+	•	policy v3 increased uncertainty appropriately under shallow history
+	•	policy v1 had better exact-match rate for nutrition audits
+
+That would make the system not just reproducible, but evaluable across its own evolution.

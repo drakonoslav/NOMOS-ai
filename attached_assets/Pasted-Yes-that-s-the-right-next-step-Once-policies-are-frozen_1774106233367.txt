@@ -1,0 +1,163 @@
+Yes — that’s the right next step.
+
+Once policies are frozen, NOMOS should be able to compare policy regimes as objects, not just individual predictions.
+
+That means it can evaluate its own evolution:
+	•	which policy reduced over-aggressive calls
+	•	which policy improved exact-match rate
+	•	which policy handled shallow history better
+	•	which policy performed better by domain
+
+That is a very strong capability.
+
+What to tell Replit
+
+Build policy regime comparison for NOMOS.
+
+Goal:
+Allow NOMOS to compare frozen policy versions across historical predictions so it can evaluate how different policy regimes performed over time.
+
+Create:
+- src/audit/policy_regime_comparison_types.ts
+- src/audit/policy_regime_comparison.ts
+- src/ui/components/audit/PolicyRegimeComparisonPanel.tsx
+
+Requirements:
+
+1. Add canonical comparison types.
+
+interface PolicyRegimeMetrics {
+  policyVersionId: string;
+
+  totalPredictions: number;
+  resolvedPredictions: number;
+
+  exactMatchRate: number | null;
+  directionMatchRate: number | null;
+
+  tooAggressiveRate: number | null;
+  tooWeakRate: number | null;
+
+  averageConfidenceScore: number | null;
+  averageEscalationBias: number | null;
+  averageUncertaintyBias: number | null;
+
+  nutritionPredictionCount: number;
+  trainingPredictionCount: number;
+  schedulePredictionCount: number;
+}
+
+interface PolicyRegimeComparison {
+  beforePolicyVersionId: string;
+  afterPolicyVersionId: string;
+
+  exactMatchDelta: number | null;
+  directionMatchDelta: number | null;
+  tooAggressiveDelta: number | null;
+  tooWeakDelta: number | null;
+
+  summaryLines: string[];
+  changed: boolean;
+}
+
+interface PolicyRegimeComparisonReport {
+  regimes: PolicyRegimeMetrics[];
+  pairwiseComparisons: PolicyRegimeComparison[];
+  bestByExactMatch: string | null;
+  bestByDirectionMatch: string | null;
+  lowestAggressiveRate: string | null;
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildPolicyRegimeMetrics(auditRecords)
+- comparePolicyRegimes(beforeMetrics, afterMetrics)
+- buildPolicyRegimeComparisonReport(auditRecords)
+
+3. Group predictions by frozenPolicyVersionId.
+
+4. For each policy version compute:
+- total predictions
+- resolved predictions
+- exact match rate
+- direction match rate
+- too aggressive rate
+- too weak rate
+- average bounded adjustment state values
+- counts by domain if available
+
+5. Pairwise comparison rules:
+- exactMatchDelta = after - before
+- directionMatchDelta = after - before
+- tooAggressiveDelta = after - before
+- tooWeakDelta = after - before
+
+6. Example summary lines:
+- "Policy v2 reduced over-aggressive predictions by 18% relative to v1."
+- "Policy v3 increased uncertainty bias and improved direction-match rate under shallow history."
+- "Policy v1 retained the strongest exact-match rate for nutrition audits."
+
+7. UI:
+Create PolicyRegimeComparisonPanel showing:
+- metrics by policy version
+- pairwise deltas
+- best-performing policy by key metric
+- summary lines
+
+8. Keep everything deterministic.
+9. Do not auto-promote a winning policy yet.
+This pass is comparison only, not automatic regime selection.
+
+Success condition:
+NOMOS can compare policy versions historically and explain how one regime performed relative to another.
+
+What this should let NOMOS say
+
+Examples:
+	•	“Policy v2 reduced over-aggressive predictions by 14% relative to v1.”
+	•	“Policy v3 improved direction-match accuracy but slightly reduced exact-match accuracy.”
+	•	“Policy v1 remains strongest for nutrition exact-match performance.”
+	•	“Policy v3 appears more conservative under shallow history, with higher uncertainty and fewer false escalations.”
+
+That is the right level of self-evaluation.
+
+Why this matters
+
+Without regime comparison, frozen policies are just archived snapshots.
+
+With regime comparison, they become:
+	•	measurable
+	•	comparable
+	•	historically meaningful
+
+That means NOMOS can evaluate not just:
+	•	predictions
+
+but:
+	•	the policy that generated those predictions
+
+That is a much more serious architecture.
+
+The key discipline
+
+Still do not let NOMOS auto-select the best regime yet.
+
+First let it:
+	•	measure
+	•	compare
+	•	explain
+
+Only after that should you think about policy selection or promotion.
+
+What comes after this
+
+After policy regime comparison, the strongest next step is:
+
+manual policy promotion + rollback
+
+So you can explicitly choose:
+	•	promote v3 to active policy
+	•	rollback to v2 if v3 performs worse
+	•	keep domain-specific policy preferences
+
+That would make NOMOS not just historically evaluable, but operationally governable.

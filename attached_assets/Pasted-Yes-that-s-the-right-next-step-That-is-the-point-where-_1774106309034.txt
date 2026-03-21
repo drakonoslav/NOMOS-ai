@@ -1,0 +1,148 @@
+Yes — that’s the right next step.
+
+That is the point where NOMOS becomes governable, not just inspectable.
+
+You want policy evolution to be:
+	•	explicit
+	•	reversible
+	•	domain-aware
+	•	non-automatic
+
+So policy changes become a controlled operation, not drift.
+
+What to tell Replit
+
+Build manual policy promotion + rollback for NOMOS.
+
+Goal:
+Allow explicit human-controlled policy governance:
+- promote a policy version to active
+- rollback to an earlier version
+- support domain-specific active policy preferences
+
+This is not automatic policy selection.
+It must be manual, deterministic, and fully auditable.
+
+Create:
+- src/audit/policy_governance_types.ts
+- src/audit/policy_governance.ts
+- src/ui/components/audit/PolicyGovernancePanel.tsx
+
+Requirements:
+
+1. Add canonical governance types.
+
+interface ActivePolicyAssignment {
+  domain: "nutrition" | "training" | "schedule" | "generic";
+  activePolicyVersionId: string;
+  assignedAt: string;
+  reason: string;
+}
+
+interface PolicyPromotionRecord {
+  actionId: string;
+  timestamp: string;
+  domain: "nutrition" | "training" | "schedule" | "generic";
+
+  action: "promote" | "rollback";
+  fromPolicyVersionId: string | null;
+  toPolicyVersionId: string;
+
+  reason: string;
+}
+
+interface PolicyGovernanceState {
+  activeAssignments: ActivePolicyAssignment[];
+  promotionHistory: PolicyPromotionRecord[];
+}
+
+2. Build deterministic functions:
+- getActivePolicyForDomain(governanceState, domain)
+- promotePolicy(governanceState, domain, toPolicyVersionId, reason)
+- rollbackPolicy(governanceState, domain, toPolicyVersionId, reason)
+- listPromotionHistory(governanceState, domain?)
+
+3. Promotion rules:
+- promotion must be explicit and manual
+- active policy changes only through governance actions
+- every promotion and rollback must create a PolicyPromotionRecord
+- no silent mutation of active policy
+
+4. Rollback rules:
+- rollback is just a governed reassignment to an earlier policy version
+- retain full promotion history
+- do not delete superseded policies
+
+5. Domain-specific preferences:
+Allow separate active policies for:
+- nutrition
+- training
+- schedule
+- generic
+
+6. UI:
+Create PolicyGovernancePanel showing:
+- active policy per domain
+- available policy versions
+- promote action
+- rollback action
+- reason field required for every governance action
+- promotion history log
+
+7. Keep everything deterministic.
+8. Do not auto-promote policies based on metrics yet.
+9. Do not mutate frozen policy snapshots.
+
+Success condition:
+NOMOS supports explicit human-controlled promotion and rollback of policy versions, including domain-specific active policy assignments.
+
+Why this matters
+
+This gives you a real operational model:
+	•	compare policies
+	•	decide manually
+	•	promote intentionally
+	•	rollback safely
+	•	keep a reasoned history
+
+That is exactly how you avoid uncontrolled system drift.
+
+What the system should eventually support
+
+For example:
+	•	nutrition → active policy v3
+	•	training → active policy v2
+	•	schedule → active policy v1
+
+And later:
+	•	rollback nutrition from v3 to v2
+	•	reason: “v3 reduced exact-match accuracy despite lower aggressiveness”
+
+That is very strong.
+
+The key principle
+
+NOMOS should be able to say not only:
+	•	what policy is active
+
+but:
+	•	who promoted it
+	•	when
+	•	for which domain
+	•	from what prior version
+	•	for what stated reason
+
+That makes policy governance auditable too.
+
+What comes after this
+
+After manual policy promotion + rollback, the strongest next step is:
+
+domain-scoped active evaluation routing
+
+So when NOMOS evaluates:
+	•	nutrition tasks use the active nutrition policy
+	•	training tasks use the active training policy
+	•	schedule tasks use the active schedule policy
+
+That’s when governance becomes operational, not just administrative.

@@ -1,0 +1,83 @@
+Build policy visibility for NOMOS.
+
+Goal:
+Make the prediction layer fully inspectable by exposing:
+- current prediction policy
+- current calibration state
+- current bounded adjustments
+- why NOMOS is speaking with its current confidence level
+
+Create:
+- src/audit/policy_visibility_types.ts
+- src/audit/policy_visibility.ts
+- src/ui/components/audit/PolicyVisibilityPanel.tsx
+
+Requirements:
+
+1. Add canonical policy visibility types.
+
+interface PredictionPolicySnapshot {
+  policyVersion: string;
+
+  basePredictionRule: string;
+  confidenceRule: string;
+  escalationRule: string;
+  uncertaintyRule: string;
+
+  boundedAdjustmentState: {
+    confidenceBias: number;
+    escalationBias: number;
+    uncertaintyBias: number;
+    calibrationWindow: number;
+  };
+
+  calibrationState: {
+    totalPredictions: number;
+    resolvedPredictions: number;
+    exactMatchRate: number | null;
+    directionMatchRate: number | null;
+    tooAggressiveRate: number | null;
+    tooWeakRate: number | null;
+  };
+
+  currentPredictionContext: {
+    predictedVariable: string | null;
+    confidence: "low" | "moderate" | "high";
+    riskDirection: "decreasing" | "stable" | "rising";
+  };
+
+  explanationLines: string[];
+}
+
+2. Build deterministic functions:
+- buildPredictionPolicySnapshot(auditRecords, currentPrediction, adjustmentState, calibrationReport)
+- buildPolicyExplanationLines(snapshot)
+
+3. Explanation lines must explicitly state:
+- what the base rule is
+- whether bounded adjustment changed confidence
+- whether escalation was softened or strengthened
+- whether uncertainty was raised due to shallow or noisy history
+- whether calibration is currently strong, mixed, or weak
+
+4. Example explanation lines:
+- "Base prediction rule selects the highest weighted recurring decisive variable."
+- "Confidence is reduced because exact-match calibration weakened over the recent window."
+- "Risk escalation is softened because recent forecasts were too aggressive."
+- "Uncertainty is elevated because resolved prediction history is still shallow."
+
+5. UI:
+Create PolicyVisibilityPanel showing:
+- policy version
+- current prediction policy summary
+- calibration metrics
+- bounded adjustment state
+- current prediction context
+- explanation lines
+
+6. Keep everything deterministic.
+7. Do not use LLM generation here.
+8. This panel is read-only visibility, not control editing.
+
+Success condition:
+NOMOS can show exactly why it currently predicts a given failure mode with a given confidence and risk direction.

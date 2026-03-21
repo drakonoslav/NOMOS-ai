@@ -1,0 +1,141 @@
+Yes — that’s the correct next step.
+
+Not self-modifying “learning,” but bounded adaptation of reporting and thresholds based on calibration.
+
+That keeps NOMOS from becoming sloppy.
+
+What bounded rule adjustment should change
+
+It should only adjust things like:
+	•	prediction confidence
+	•	escalation strength
+	•	uncertainty level
+	•	tie-breaking conservatism
+
+It should not rewrite core constraint logic automatically.
+
+What to tell Replit
+
+Build bounded rule adjustment for NOMOS.
+
+Goal:
+Allow NOMOS to adjust its prediction behavior conservatively based on calibration results, without changing core deterministic evaluation logic.
+
+This is not free learning.
+It is bounded adaptation of confidence and escalation rules only.
+
+Create:
+- src/audit/rule_adjustment_types.ts
+- src/audit/bounded_rule_adjustment.ts
+- src/ui/components/audit/RuleAdjustmentPanel.tsx
+
+Requirements:
+
+1. Add canonical adjustment types.
+
+interface RuleAdjustmentState {
+  confidenceBias: number;         // negative lowers confidence, positive raises slightly
+  escalationBias: number;         // negative lowers risk escalation, positive raises slightly
+  uncertaintyBias: number;        // positive raises uncertainty when history is weak/noisy
+  calibrationWindow: number;      // recent runs considered
+}
+
+interface RuleAdjustmentSignal {
+  exactMatchRate: number | null;
+  directionMatchRate: number | null;
+  tooAggressiveRate: number | null;
+  tooWeakRate: number | null;
+  shallowHistory: boolean;
+  noisyHistory: boolean;
+}
+
+interface RuleAdjustmentDecision {
+  nextState: RuleAdjustmentState;
+  changes: string[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildRuleAdjustmentSignal(calibrationReport, auditRecords)
+- computeBoundedRuleAdjustment(currentState, signal)
+- applyRuleAdjustmentToPrediction(prediction, adjustmentState)
+
+3. Allowed bounded adjustments:
+- reduce confidence if exact-match rate falls
+- reduce escalation if too-aggressive rate is high
+- increase uncertainty if history is shallow
+- increase uncertainty if history is noisy
+- slightly reduce confidence if direction-match rate is weak
+- slightly increase confidence only when calibration is consistently strong
+
+4. Hard limits:
+- do not let confidenceBias exceed a small bounded range
+- do not let escalationBias exceed a small bounded range
+- do not let uncertaintyBias exceed a small bounded range
+- never auto-modify:
+  - constraint compilation
+  - diff engine
+  - candidate verdict rules
+  - source-truth logic
+
+5. Add guards:
+- if total resolved predictions < 3, only raise uncertainty; do not strengthen confidence
+- if calibration is mixed, prefer conservatism
+- if tooAggressiveRate > tooWeakRate, lower escalation
+- if tooWeakRate > tooAggressiveRate, raise uncertainty before raising escalation
+
+6. Example output lines:
+- "Prediction confidence reduced due to falling exact-match rate."
+- "Risk escalation softened because recent forecasts were too aggressive."
+- "Uncertainty increased because audit history remains shallow."
+- "No bounded adjustment applied."
+
+7. UI:
+Create RuleAdjustmentPanel showing:
+- current adjustment state
+- reasons for current bias values
+- recent bounded changes
+- summary lines
+
+8. Keep everything deterministic.
+9. Do not let this layer silently change stored historical predictions.
+10. Apply adjustments only to future prediction output.
+
+Success condition:
+NOMOS can conservatively tune confidence and escalation behavior from calibration history without modifying its core reasoning engine.
+
+The right philosophy
+
+Bounded rule adjustment should work like this:
+	•	bad calibration → less confidence
+	•	repeated overcalling → softer escalation
+	•	shallow history → more uncertainty
+	•	strong repeated calibration → slightly more trust
+
+That is disciplined.
+
+What NOMOS should eventually say
+	•	“Prediction confidence reduced due to weak recent calibration.”
+	•	“Risk direction remains rising, but escalation is softened because recent forecasts overstated failure.”
+	•	“Uncertainty elevated because the audit window is shallow.”
+	•	“No bounded adjustment applied; calibration remains stable.”
+
+The hard rule
+
+NOMOS may adjust how strongly it speaks, not what truth is.
+
+That distinction matters a lot.
+
+What comes after this
+
+After bounded rule adjustment, the strongest next step is:
+
+policy visibility
+
+A panel that shows:
+	•	current prediction policy
+	•	current calibration state
+	•	current bounded adjustments
+	•	why NOMOS is speaking with this level of confidence
+
+That would make the whole system inspectable end-to-end.
