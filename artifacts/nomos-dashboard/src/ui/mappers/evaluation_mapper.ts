@@ -114,6 +114,15 @@ export function mapEvaluationResultToViewModel(
     mapCandidateEvaluation(e, compiledConstraints, allDeterministic)
   );
 
+  // Per-candidate diagnostic — always fires, focused on the first candidate
+  if (result.candidateEvaluations.length > 0) {
+    diagnoseCandidatePipeline(
+      result.candidateEvaluations[0]!,
+      compiledConstraints ?? [],
+      candidateCards[0]!
+    );
+  }
+
   // Pipeline consistency invariant check
   if (allDeterministic) {
     for (const card of candidateCards) {
@@ -282,6 +291,85 @@ function sanitizeAdjustments(adjustments: string[], allDeterministic: boolean): 
     seen.add(key);
     return true;
   });
+}
+
+/* =========================================================
+   Per-candidate diagnostic print
+   Always fires for the first candidate of each evaluation.
+   Prints the five fields the pipeline needs for correctness verification.
+   ========================================================= */
+
+/**
+ * Prints a focused diagnostic for ONE candidate showing every layer:
+ *  1. raw reason clauses (split on " Additionally: ")
+ *  2. compiled constraint kinds + keys
+ *  3. mapped decisive variable
+ *  4. rendered reason string (after sanitization and deduplication)
+ *  5. rendered adjustments list
+ */
+function diagnoseCandidatePipeline(
+  raw: CandidateEvaluation,
+  compiledConstraints: CompiledConstraint[],
+  card: CandidateEvaluationCardViewModel
+): void {
+  const rawClauses = raw.reason
+    .split(" Additionally: ")
+    .map((c, i) => `  [${i}] ${c.trim()}`);
+
+  const constraintKinds = compiledConstraints.map(
+    (c) => `  ${c.kind}:${c.key ?? "—"}  "${c.raw.slice(0, 60)}${c.raw.length > 60 ? "…" : ""}"`
+  );
+
+  console.group(
+    `[NOMOS:DIAG] Candidate ${raw.id} — status=${raw.status} | decisive="${raw.decisiveVariable}" → "${card.decisiveVariable}"`
+  );
+
+  console.group("1. Raw reason clauses (pre-sanitization, split on ' Additionally: ')");
+  if (rawClauses.length === 0) {
+    console.log("  (empty)");
+  } else {
+    rawClauses.forEach((line) => console.log(line));
+  }
+  console.groupEnd();
+
+  console.group("2. Compiled constraint kinds");
+  if (constraintKinds.length === 0) {
+    console.log("  (none — no compiledConstraints provided)");
+  } else {
+    constraintKinds.forEach((line) => console.log(line));
+    console.log(
+      `  unresolvedCount: ${unresolvedConstraintCount(compiledConstraints)} / ${compiledConstraints.length}`
+    );
+  }
+  console.groupEnd();
+
+  console.group("3. Mapped decisive variable");
+  console.log(`  raw:    "${raw.decisiveVariable}"`);
+  console.log(`  mapped: "${card.decisiveVariable}"`);
+  console.groupEnd();
+
+  console.group("4. Rendered reason string (post-sanitization)");
+  console.log(`  "${card.reason}"`);
+  const stillHasFallback = containsFallbackReasonSignal(card.reason);
+  if (stillHasFallback) {
+    console.warn("  ⚠ STALE FALLBACK TEXT SURVIVED SANITIZATION — check FALLBACK_REASON_SIGNALS");
+  } else {
+    console.log("  ✓ no fallback residue");
+  }
+  console.groupEnd();
+
+  console.group("5. Rendered adjustments list");
+  if (card.adjustments.length === 0) {
+    console.log("  (none)");
+  } else {
+    card.adjustments.forEach((a, i) => {
+      const hasFallback = containsFallbackAdjustmentSignal(a);
+      console.log(`  [${i}] ${hasFallback ? "⚠ STALE: " : "✓ "}"${a}"`);
+    });
+  }
+  console.groupEnd();
+
+  console.groupEnd();
 }
 
 /* =========================================================
