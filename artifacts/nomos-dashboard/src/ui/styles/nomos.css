@@ -6917,3 +6917,209 @@ textarea {
   border-top: 1px solid rgba(255,255,255,0.05);
   padding-top: 12px;
 }
+
+/* =========================================================
+   Governance Audit Trail additions to .nm-gov
+   ========================================================= */
+
+/* Decision context summary in action form */
+
+.nm-gov__context-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 5px;
+  padding: 10px 14px;
+}
+
+.nm-gov__context-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__context-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nm-gov__context-col {
+  flex: 1;
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nm-gov__context-col-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__context-list {
+  margin: 0;
+  padding: 0 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nm-gov__context-item {
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.nm-gov__context-item--gain { color: #4caf82; }
+.nm-gov__context-item--risk { color: #e07070; }
+
+.nm-gov__context-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--nm-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Reason hint */
+
+.nm-gov__reason-hint {
+  font-size: 10px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+  margin-top: 3px;
+}
+
+/* Audit trail */
+
+.nm-gov__audit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-gov__audit-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nm-gov__audit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Audit row */
+
+.nm-gov__audit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 5px;
+  padding: 10px 14px;
+}
+
+.nm-gov__audit-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nm-gov__audit-domain {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nm-gov__audit-strength {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--nm-text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.nm-gov__audit-versions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nm-gov__audit-deviated {
+  font-size: 10px;
+  color: var(--nm-degraded);
+}
+
+.nm-gov__audit-expand {
+  align-self: flex-start;
+  font-size: 10.5px;
+  color: var(--nm-text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.nm-gov__audit-expand:hover {
+  color: var(--nm-text);
+}
+
+/* Expanded audit detail */
+
+.nm-gov__audit-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.nm-gov__audit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nm-gov__audit-section-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__audit-list--gains    li { font-size: 11px; color: #4caf82; line-height: 1.5; }
+.nm-gov__audit-list--tradeoffs li { font-size: 11px; color: #d4903c; line-height: 1.5; }
+.nm-gov__audit-list--risks    li { font-size: 11px; color: #e07070; line-height: 1.5; }
+.nm-gov__audit-detail ul li   { font-size: 11px; color: var(--nm-text); line-height: 1.5; }
+.nm-gov__audit-detail ul {
+  margin: 0;
+  padding: 0 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nm-gov__audit-id {
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--nm-text-muted);
+  opacity: 0.6;
+}
