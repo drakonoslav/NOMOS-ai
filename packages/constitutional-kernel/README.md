@@ -1,38 +1,62 @@
-# Mission Mathematics — Constitutional AI Kernel
+# Epistemic AI Kernel
 
-A formal reasoning substrate for mission-critical autonomous systems, implemented in TypeScript.
-This is **not** an LLM chatbot. It is a constitutional reasoning engine grounded in four Laws
-that govern every decision from belief formation through control actuation.
+**A Constitutionally Governed Architecture for Reality-Constrained Intelligence**
 
-## The Four Laws
+This repository implements a formal reasoning substrate for AI systems whose decisions are
+governed by explicit epistemic laws. It is **not** an LLM chatbot, a heuristic planner, or
+an unconstrained optimizer. It is a constitutional reasoning engine in which every decision
+from belief formation through control actuation is subject to a strict ordering:
+
+> **Feasibility → Robustness → Observability → Adaptation → Verification**
+
+That ordering is not stylistic. It is structural. It encodes the principle:
+a system must first be *possible*, then *stable*, then *knowable*, then *correctable* —
+only then may it act.
+
+---
+
+## The Four Constitutional Laws
 
 | Law | Name | Core Guarantee |
 |-----|------|----------------|
-| I   | Feasibility | A plan is only considered if it satisfies all constraints. Stale solutions are rejected before evaluation begins. |
-| II  | Robustness | Among feasible plans, robustness radius dominates cost. No cost-optimal but fragile plan is selected. |
-| III | Observability | Beliefs are tracked with explicit uncertainty bounds. Unobservable or unidentifiable states are flagged, never silently ignored. |
-| IV  | Adaptive Correction | When models degrade or objectives drift, the kernel degrades gracefully and triggers recomputation rather than applying corrupted control. |
+| **I**   | Feasibility | No action may violate physical, logical, or resource constraints. If it cannot exist, it cannot be chosen. |
+| **II**  | Robustness | A feasible plan must remain feasible under bounded perturbations. Nominal validity is insufficient; survival under disturbance is required. |
+| **III** | Observability | The system must have sufficient information to estimate its own state. An estimate is not truth; unobservable systems cannot be controlled reliably. |
+| **IV**  | Adaptive Correction | The system must continuously correct itself through feedback. Intelligence is not a single solution but a persistent re-solution process. |
+
+**Supremacy Rule:** lower layers dominate higher layers.
+
+```
+Feasibility > Robustness > Observability > Adaptation > Optimization
+```
+
+No higher-layer objective may override a lower-layer violation.
+
+---
 
 ## Package Layout
 
 ```
 packages/constitutional-kernel/
 ├── src/
-│   ├── belief_state.ts        # Law III: belief representation with uncertainty
-│   ├── observer.ts            # Law III: measurement fusion, delay compensation
+│   ├── belief_state.ts        # Law III: belief representation, uncertainty, provenance
+│   ├── observer.ts            # Law III: measurement fusion, delay compensation, observability
 │   ├── feasibility_engine.ts  # Law I:  constraint checking, stale-manifold invalidation
-│   ├── robustness_analyzer.ts # Law II: epsilon radius, sensitivity, fragile dimensions
+│   ├── robustness_analyzer.ts # Law II: epsilon radius, sensitivity spectrum, fragile dimensions
 │   ├── decision_engine.ts     # Laws I+II: constitutional plan ranking and selection
-│   ├── verification_kernel.ts # Law IV: cross-law synthesis, DEGRADED/REFUSED gates
+│   ├── verification_kernel.ts # Law IV: cross-law synthesis, LAWFUL / DEGRADED / REFUSED
 │   ├── model_registry.ts      # model lifecycle, confidence scoring, fallback switching
-│   ├── constitution_guard.ts  # top-level constitutional gate (wraps all laws)
-│   ├── audit_log.ts           # tamper-evident decision record
+│   ├── constitution_guard.ts  # top-level constitutional gate: apply / degrade / refuse
+│   ├── audit_log.ts           # tamper-evident full-trace decision record
+│   ├── llm_proposer.ts        # proposal generation layer (non-authoritative)
 │   ├── index.ts               # barrel re-export
 │   └── main.ts                # end-to-end demo
 ├── package.json
 ├── tsconfig.json
 └── README.md
 ```
+
+---
 
 ## Quick Start
 
@@ -48,96 +72,443 @@ pnpm check          # tsc --noEmit
 pnpm test           # tsc --noEmit && tsx src/main.ts (smoke test)
 ```
 
-> **Note:** This package uses pnpm `catalog:` dependency specifiers and must be run inside the pnpm workspace. It is not npm-compatible as-is. To extract it as a standalone package, replace the `catalog:` specifiers in `package.json` with concrete semver versions (`tsx@^4.x`, `@types/node@^22.x`).
+> **Note:** This package uses pnpm `catalog:` dependency specifiers and must be run inside
+> the pnpm workspace. To extract as a standalone package, replace the `catalog:` specifiers
+> in `package.json` with concrete semver versions (`tsx@^4.x`, `@types/node@^22.x`).
 
-The demo exercises the full constitutional chain:
+---
 
-1. **Belief / Observer** — a simulated sensor measurement with 40 ms delay is fused into a belief state with covariance-tracked uncertainty.
-2. **Model Registry** — the primary model is scored; a degraded residual triggers fallback selection.
-3. **Decision Engine** — two candidate plans are evaluated: plan-A (higher cost, larger robustness radius) and plan-B (lower cost, tighter margin). Law II selects plan-A.
-4. **Verification Kernel** — cross-law consistency is checked. Staleness and model degradation produce a `DEGRADED` status rather than `LAWFUL`.
-5. **Constitution Guard** — the guard applies the degraded control and records the outcome.
-6. **Audit Log** — a tamper-evident record is appended with the full decision trail.
-
-## Demo Output Summary
+## Runtime Chain
 
 ```
-[decision] selected plan: plan-A          ← robustness (ε=0.20) beats cost (plan-B cost=0.95)
-[verification] status: DEGRADED           ← stale belief + degraded model = gated output
-[actuation] APPLY DEGRADED control: [0.1]
-Audit outcome: DEGRADED_ACTION_APPLIED
+REAL WORLD
+   │
+   ▼
+Measurement z(t)
+   │
+   ▼
+[ OBSERVER ]
+   │  produces
+   ▼
+Belief State b(t) = (x̂, θ̂, ε, identifiability)
+   │
+   ▼
+[ MODEL REGISTRY ]
+   │  provides ℳ, confidence, mismatch detection
+   ▼
+Model-conditioned belief
+   │
+   ▼
+[ LLM PROPOSER ]
+   │  generates candidate plans Π = {π₁, π₂, ...}
+   │  lawful: false on every proposal
+   ▼
+Proposals (non-authoritative)
+   │
+   ▼
+[ DECISION ENGINE ]
+   │  filters via Law I + II
+   │  ranking: feasibility > robustness > cost
+   ▼
+Feasible & robust candidate set Π*
+   │
+   ▼
+[ VERIFICATION KERNEL ]
+   │  enforces Law I–IV
+   ▼
+Verification status ∈ {LAWFUL, DEGRADED, INVALID}
+   │
+   ▼
+[ CONSTITUTION GUARD ]
+   │
+   ├── APPLY
+   ├── DEGRADE
+   └── REFUSE
+   ▼
+Control u(t)
+   │
+   ▼
+[ AUDIT LOG ]
+   │
+   ▼
+REAL WORLD (state evolves)
 ```
 
-## Constitutional Chain
+---
+
+## Layer-by-Layer Description
+
+### 1 — Belief Layer (`belief_state.ts`)
+
+Maintains the explicit epistemic state:
+- `x̂(t)` — state estimate
+- `θ̂` — parameter belief with identifiability flags
+- `εₓ` — uncertainty bound such that `‖x(t) − x̂(t)‖ ≤ ε(t)`
+- staleness, confidence band, provenance chain
+
+Uncertainty is explicit here, not implicit. An unobservable or stale belief is flagged,
+never silently treated as ground truth.
+
+### 2 — Observer (`observer.ts`)
+
+Transforms bounded measurements into updated belief:
+- checks innovation residuals
+- compensates for measurement delay
+- enforces observability conditions
+- evaluates information sufficiency
+- tracks false-legibility risk
+
+Prevents: false certainty, stale inference, unobservable control.
+
+### 3 — Model Layer (`model_registry.ts`)
+
+Maintains:
+- active model class ℳ and its measurement map
+- parameter belief
+- model confidence scoring
+- mismatch detection via residual norms
+- constitutional fallback switching
+
+The model is not assumed correct — it is continuously evaluated.
+
+### 4 — LLM Proposer (`llm_proposer.ts`)
+
+Generates candidate proposals. This stage is **non-authoritative**.
+
+It may produce:
+- `CONTROL_PLAN` — a candidate control sequence
+- `STATE_HYPOTHESIS` — an alternative state estimate
+- `PARAMETER_HYPOTHESIS` — a candidate parameter vector
+- `RECOVERY_ACTION` — a suggested recovery sketch
+- `OBJECTIVE_REFRAME` — a candidate objective restatement
+
+It may **not**:
+- certify feasibility
+- certify robustness
+- certify observability
+- authorize action
+- bypass verification
+
+Every `LLMProposal` is constructed with:
+
+```typescript
+lawful: false
+```
+
+This is not cosmetic. It encodes the constitutional fact that *proposal is not authorization*.
+
+#### LLM Containment Boundary
 
 ```
-Sensor measurement
-      │
-      ▼
-┌──────────────┐   Law III
-│   Observer   │  uncertainty, delay compensation
-└──────┬───────┘
-       │ BeliefState
-       ▼
-┌──────────────────┐   Law I
-│FeasibilityEngine │  equality / inequality / resource / terminal / staleness
-└──────┬───────────┘
-       │ FeasibilityReport
-       ▼
-┌───────────────────┐   Law II
-│RobustnessAnalyzer │  epsilon radius, sensitivity spectrum, horizon bound
-└──────┬────────────┘
-       │ RobustnessReport
-       ▼
-┌───────────────┐   Laws I+II
-│DecisionEngine │  constitutional ranking: feasibility > robustness > cost
-└──────┬────────┘
-       │ DecisionResult (selectedPlan)
-       ▼
-┌──────────────────────┐   Law IV
-│VerificationKernel    │  cross-law synthesis → LAWFUL / DEGRADED / REFUSED
-└──────┬───────────────┘
-       │ VerificationReport
-       ▼
-┌─────────────────┐
-│ConstitutionGuard│  apply / gate / recompute
-└──────┬──────────┘
-       │
-       ▼
-┌──────────┐
-│ AuditLog │  tamper-evident append
-└──────────┘
+                ┌───────────────────────┐
+                │     LLM PROPOSER      │
+                │  (non-authoritative)  │
+                └─────────┬─────────────┘
+                          │ proposals only
+                          ▼
+                ┌───────────────────────┐
+                │   DECISION ENGINE     │
+                └─────────┬─────────────┘
+                          ▼
+                ┌───────────────────────┐
+                │ VERIFICATION KERNEL   │
+                └─────────┬─────────────┘
+                          ▼
+                ┌───────────────────────┐
+                │ CONSTITUTION GUARD    │
+                └───────────────────────┘
+
+Hard rule: the LLM cannot cross the verification boundary.
 ```
+
+### 5 — Decision Engine (`decision_engine.ts`)
+
+Converts screened proposals into lawful candidates and applies the constitutional ranking:
+
+```
+Candidate Plan π
+    │
+    ▼
+[ Feasibility Check ]  (Law I)
+    │
+    ├── FAIL → REJECT
+    ▼
+[ Freshness + Conservation Check ]
+    │
+    ├── FAIL → REJECT
+    ▼
+[ Robustness Check ]   (Law II)
+    │
+    ├── FAIL → REJECT
+    ▼
+[ Rank Survivors ]
+    │
+    ├── Primary:   robustness margin ε
+    └── Secondary: cost J
+```
+
+Robustness dominates cost. This is where most fragile or infeasible proposals are rejected.
+
+### 6 — Verification Kernel (`verification_kernel.ts`)
+
+Final cross-layer authority. Checks all four laws simultaneously:
+- feasibility (Law I)
+- robustness (Law II)
+- observability, identifiability (Law III)
+- model validity, objective drift, adaptation integrity (Law IV)
+
+Outputs exactly one of: `LAWFUL` | `DEGRADED` | `INVALID`
+
+No action may bypass this stage.
+
+### 7 — Constitution Guard (`constitution_guard.ts`)
+
+Translates verification status into runtime authority:
+- `mayAct` → apply the selected control
+- `mustDegrade` → apply a safe degraded action
+- `mustRefuse` → refuse entirely
+
+This is the enforcement boundary.
+
+### 8 — Audit Log (`audit_log.ts`)
+
+Records the full system trace:
+- measurement snapshot
+- belief state
+- model signature and confidence
+- proposal bundle
+- feasibility and robustness reports
+- verification result
+- final control action and outcome
+
+Ensures reproducibility, diagnosability, and accountability.
+
+---
+
+## Law Hierarchy
+
+```
+        ┌──────────────────────────────┐
+        │        Law IV: Adaptation     │
+        └────────────▲─────────────────┘
+                     │ depends on
+        ┌────────────┴─────────────────┐
+        │      Law III: Observability   │
+        └────────────▲─────────────────┘
+                     │ depends on
+        ┌────────────┴─────────────────┐
+        │       Law II: Robustness      │
+        └────────────▲─────────────────┘
+                     │ depends on
+        ┌────────────┴─────────────────┐
+        │       Law I: Feasibility      │
+        └──────────────────────────────┘
+```
+
+You cannot observe what is not feasible.
+You cannot adapt what you cannot observe.
+You cannot optimize what cannot survive perturbation.
+
+---
+
+## Formal Theorems
+
+**Theorem I — Primacy of Feasibility**
+If a trajectory violates feasibility, no optimization, learning, or inference can render it valid.
+
+**Theorem II — Necessity of Robustness**
+A feasible trajectory without robustness is not operationally valid under perturbation.
+
+**Theorem III — Observability Constraint**
+No control law can guarantee correct behavior when the system state is not identifiable
+within bounded uncertainty.
+
+**Theorem IV — Adaptive Necessity**
+A system that does not continuously re-solve its control problem will diverge under disturbance.
+
+**Theorem V — LLM Integration**
+Let Π_LLM be proposals generated by a language model. Then:
+
+```
+Π_LLM ⊂ Π_candidate    (proposals enter the candidate pool)
+Π_LLM ⊄ Π_lawful       (proposals are not self-authorizing)
+```
+
+LLM outputs must be filtered through Laws I–IV before action.
+
+---
 
 ## Six-Layer Architecture
 
-The kernel is structured as six ordered layers. Each layer has a single constitutional responsibility and hands a typed report to the next layer. No layer may bypass or short-circuit a lower-numbered layer.
-
 | Layer | Name | Responsibility | Source Files | Law |
 |-------|------|----------------|--------------|-----|
-| 1 | **Ontology** | Define the universe: states, controls, resources, constraints, dependency stamps. Provides the shared vocabulary all layers speak. | `feasibility_engine.ts` (type exports: `FeasibilityInput`, `ConstraintDefinition`, `DependencyStamp`, …) | — |
-| 2 | **Epistemic** | Maintain beliefs about the world with explicit uncertainty quantification. Detect measurement delays; propagate covariance; track provenance. Flag low-confidence or unidentifiable states rather than silently hiding them. | `belief_state.ts`, `observer.ts` | III |
-| 3 | **Model** | Register, score, and switch between dynamical models. Compute residuals, prediction errors, and invariant violations. Select the best-scoring non-degraded model; fall back constitutionally when all primaries are degraded. | `model_registry.ts` | IV (partial) |
-| 4 | **Decision** | Enforce the constitutional plan-selection order: (i) reject infeasible plans (Law I), (ii) reject plans below the minimum robustness radius (Law II), (iii) rank survivors by robustness first, cost second (Law II, T2.5). Return an explicit `DecisionResult` — never silently coerce an infeasible plan into a lawful one. | `feasibility_engine.ts`, `robustness_analyzer.ts`, `decision_engine.ts` | I, II |
-| 5 | **Verification** | Cross-law synthesis gate. Aggregates Law I (feasibility), Law II (robustness), Law III (observability, identifiability), and Law IV (model confidence, objective drift) into a single `VerificationReport`. Outputs `LAWFUL`, `DEGRADED`, or `REFUSED` — never a silent pass on a multi-law violation. | `verification_kernel.ts` | I, II, III, IV |
-| 6 | **Control / Audit** | Apply or refuse the verified control action. Append a tamper-evident audit record containing the full decision trail (belief, model, feasibility, robustness, verification, outcome). Provide summary statistics for post-hoc constitutional review. | `constitution_guard.ts`, `audit_log.ts` | IV |
+| 1 | **Ontology** | Define the universe: states, controls, resources, constraints, dependency stamps. Shared vocabulary for all layers. | `feasibility_engine.ts` (type exports) | — |
+| 2 | **Epistemic** | Maintain beliefs with explicit uncertainty. Detect measurement delays; propagate covariance; track provenance. Flag low-confidence or unidentifiable states. | `belief_state.ts`, `observer.ts` | III |
+| 3 | **Model** | Register, score, and switch dynamical models. Compute residuals, prediction errors, invariant violations. Fall back constitutionally when all primaries are degraded. | `model_registry.ts` | IV |
+| 4 | **Proposal** | Generate candidate plans and hypotheses (non-authoritative). All proposals marked `lawful: false`. Deterministic fallback available; swap for live LLM call. | `llm_proposer.ts` | — |
+| 5 | **Decision** | Enforce constitutional plan-selection order: reject infeasible → reject non-robust → rank by robustness then cost. Simulate nominal trajectories from proposals. | `feasibility_engine.ts`, `robustness_analyzer.ts`, `decision_engine.ts` | I, II |
+| 6 | **Verification + Control** | Cross-law synthesis gate → LAWFUL / DEGRADED / REFUSED. Apply or refuse action. Append tamper-evident audit record. | `verification_kernel.ts`, `constitution_guard.ts`, `audit_log.ts` | I, II, III, IV |
 
 ### Layer Interaction Contract
 
 ```
 Layer 2 (Epistemic)   →  BeliefState
 Layer 3 (Model)       →  ModelSignature + ModelConfidence
-Layer 4 (Decision)    →  DecisionResult { selectedPlan, feasibility, robustness }
-Layer 5 (Verification)→  VerificationReport { status: LAWFUL | DEGRADED | REFUSED }
+Layer 4 (Proposal)    →  ProposalBundle { proposals: LLMProposal[] }
+Layer 5 (Decision)    →  DecisionResult { selectedPlan, feasibility, robustness }
+Layer 6 (Verification)→  VerificationReport { status: LAWFUL | DEGRADED | REFUSED }
 Layer 6 (Control)     →  AuditRecord { outcome: APPLIED | DEGRADED_ACTION_APPLIED | REFUSED }
 ```
 
 Each arrow is a named TypeScript interface. No layer produces untyped outputs or swallows errors silently.
 
+---
+
+## Demo Output
+
+The demo exercises the full constitutional chain end-to-end:
+
+```
+[observer]       observable: true | identifiability: FULL | innovation norm: 0.105650
+[model]          switched to fallback model: mock-fallback
+[llm_proposer]   generated proposals: 2
+[llm_proposer]   notes: No parseable live LLM response; deterministic fallback generated.
+[planner]        candidate plans from proposer: 2
+[decision]       selected plan: candidate-from-llm-plan-<id>
+[verification]   status: DEGRADED
+[actuation]      APPLY DEGRADED control: [0.1]
+[audit]          outcome: DEGRADED_ACTION_APPLIED
+
+--- Constitutional Demo Summary ---
+LLM proposals             : 2
+Selected plan             : candidate-from-llm-plan-<id>
+Robustness epsilon        : 0.354260
+Verification status       : DEGRADED
+Audit outcome             : DEGRADED_ACTION_APPLIED
+```
+
+The system reaches `DEGRADED` (not `LAWFUL`) because: measurement delay is 40 ms,
+model residual exceeds tolerance, and objective drift is 0.975 which exceeds the 0.90 threshold.
+This is the correct constitutional response — the system flags its own limitations rather than
+silently claiming lawful authority.
+
+---
+
+## Using the LLM Proposer
+
+```typescript
+import { LLMProposer, MissionContext } from "@workspace/constitutional-kernel";
+
+const proposer = new LLMProposer();
+
+// Swap rawLLMResponse for a live API call when ready.
+// deterministicFallback keeps the system runnable without an API key.
+const bundle = proposer.propose({
+  missionContext,
+  belief: updatedBelief,
+  modelSignature: modelRegistry.getActiveSignature(),
+  operatorHints: ["prefer conservative actuation"],
+  deterministicFallback: true,
+  // rawLLMResponse: await callYourLLM(prompt),
+});
+
+// Only CONTROL_PLAN proposals become candidate plans
+const candidatePlans = bundle.proposals
+  .filter((p) => p.kind === "CONTROL_PLAN" && !!p.planSketch)
+  .map((proposal) => {
+    const nominal = simulateNominalPlan(...);
+    return proposer.toCandidatePlan({
+      proposal,
+      nominalX: nominal.nominalX,
+      nominalU: nominal.nominalU,
+      nominalR: nominal.nominalR,
+      feasibilityInput: makeFeasibilityInput(...),
+      robustnessConfig: { epsilonMin: 0.03, ... },
+    });
+  });
+
+const decision = decisionEngine.decide(candidatePlans);
+const verification = verificationKernel.verify(...);
+const authority = decideAuthority(verification);
+```
+
+### Plugging in a Real LLM
+
+The raw LLM response parser accepts blocks in this format:
+
+```
+CONTROL_PLAN:
+[[0.25],[0.25],[0.25],[0.25]]
+RATIONALE: Conservative corrective thrust toward target.
+ASSUMPTIONS: state estimate usable; fuel margin positive
+
+STATE_HYPOTHESIS:
+[0.45, 0.88]
+RATIONALE: Alternative state based on secondary sensor.
+```
+
+Unknown blocks are collected in `bundle.rejectedFragments` with reasons — never silently dropped.
+
+---
+
 ## Key Design Decisions
 
 - **No silent fallbacks.** Every failure path surfaces an explicit reason string and a structured report.
 - **Equality ≠ slack.** `computeMinimumMargin` excludes equality/conservation constraints from the robustness radius — their binary tolerance is not a meaningful safety margin.
-- **Generic ranking.** `rankByRobustnessThenCost<P extends CandidatePlan>` preserves the full extended plan type through the ranking step.
+- **Generic ranking.** `rankByRobustnessThenCost<P extends CandidatePlan>` preserves the full extended plan type through ranking.
 - **Delay-consistent robustness.** The robustness certificate is only valid if `analyzedOnDelayedModel` matches `delayPresent`.
+- **Sensitivity-scaled proposals.** In the demo, sensitivity matrices are scaled with max control magnitude — aggressive proposals earn a larger sensitivity matrix and therefore a smaller robustness radius. Constitutional penalty, not just cost penalty.
 - **Provenance tracking.** Every belief carries a `provenance` string array recording each transformation step.
+- **`lawful: false` is structural.** It is not a comment or convention. It encodes the constitutional fact that proposal is not authorization, and is enforced at the TypeScript type level.
+
+---
+
+## What This Is (and Is Not)
+
+**This is:**
+- a constitutional AI architecture
+- a control-theoretic epistemic system
+- a failure-aware decision kernel
+- a foundation for non-hallucinating AI
+
+**This is not:**
+- a chatbot
+- a pure ML model
+- a heuristic planner
+- an unconstrained optimizer
+
+---
+
+## Design Philosophy
+
+Most AI systems fail because they implicitly assume:
+- that proposed actions are feasible
+- that models are correct
+- that observations are sufficient
+- that optimization is safe
+
+This kernel removes those assumptions. Every stage is made explicit, bounded, and
+continuously checked. The most important property of this system is not performance.
+
+**It is refusal.**
+
+The system must be able to say: *"No lawful action exists."*
+
+That is what separates systems that optimize from systems that survive reality.
+
+---
+
+## Current State
+
+- All layers implemented and typecheck-clean
+- Full chain runs end-to-end with `tsx src/main.ts`
+- LLM proposer integrated with deterministic fallback
+- Simple mock system used for demonstration
+
+## Planned Extensions
+
+1. **Real LLM Integration** — structured prompting, constrained decoding, schema-bound outputs
+2. **MPC Controller** — replace simple rollout with horizon optimization; integrate constraints into solver
+3. **Belief Refinement** — full covariance propagation, Bayesian filtering, multi-hypothesis tracking
+4. **Model Learning** — online parameter estimation, model class switching, uncertainty-aware dynamics
+5. **Verification Expansion** — formal invariants, safety proofs, adversarial stress testing
