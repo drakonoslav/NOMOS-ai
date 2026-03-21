@@ -241,14 +241,17 @@ describe("extractQuantifiedEntities — duration examples", () => {
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 describe("extractQuantifiedEntities — robustness examples", () => {
-  it("(R1) '9 grams wishes' — odd entity, preserved with moderate confidence", () => {
+  it("(R1) '9 grams wishes' — odd entity, preserved with high confidence (open-vocabulary)", () => {
     const [e] = extractQuantifiedEntities("9 grams wishes");
     expect(e).toBeDefined();
     expect(e.amount).toBe(9);
     expect(e.normalizedUnit).toBe("g");
     expect(e.entityLabel).toBe("wishes");
-    // Not in any known word set → moderate
-    expect(e.confidence).toBe("moderate");
+    // Open-vocabulary: any non-empty label paired with a recognized unit → high.
+    // Known word lists affect category inference only, not extraction confidence.
+    expect(e.confidence).toBe("high");
+    // Category falls to unknown because "wishes" is not in any domain word set.
+    expect(e.category).toBe("unknown");
   });
 
   it("(R2) missing punctuation: '30g oats 2 eggs' → two entities", () => {

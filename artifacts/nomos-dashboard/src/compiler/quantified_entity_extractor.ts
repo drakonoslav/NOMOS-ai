@@ -263,28 +263,30 @@ function inferCategory(
    Confidence inference
    ========================================================= */
 
-const ALL_KNOWN_WORDS = new Set([
-  ...FOOD_WORDS,
-  ...SUPPLEMENT_WORDS,
-  ...FLUID_WORDS,
-  ...EQUIPMENT_WORDS,
-  ...ACTIVITY_WORDS,
-]);
-
+/**
+ * inferConfidence — structural confidence in the extraction, NOT domain knowledge.
+ *
+ * Confidence reflects how well-formed the quantified entity is as a structural
+ * unit, not whether the entity label is in a known vocabulary.
+ *
+ * Open-vocabulary contract:
+ *   The entity label is NEVER required to appear in a closed dictionary.
+ *   Known word sets (FOOD_WORDS, SUPPLEMENT_WORDS, etc.) belong to category
+ *   inference only.  A noun like "wishes" is structurally valid when paired
+ *   with a recognized quantity + unit, and should receive the same extraction
+ *   confidence as "oats" or "creatine".
+ *
+ *   high     — recognized unit + non-empty entity label (any noun phrase)
+ *   moderate — recognized unit + empty entity label (bare quantity, e.g. "500ml")
+ *   low      — unit not recognized (should not occur in normal flow)
+ */
 function inferConfidence(
   unitRecord: ReturnType<typeof resolveUnit>,
-  entityLabel: string,
-  isSelfEntity: boolean
+  entityLabel: string
 ): QuantifiedEntity["confidence"] {
   if (!unitRecord) return "low";
-  if (isSelfEntity && entityLabel !== "") return "high";
-
-  if (entityLabel === "") return "low";
-
-  const tokens = entityLabel.toLowerCase().split(/\s+/);
-  const inKnownSet = tokens.some((t) => ALL_KNOWN_WORDS.has(t));
-
-  return inKnownSet ? "high" : "moderate";
+  if (entityLabel !== "") return "high";
+  return "moderate";
 }
 
 /* =========================================================
@@ -329,7 +331,7 @@ function buildEntity(
     : `${raw.amount}${normalizedUnit}`;
 
   const category = inferCategory(unitRecord, normalizedEntityLabel);
-  const confidence = inferConfidence(unitRecord, normalizedEntityLabel, isSelfEntity);
+  const confidence = inferConfidence(unitRecord, normalizedEntityLabel);
 
   return {
     id:                    `qe_${idIndex}`,
