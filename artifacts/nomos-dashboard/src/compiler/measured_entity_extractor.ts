@@ -20,6 +20,7 @@ import type {
   MeasuredEntityCategory,
   MeasuredEntityRole,
 } from "./measured_entity_types.ts";
+import { enrichEntityTags } from "./entity_tag_enricher.ts";
 
 /* =========================================================
    Section detection  (for role assignment)
@@ -305,6 +306,8 @@ export function extractMeasuredEntities(rawInput: string): MeasuredEntitySpan[] 
       const category   = inferCategory(unitCategory, normalizedLabel);
       const confidence = inferConfidence(!!unitRecord, label);
 
+      const { tags, tagProvenance } = enrichEntityTags(normalizedLabel, category, unitCategory);
+
       const absoluteStart = section.offset + match.index;
       // endIndex covers the number+unit; label extraction is separate
       // and may overlap the next entity's start on the same line.
@@ -323,6 +326,8 @@ export function extractMeasuredEntities(rawInput: string): MeasuredEntitySpan[] 
         category,
         role:            section.baseRole,
         confidence,
+        tags,
+        tagProvenance,
         startIndex:      absoluteStart,
         endIndex:        absoluteEnd,
       });

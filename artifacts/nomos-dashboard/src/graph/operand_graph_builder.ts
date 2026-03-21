@@ -151,10 +151,10 @@ export function buildOperandGraph(result: BindingResult): OperandGraph {
           role:            span.role,
           confidence:      span.confidence,
           normalizedLabel: span.normalizedLabel,
-          // tags: category-derived default so tag-based filtering works on real
-          // pipeline graphs.  Consumers may augment these with domain-specific
-          // tags; the category itself is always included as a stable base tag.
-          tags: span.category !== "unknown" ? [span.category] : [],
+          // tags and tagProvenance are assigned once by entity_tag_enricher.ts
+          // during extraction and propagated here verbatim.  Never recomputed.
+          tags:            span.tags,
+          tagProvenance:   span.tagProvenance,
         },
       });
 

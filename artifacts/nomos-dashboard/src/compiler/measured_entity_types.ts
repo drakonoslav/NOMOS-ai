@@ -15,7 +15,8 @@
  */
 
 import type { RelationType, RelationCategory } from "./relation_lexicon.ts";
-import type { UnitCategory } from "./unit_registry.ts";
+import type { UnitCategory }                   from "./unit_registry.ts";
+export type { TagProvenanceSource }             from "./entity_tag_registry.ts";
 
 /* =========================================================
    MeasuredEntity
@@ -96,6 +97,29 @@ export interface MeasuredEntity {
    * low      — unit not recognized
    */
   confidence: "low" | "moderate" | "high";
+
+  /**
+   * Canonical semantic tags assigned to this entity by the tag enricher.
+   *
+   * Examples: ["fast","carb"], ["protein","dairy"], ["supplement","mineral"]
+   *
+   * Classification happens once (in entity_tag_enricher.ts) and is reused
+   * downstream.  Never recomputed during graph execution.
+   */
+  tags: string[];
+
+  /**
+   * Provenance record for each tag in `tags`.
+   *
+   * Every tag maps to exactly one of:
+   *   "explicit"  — declared by the user in source text (reserved for future)
+   *   "registry"  — looked up in entity_tag_registry
+   *   "inferred"  — derived from unit category or coarse category
+   *   "fallback"  — last-resort heuristic
+   *
+   * Keys are the same as the strings in `tags`.
+   */
+  tagProvenance: Record<string, import("./entity_tag_registry.ts").TagProvenanceSource>;
 }
 
 /**

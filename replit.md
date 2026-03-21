@@ -141,6 +141,33 @@ Strict 4-step interaction model:
 **Completeness states:** COMPLETE / PARTIAL / INSUFFICIENT (separate from LAWFUL/DEGRADED/INVALID)
 **Constitutional rule:** parser confidence is extraction quality only, never lawfulness.
 
+#### NOMOS Compiler Layer (`src/compiler/`)
+
+The compiler layer runs before domain routing. All types are domain-agnostic.
+
+- `measured_entity_types.ts` — `MeasuredEntity` (with `tags`, `tagProvenance`), `MeasuredEntitySpan`, `BindingResult`
+- `measured_entity_extractor.ts` — extracts quantity+unit+label spans; calls tag enricher for every span
+- `entity_tag_registry.ts` — canonical label→tag registry (80+ entries: fast/slow carbs, proteins, fats, fluids, supplements, minerals, vegetables); `lookupEntityTags()` with 3-tier lookup (exact→containment→token); longest-key-first for specificity
+- `entity_tag_enricher.ts` — `enrichEntityTags(label, category, unitCategory)` → `{tags, tagProvenance}`; 3-tier: registry → category-inferred → unit-fallback; single classification point for the entire pipeline
+- `TagProvenanceSource` type: `"explicit" | "registry" | "inferred" | "fallback"` — every tag has a traceable origin
+
+**Tag classification contract:**
+1. Registry lookup (provenance="registry") — most entities (cyclic dextrin→["fast","carb"], oats→["slow","carb"], etc.)
+2. Category-inferred tag (provenance="inferred") — coarse domain category added if not already in registry result
+3. Unit-category fallback (provenance="fallback") — last resort for unknown entities with no category
+
+#### NOMOS Graph Layer (`src/graph/`)
+
+- `operand_graph_builder.ts` — propagates `tags` and `tagProvenance` verbatim from spans to entity node `data`; never recomputes tags
+- `graph_query_engine.ts` — `filterEntitiesByTags(graph, ids, tags)` works on real pipeline data now that tags are populated by enricher
+- `graph_constraint_executor.ts` — constraint pipeline: candidate→tag filter→label filter→window→aggregate→compare→proof
+- `graph_constraint_types.ts` — `GraphConstraintSpec`, `GraphConstraintExecutionResult` (with proof trace)
+
+**Test suite:** 49 test files, 1962 tests (all passing)
+- `invariants_test.ts` — 52 tests (4 invariants: GF/ED/PI/MI)
+- `candidate_graph_test.ts` — 52 tests (candidate blocks, multi-candidate graph, ownership, objective, bare measurements)
+- `tag_provenance_test.ts` — 28 tests (registry lookup, enricher, graph propagation, real pipeline tag filtering)
+
 **API endpoints (api-server routes/query.ts):**
 - `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)
 - `POST /api/nomos/query/evaluate` — LLM-based semantic evaluation

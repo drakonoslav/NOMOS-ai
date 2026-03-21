@@ -72,7 +72,7 @@ function makeFakeBinding(entities: TestEntity[]): BindingResult {
       id: ent.id, rawText: "", normalizedText: "", amount: ent.amount, unit: ent.unit,
       normalizedUnit: ent.unit, unitCategory: null, label: ent.label,
       normalizedLabel: ent.label.toLowerCase(), category: "unknown", role: "unknown",
-      confidence: 1.0, tags: ent.tags,
+      confidence: 1.0, tags: ent.tags, tagProvenance: {},
     })),
     anchors:  [],
     bindings: [],

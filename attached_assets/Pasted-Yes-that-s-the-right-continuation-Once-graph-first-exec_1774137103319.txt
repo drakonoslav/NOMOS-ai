@@ -1,0 +1,274 @@
+Yes — that’s the right continuation.
+
+Once graph-first execution is in place, the next real leap is:
+
+repair-as-graph transformation
+
+So NOMOS no longer stops at:
+	•	violated
+	•	diff
+	•	suggested text repair
+
+and instead can represent repair as an actual graph transformation plan.
+
+That means a repair is no longer just prose. It becomes:
+	•	add node
+	•	remove node
+	•	change quantity
+	•	change relation
+	•	move anchor offset
+	•	restore candidate ownership
+	•	delete disallowed entity
+	•	retag or reclassify only if explicitly allowed
+
+That is the step where NOMOS starts behaving like a real structural optimizer.
+
+⸻
+
+What this means
+
+Right now, a violation might yield:
+	•	“Add 20g fast carbs.”
+	•	“Restore protein placement.”
+	•	“Reduce slow carbs.”
+
+That is useful, but still verbal.
+
+You want NOMOS to instead be able to say:
+	•	create entity node cyclic_dextrin
+	•	attach quantity +20 g
+	•	connect entity to candidate A
+	•	connect entity to lifting anchor with BEFORE offset 30 min
+	•	re-run constraint set
+	•	verify lawful status restored
+
+That is much stronger.
+
+⸻
+
+What to tell Replit
+
+Build repair-as-graph transformation for NOMOS.
+
+Goal:
+Represent repairs as explicit graph transformations instead of text-only suggestions.
+
+This means NOMOS must be able to:
+- propose structural graph edits
+- connect them to a violated constraint diff
+- re-evaluate the modified graph
+- determine whether feasibility is restored
+
+Create:
+- src/repair/graph_repair_types.ts
+- src/repair/graph_repair_planner.ts
+- src/repair/graph_repair_executor.ts
+- src/repair/graph_repair_validation.ts
+- src/tests/graph_repair_test.ts
+
+Requirements:
+
+1. Add canonical repair types.
+
+type GraphRepairActionType =
+  | "ADD_ENTITY"
+  | "REMOVE_ENTITY"
+  | "UPDATE_QUANTITY"
+  | "UPDATE_UNIT"
+  | "ADD_RELATION"
+  | "REMOVE_RELATION"
+  | "UPDATE_RELATION_OFFSET"
+  | "MOVE_ENTITY_TO_CANDIDATE"
+  | "ADD_TAG"
+  | "REMOVE_TAG";
+
+interface GraphRepairAction {
+  id: string;
+  type: GraphRepairActionType;
+
+  targetNodeId?: string | null;
+  targetEdgeId?: string | null;
+
+  payload: Record<string, unknown>;
+  rationale: string;
+}
+
+interface GraphRepairPlan {
+  constraintId: string;
+  variableName: string;
+
+  actions: GraphRepairAction[];
+
+  expectedRepairEffect: string[];
+  estimatedMinimalityScore: number;
+}
+
+interface GraphRepairValidationResult {
+  repairPlanId: string;
+  reEvaluated: boolean;
+  restoredFeasibility: boolean;
+
+  remainingViolations: string[];
+  summaryLines: string[];
+}
+
+2. Build deterministic functions:
+- buildGraphRepairPlan(graph, constraintDiff)
+- applyGraphRepairPlan(graph, repairPlan)
+- validateGraphRepairPlan(graph, repairedGraph, constraintSet)
+
+3. Repair generation rules:
+
+Numeric undershoot:
+- if fast carbs are below threshold, prefer:
+  - UPDATE_QUANTITY on an existing qualifying entity
+  - else ADD_ENTITY with candidate-local ownership and proper relation
+
+Numeric overshoot:
+- prefer UPDATE_QUANTITY downward
+- else REMOVE_ENTITY if minimal
+
+Window failure:
+- prefer UPDATE_RELATION_OFFSET if entity type is correct but outside window
+
+Structural failure:
+- restore missing BELONGS_TO_CANDIDATE
+- restore moved entity to baseline candidate
+- restore missing relation if required
+
+Subset violation:
+- REMOVE_ENTITY or REMOVE_RELATION from disallowed item
+
+4. Minimality principle:
+Prefer the smallest graph transformation that restores feasibility.
+
+Order:
+- change quantity first
+- change offset second
+- add/remove entity only if needed
+- retag only if explicitly allowed by system policy
+
+5. Validation:
+After applying repair plan:
+- re-run graph-first execution
+- record whether the violating constraint is resolved
+- record whether any new violations appear
+
+6. Example carb timing repairs:
+B:
+- reduce oats or replace with fast carb
+C:
+- move dextrin from -120 min to inside 90-min window
+D:
+- reduce oats from 30g to <=20g or move oats outside 60-min window
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. Repair actions must operate over graph nodes/edges, not just text.
+
+Success condition:
+NOMOS can generate graph-native repair plans, apply them structurally, and validate whether they actually restore admissibility.
+
+
+⸻
+
+Why this matters
+
+This is the step where NOMOS becomes:
+	•	not just descriptive
+	•	not just evaluative
+	•	but structurally prescriptive
+
+And because the repair is graph-native, it can be:
+	•	traced
+	•	diffed
+	•	highlighted
+	•	validated
+	•	replayed
+
+That is exactly what you want.
+
+⸻
+
+What this should look like
+
+For Candidate C:
+
+Current state:
+	•	dextrin 80g
+	•	relation: BEFORE lifting by 120 min
+
+Violation:
+	•	outside fast-carb 90 min window
+
+Repair plan:
+	•	UPDATE_RELATION_OFFSET
+	•	target: dextrin relation to lifting
+	•	before: 120 min
+	•	after: 75 min
+	•	rationale: bring fast carb event inside 90-minute admissible window
+
+Validation:
+	•	fast carbs within 90 min = 80g
+	•	slow carbs within 60 min = 0g
+	•	repaired candidate becomes lawful
+
+That is real structural reasoning.
+
+⸻
+
+The next strongest step after this
+
+After repair-as-graph transformation, the strongest next step is:
+
+repair search / feasibility restoration engine
+
+So NOMOS can test more than one repair path and answer:
+	•	which repair is minimal
+	•	which repair restores feasibility fastest
+	•	which repair preserves objective quality best
+	•	which repair introduces the fewest side effects
+
+That would turn repairs from single suggestions into constrained repair optimization.
+
+⸻
+
+The clean stack from here
+
+You are now building toward this sequence:
+	1.	measurable entity extraction
+	2.	typed relation binding
+	3.	canonical entity-relation graph
+	4.	graph-first execution
+	5.	graph-native proof
+	6.	graph highlighting + back-propagation
+	7.	graph-native diff
+	8.	graph-native repair
+	9.	repair search / feasibility restoration
+
+That is a very serious reasoning architecture.
+
+⸻
+
+The important caution
+
+Do not let repair plans become magical.
+
+They should always be:
+	•	explicit
+	•	local
+	•	auditable
+	•	replayable
+	•	validated after application
+
+So NOMOS says:
+	•	“I changed this node”
+	•	“I changed this edge”
+	•	“here is why”
+	•	“here is whether it worked”
+
+That keeps it honest.
+
+⸻
+
+If you want, the next thing I can draft is the exact repair search / feasibility restoration engine.
