@@ -1,0 +1,698 @@
+Below are the exact files.
+
+They follow the official OpenAI TypeScript SDK, use the Responses API, and use Structured Outputs with a JSON Schema. OpenAI recommends the Responses API for new projects, recommends Structured Outputs over plain JSON mode when possible, and provides the official server-side JavaScript/TypeScript SDK for Node environments.  ￼
+
+src/llm/openai_client.ts
+
+/**
+ * src/llm/openai_client.ts
+ *
+ * Server-side OpenAI wrapper for NOMOS.
+ *
+ * Constitutional role:
+ * - This file is transport only.
+ * - It may obtain structured proposals from a model.
+ * - It may not certify feasibility, robustness, observability, or authority.
+ *
+ * Operational notes:
+ * - Uses the official OpenAI TypeScript SDK.
+ * - Uses the Responses API.
+ * - Uses Structured Outputs via JSON Schema.
+ * - Reads credentials from environment variables.
+ */
+
+import OpenAI from "openai";
+
+export type ProposalKind =
+  | "CONTROL_PLAN"
+  | "STATE_HYPOTHESIS"
+  | "PARAMETER_HYPOTHESIS"
+  | "RECOVERY_ACTION"
+  | "OBJECTIVE_REFRAME";
+
+export type ProposalConfidenceBand = "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+
+export interface OpenAIProposal {
+  kind: ProposalKind;
+  confidence: ProposalConfidenceBand;
+  rationale: string;
+  assumptions: string[];
+  controlSequence?: number[][];
+  xHatCandidate?: number[];
+  thetaCandidate?: Record<string, number>;
+}
+
+export interface OpenAIProposalBundle {
+  proposals: OpenAIProposal[];
+}
+
+export interface GenerateProposalJSONInput {
+  missionContext: unknown;
+  belief: unknown;
+  modelSignature: unknown;
+  operatorHints?: string[];
+}
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.4";
+
+let cachedClient: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!OPENAI_API_KEY) {
+    throw new Error(
+      "Missing OPENAI_API_KEY. Set it in Replit Secrets or your environment."
+    );
+  }
+
+  if (!cachedClient) {
+    cachedClient = new OpenAI({ apiKey: OPENAI_API_KEY });
+  }
+
+  return cachedClient;
+}
+
+/**
+ * Narrow JSON schema:
+ * - CONTROL_PLAN may include controlSequence
+ * - STATE_HYPOTHESIS may include xHatCandidate
+ * - PARAMETER_HYPOTHESIS may include thetaCandidate
+ * - all proposals must include kind/confidence/rationale/assumptions
+ *
+ * This keeps parsing simple and downstream-safe.
+ */
+const NOMOS_PROPOSAL_BUNDLE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    proposals: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          kind: {
+            type: "string",
+            enum: [
+              "CONTROL_PLAN",
+              "STATE_HYPOTHESIS",
+              "PARAMETER_HYPOTHESIS",
+              "RECOVERY_ACTION",
+              "OBJECTIVE_REFRAME",
+            ],
+          },
+          confidence: {
+            type: "string",
+            enum: ["HIGH", "MEDIUM", "LOW", "UNKNOWN"],
+          },
+          rationale: {
+            type: "string",
+          },
+          assumptions: {
+            type: "array",
+            items: { type: "string" },
+          },
+          controlSequence: {
+            type: "array",
+            items: {
+              type: "array",
+              items: { type: "number" },
+            },
+          },
+          xHatCandidate: {
+            type: "array",
+            items: { type: "number" },
+          },
+          thetaCandidate: {
+            type: "object",
+            additionalProperties: {
+              type: "number",
+            },
+          },
+        },
+        required: ["kind", "confidence", "rationale", "assumptions"],
+      },
+    },
+  },
+  required: ["proposals"],
+} as const;
+
+export async function generateProposalJSON(
+  input: GenerateProposalJSONInput
+): Promise<OpenAIProposalBundle> {
+  const client = getClient();
+
+  const systemPrompt = [
+    "You are the LLM proposer inside NOMOS.",
+    "You may propose candidate plans and hypotheses only.",
+    "You are NOT the verifier, decision engine, constitution guard, or authority.",
+    "Never claim that a proposal is feasible, robust, lawful, verified, or authorized.",
+    "Prefer conservative, bounded, interpretable proposals.",
+    "Return only schema-conforming structured output.",
+  ].join(" ");
+
+  const userPayload = {
+    missionContext: input.missionContext,
+    belief: input.belief,
+    modelSignature: input.modelSignature,
+    operatorHints: input.operatorHints ?? [],
+  };
+
+  const response = await client.responses.create({
+    model: OPENAI_MODEL,
+    input: [
+      {
+        role: "system",
+        content: systemPrompt,
+      },
+      {
+        role: "user",
+        content: JSON.stringify(userPayload),
+      },
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "nomos_proposal_bundle",
+        schema: NOMOS_PROPOSAL_BUNDLE_SCHEMA,
+        strict: true,
+      },
+    },
+  });
+
+  const raw = response.output_text;
+  if (!raw || raw.trim().length === 0) {
+    throw new Error("OpenAI returned empty structured output.");
+  }
+
+  const parsed = JSON.parse(raw) as OpenAIProposalBundle;
+
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    !Array.isArray(parsed.proposals)
+  ) {
+    throw new Error("OpenAI structured output did not match expected bundle shape.");
+  }
+
+  return parsed;
+}
+
+src/llm_proposer.ts
+
+/**
+ * src/llm_proposer.ts
+ *
+ * Constitutional role:
+ * Proposal generation only.
+ *
+ * This module allows an LLM to propose plans and hypotheses,
+ * but never to certify them as lawful.
+ *
+ * The LLM is subordinate to:
+ *   - feasibility_engine
+ *   - robustness_analyzer
+ *   - verification_kernel
+ *   - constitution_guard
+ *
+ * Every proposal created here is constitutionally non-authoritative:
+ *   lawful: false
+ */
+
+import { BeliefState } from "./belief_state";
+import { CandidatePlan } from "./decision_engine";
+import { ModelSignature } from "./model_registry";
+import { FeasibilityInput } from "./feasibility_engine";
+import { RobustnessConfig } from "./robustness_analyzer";
+import {
+  generateProposalJSON,
+  OpenAIProposal,
+} from "./llm/openai_client";
+
+export type ProposalKind =
+  | "CONTROL_PLAN"
+  | "STATE_HYPOTHESIS"
+  | "PARAMETER_HYPOTHESIS"
+  | "OBJECTIVE_REFRAME"
+  | "RECOVERY_ACTION";
+
+export type ProposalConfidenceBand = "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN";
+
+export interface MissionContext {
+  missionId: string;
+  objectiveText: string;
+  currentTime: number;
+  horizonSteps: number;
+  controlDim: number;
+  stateDim: number;
+  resourceDim: number;
+}
+
+export interface LLMProposalMetadata {
+  proposerId: string;
+  modelName: string;
+  generatedAt: number;
+  promptHash?: string;
+  rawPrompt?: string;
+  rawResponse?: string;
+  notes?: string[];
+}
+
+export interface LLMPlanSketch {
+  controlSequence: number[][];
+  expectedCost?: number;
+  rationale: string;
+  assumptions: string[];
+}
+
+export interface LLMStateHypothesis {
+  xHatCandidate: number[];
+  rationale: string;
+  assumptions: string[];
+}
+
+export interface LLMParameterHypothesis {
+  thetaCandidate: Record<string, number>;
+  rationale: string;
+  assumptions: string[];
+}
+
+export interface LLMProposal {
+  id: string;
+  kind: ProposalKind;
+  confidence: ProposalConfidenceBand;
+
+  missionContext: MissionContext;
+  beliefSnapshot: BeliefState;
+  modelSignature: ModelSignature;
+
+  planSketch?: LLMPlanSketch;
+  stateHypothesis?: LLMStateHypothesis;
+  parameterHypothesis?: LLMParameterHypothesis;
+
+  provenance: string[];
+  assumptions: string[];
+  metadata: LLMProposalMetadata;
+
+  /**
+   * Constitutional invariant:
+   * Proposal is not authorization.
+   */
+  lawful: false;
+}
+
+export interface LLMProposerInput {
+  missionContext: MissionContext;
+  belief: BeliefState;
+  modelSignature: ModelSignature;
+  operatorHints?: string[];
+  deterministicFallback?: boolean;
+}
+
+export interface ProposalBundle {
+  proposals: LLMProposal[];
+  rejectedFragments: string[];
+  reasons: string[];
+}
+
+export interface CandidatePlanFactoryInput {
+  proposal: LLMProposal;
+  nominalX: number[];
+  nominalU: number[];
+  nominalR: number[];
+  feasibilityInput: FeasibilityInput;
+  robustnessConfig: RobustnessConfig;
+}
+
+function safeId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function deepCloneBelief(belief: BeliefState): BeliefState {
+  return {
+    ...belief,
+    xHat: [...belief.xHat],
+    thetaHat: {
+      mean: { ...belief.thetaHat.mean },
+      variance: belief.thetaHat.variance ? { ...belief.thetaHat.variance } : undefined,
+      identifiable: { ...belief.thetaHat.identifiable },
+    },
+    uncertainty: {
+      epsilonX: belief.uncertainty.epsilonX,
+      covariance: belief.uncertainty.covariance
+        ? belief.uncertainty.covariance.map((row) => [...row])
+        : undefined,
+      lower: belief.uncertainty.lower ? [...belief.uncertainty.lower] : undefined,
+      upper: belief.uncertainty.upper ? [...belief.uncertainty.upper] : undefined,
+    },
+    provenance: [...belief.provenance],
+  };
+}
+
+function isValidControlSequence(
+  seq: unknown,
+  expectedControlDim: number,
+  expectedHorizonSteps: number
+): seq is number[][] {
+  if (!Array.isArray(seq) || seq.length === 0) return false;
+  if (seq.length > expectedHorizonSteps) return false;
+
+  return seq.every(
+    (step) =>
+      Array.isArray(step) &&
+      step.length === expectedControlDim &&
+      step.every((v) => typeof v === "number" && Number.isFinite(v))
+  );
+}
+
+function inferExpectedCost(controlSequence?: number[][]): number | undefined {
+  if (!controlSequence || controlSequence.length === 0) return undefined;
+  return controlSequence.reduce((sum, step) => {
+    const stepCost = step.reduce((s, v) => s + Math.abs(v), 0);
+    return sum + stepCost;
+  }, 0);
+}
+
+export class LLMProposer {
+  /**
+   * Primary entrypoint.
+   *
+   * It tries OpenAI first.
+   * If the model call or parsing fails and deterministicFallback is enabled,
+   * it emits conservative fallback proposals.
+   */
+  public async propose(input: LLMProposerInput): Promise<ProposalBundle> {
+    const reasons: string[] = [];
+    const rejectedFragments: string[] = [];
+    const proposals: LLMProposal[] = [];
+
+    try {
+      const bundle = await generateProposalJSON({
+        missionContext: input.missionContext,
+        belief: input.belief,
+        modelSignature: input.modelSignature,
+        operatorHints: input.operatorHints,
+      });
+
+      for (const proposal of bundle.proposals) {
+        const mapped = this.mapOpenAIProposal(proposal, input);
+        if (mapped) {
+          proposals.push(mapped);
+        } else {
+          rejectedFragments.push(JSON.stringify(proposal));
+        }
+      }
+
+      if (rejectedFragments.length > 0) {
+        reasons.push(
+          `${rejectedFragments.length} OpenAI proposal fragment(s) were rejected during constitutional mapping.`
+        );
+      }
+
+      if (proposals.length > 0) {
+        reasons.push("OpenAI structured proposal bundle accepted provisionally.");
+      }
+    } catch (err) {
+      reasons.push(
+        `OpenAI proposal generation failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
+
+    if (proposals.length === 0 && input.deterministicFallback) {
+      proposals.push(...this.buildDeterministicFallbackPlans(input));
+      reasons.push(
+        "No usable live OpenAI proposals available; deterministic fallback generated."
+      );
+    }
+
+    if (proposals.length === 0) {
+      reasons.push("No proposals generated.");
+    }
+
+    return { proposals, rejectedFragments, reasons };
+  }
+
+  /**
+   * Convert a constitutionally non-authoritative CONTROL_PLAN
+   * into a CandidatePlan for downstream screening.
+   */
+  public toCandidatePlan(input: CandidatePlanFactoryInput): CandidatePlan {
+    const { proposal } = input;
+
+    if (proposal.kind !== "CONTROL_PLAN" || !proposal.planSketch) {
+      throw new Error(
+        `LLMProposer violation: proposal '${proposal.id}' is not a CONTROL_PLAN.`
+      );
+    }
+
+    const controlSequence = proposal.planSketch.controlSequence;
+    if (!Array.isArray(controlSequence) || controlSequence.length === 0) {
+      throw new Error(
+        `LLMProposer violation: proposal '${proposal.id}' has empty controlSequence.`
+      );
+    }
+
+    return {
+      id: `candidate-from-${proposal.id}`,
+      controlSequence,
+      expectedCost:
+        proposal.planSketch.expectedCost ?? Number.POSITIVE_INFINITY,
+      nominalX: [...input.nominalX],
+      nominalU: [...input.nominalU],
+      nominalR: [...input.nominalR],
+      feasibilityInput: input.feasibilityInput,
+      robustnessConfig: input.robustnessConfig,
+    };
+  }
+
+  private mapOpenAIProposal(
+    proposal: OpenAIProposal,
+    input: LLMProposerInput
+  ): LLMProposal | null {
+    const base = {
+      id: safeId("llm"),
+      confidence: proposal.confidence,
+      missionContext: input.missionContext,
+      beliefSnapshot: deepCloneBelief(input.belief),
+      modelSignature: {
+        ...input.modelSignature,
+        parameterNames: [...input.modelSignature.parameterNames],
+      },
+      provenance: [
+        "openai_structured_output",
+        ...(input.operatorHints ?? []).map((h) => `hint:${h}`),
+      ],
+      assumptions: [...proposal.assumptions],
+      metadata: {
+        proposerId: "llm_proposer",
+        modelName: input.modelSignature.id,
+        generatedAt: Date.now(),
+        notes: ["openai_structured_output"],
+      } as LLMProposalMetadata,
+      lawful: false as const,
+    };
+
+    if (proposal.kind === "CONTROL_PLAN") {
+      if (
+        !isValidControlSequence(
+          proposal.controlSequence,
+          input.missionContext.controlDim,
+          input.missionContext.horizonSteps
+        )
+      ) {
+        return null;
+      }
+
+      return {
+        ...base,
+        kind: "CONTROL_PLAN",
+        planSketch: {
+          controlSequence: proposal.controlSequence!,
+          expectedCost: inferExpectedCost(proposal.controlSequence),
+          rationale: proposal.rationale,
+          assumptions: [...proposal.assumptions],
+        },
+      };
+    }
+
+    if (proposal.kind === "STATE_HYPOTHESIS") {
+      if (
+        !proposal.xHatCandidate ||
+        proposal.xHatCandidate.length !== input.missionContext.stateDim ||
+        proposal.xHatCandidate.some((v) => !Number.isFinite(v))
+      ) {
+        return null;
+      }
+
+      return {
+        ...base,
+        kind: "STATE_HYPOTHESIS",
+        stateHypothesis: {
+          xHatCandidate: [...proposal.xHatCandidate],
+          rationale: proposal.rationale,
+          assumptions: [...proposal.assumptions],
+        },
+      };
+    }
+
+    if (proposal.kind === "PARAMETER_HYPOTHESIS") {
+      if (!proposal.thetaCandidate || typeof proposal.thetaCandidate !== "object") {
+        return null;
+      }
+
+      return {
+        ...base,
+        kind: "PARAMETER_HYPOTHESIS",
+        parameterHypothesis: {
+          thetaCandidate: { ...proposal.thetaCandidate },
+          rationale: proposal.rationale,
+          assumptions: [...proposal.assumptions],
+        },
+      };
+    }
+
+    if (proposal.kind === "RECOVERY_ACTION" || proposal.kind === "OBJECTIVE_REFRAME") {
+      return {
+        ...base,
+        kind: proposal.kind,
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Deterministic fallback remains valuable for:
+   * - offline development
+   * - key misconfiguration
+   * - API outage
+   * - schema mismatch
+   */
+  private buildDeterministicFallbackPlans(
+    input: LLMProposerInput
+  ): LLMProposal[] {
+    const proposals: LLMProposal[] = [];
+    const state = input.belief.xHat;
+    const position = state[0] ?? 0;
+
+    const target = 1.0;
+    const error = target - position;
+
+    const mild = Math.max(-0.4, Math.min(0.4, 0.25 * error));
+    const moderate = Math.max(-0.6, Math.min(0.6, 0.5 * error));
+
+    const baseMeta: LLMProposalMetadata = {
+      proposerId: "llm_proposer",
+      modelName: input.modelSignature.id,
+      generatedAt: Date.now(),
+      notes: ["deterministic_fallback"],
+    };
+
+    proposals.push({
+      id: safeId("llm-plan"),
+      kind: "CONTROL_PLAN",
+      confidence: "MEDIUM",
+      missionContext: input.missionContext,
+      beliefSnapshot: deepCloneBelief(input.belief),
+      modelSignature: {
+        ...input.modelSignature,
+        parameterNames: [...input.modelSignature.parameterNames],
+      },
+      planSketch: {
+        controlSequence: Array.from(
+          { length: input.missionContext.horizonSteps },
+          () => [mild]
+        ),
+        expectedCost: Math.abs(mild) * input.missionContext.horizonSteps,
+        rationale:
+          "Mild corrective proposal toward target under conservative actuation.",
+        assumptions: [
+          "state estimate approximately usable",
+          "small corrective authority preferred over aggressive actuation",
+        ],
+      },
+      provenance: ["deterministic_fallback"],
+      assumptions: [
+        "belief state accepted provisionally",
+        "target position assumed to be 1.0",
+      ],
+      metadata: baseMeta,
+      lawful: false,
+    });
+
+    proposals.push({
+      id: safeId("llm-plan"),
+      kind: "CONTROL_PLAN",
+      confidence: "LOW",
+      missionContext: input.missionContext,
+      beliefSnapshot: deepCloneBelief(input.belief),
+      modelSignature: {
+        ...input.modelSignature,
+        parameterNames: [...input.modelSignature.parameterNames],
+      },
+      planSketch: {
+        controlSequence: Array.from(
+          { length: input.missionContext.horizonSteps },
+          () => [moderate]
+        ),
+        expectedCost: Math.abs(moderate) * input.missionContext.horizonSteps,
+        rationale:
+          "More aggressive corrective proposal with potentially lower nominal cost.",
+        assumptions: [
+          "larger actuation may recover faster",
+          "robustness must be screened downstream",
+        ],
+      },
+      provenance: ["deterministic_fallback"],
+      assumptions: ["higher gain may still be acceptable"],
+      metadata: {
+        ...baseMeta,
+        notes: ["deterministic_fallback", "aggressive_variant"],
+      },
+      lawful: false,
+    });
+
+    return proposals;
+  }
+}
+
+What to change in main.ts
+
+Change your proposer call from sync to async:
+
+const proposer = new LLMProposer();
+
+const proposalBundle = await proposer.propose({
+  missionContext,
+  belief: updatedBelief,
+  modelSignature: modelRegistry.getActiveSignature(),
+  operatorHints: [
+    "prefer conservative actuation",
+    "maintain positive energy margin",
+    "do not exhaust fuel",
+  ],
+  deterministicFallback: true,
+});
+
+And make your entrypoint async, for example:
+
+async function main() {
+  // ... existing code ...
+}
+
+main().catch((err) => {
+  console.error("[fatal]", err);
+  process.exit(1);
+});
+
+Environment variables to set in Replit
+
+Put these in Secrets:
+	•	OPENAI_API_KEY
+	•	optionally OPENAI_MODEL if you want to override the default model
+
+That setup matches OpenAI’s official server-side SDK usage, the Responses API recommendation for new projects, and Structured Outputs guidance.  ￼
+
+The cleanest next step is patching main.ts fully so it compiles with the new async proposer path.

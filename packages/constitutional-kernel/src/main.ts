@@ -78,6 +78,8 @@ function norm(v: number[]): number {
   return Math.sqrt(v.reduce((s, x) => s + x * x, 0));
 }
 
+async function main(): Promise<void> {
+
 /**
  * ------------------------------------------------------------------
  * 1) MODEL SETUP
@@ -492,7 +494,7 @@ const proposer = new LLMProposer();
  * Swap rawLLMResponse for a live LLM call when ready.
  * deterministicFallback keeps the demo runnable without an API key.
  */
-const proposalBundle = proposer.propose({
+const proposalBundle = await proposer.propose({
   missionContext,
   belief: updatedBelief,
   modelSignature: modelRegistry.getActiveSignature(),
@@ -731,3 +733,10 @@ console.log(`Selected plan             : ${decision.selectedPlan.id}`);
 console.log(`Robustness epsilon        : ${decision.robustness.epsilon.toFixed(6)}`);
 console.log(`Verification status       : ${verification.status}`);
 console.log(`Audit outcome             : ${actionOutcome}`);
+
+} // end async function main()
+
+main().catch((err: unknown) => {
+  console.error("[nomos] fatal:", err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});

@@ -10,6 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "tsc --noEmit && tsx src/main.ts"
   },
+  "dependencies": {
+    "openai": "^4.0.0"
+  },
   "devDependencies": {
     "tsx": "catalog:",
     "typescript": "^5.9.2",
