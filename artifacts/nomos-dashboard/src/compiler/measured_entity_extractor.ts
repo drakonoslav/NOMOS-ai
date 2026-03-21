@@ -97,15 +97,25 @@ function getQEPattern(): RegExp {
 
 // Words that terminate label extraction.  Relation words, conjunctions,
 // quantifiers, and punctuation all act as stops.
+/**
+ * Transparent connectors — skipped silently so the noun phrase after them
+ * is still captured.  "60g of oats" → label = "oats".
+ */
+const LABEL_SKIP_TOKENS = new Set(["of", "the", "a", "an"]);
+
+/**
+ * True stop words — halt label extraction immediately.
+ * Relation words, conjunctions, and function words that signal the label has ended.
+ */
 const LABEL_STOP_WORDS = new Set([
   "and", "or", "but", "nor", "so", "yet", "for", "with",
   "before", "after", "during", "within", "since", "until", "by",
   "while", "when", "from", "to", "between", "around", "near",
   "above", "below", "under", "over", "inside", "outside",
   "beside", "behind", "pre", "post",
-  "at", "in", "on", "of", "the", "a", "an",
+  "at", "in", "on",
   "no", "not", "than", "as", "if", "that", "which",
-  "approximately", "exactly", "at least", "at most",
+  "approximately", "exactly",
 ]);
 
 const MAX_LABEL_TOKENS = 5;
@@ -136,6 +146,8 @@ function extractLabel(afterUnit: string): string {
     // Strip trailing punctuation for stop-word matching
     const clean = part.replace(/[^a-z-]/gi, "").toLowerCase();
     if (!clean) break; // pure punctuation
+    // Skip transparent connectors (of, the, a, an) without stopping
+    if (LABEL_SKIP_TOKENS.has(clean)) continue;
     if (LABEL_STOP_WORDS.has(clean)) break;
     collected.push(clean);
   }
