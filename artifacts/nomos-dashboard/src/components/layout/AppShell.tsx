@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link, useLocation } from "wouter";
 import { useGetNomosState } from "@workspace/api-client-react";
-import { Shield, Activity, ListTree, Scale, Eye, Database, AlertTriangle, Menu, X, Search } from "lucide-react";
+import { Shield, Activity, ListTree, Scale, Eye, Database, AlertTriangle, Menu, X, Search, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useScenario, type DemoScenario } from "@/context/scenario-context";
@@ -19,7 +19,8 @@ const NAV_ITEMS: NavItem[] = [
   { name: "DECISION", href: "/decision", icon: Scale },
   { name: "BELIEF", href: "/belief", icon: Eye },
   { name: "AUDIT", href: "/audit", icon: Database },
-  { name: "QUERY", href: "/query", icon: Search },
+  { name: "QUERY",    href: "/query",    icon: Search },
+  { name: "DIALOGUE", href: "/dialogue", icon: MessageSquare },
 ];
 
 const SCENARIOS: { value: DemoScenario; label: string; short: string }[] = [

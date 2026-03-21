@@ -12,8 +12,9 @@ import VerificationPage from "@/pages/verification";
 import BeliefPage from "@/pages/belief";
 import DecisionPage from "@/pages/decision";
 import AuditPage from "@/pages/audit";
-import { QueryBuilderPage } from "@/ui/pages/query/QueryBuilderPage";
-import { ScenarioProvider } from "@/context/scenario-context";
+import { QueryBuilderPage }    from "@/ui/pages/query/QueryBuilderPage";
+import { ConversationPage }    from "@/ui/pages/conversation/ConversationPage";
+import { ScenarioProvider }    from "@/context/scenario-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,7 +35,8 @@ function Router() {
         <Route path="/belief" component={BeliefPage} />
         <Route path="/decision" component={DecisionPage} />
         <Route path="/audit" component={AuditPage} />
-        <Route path="/query" component={QueryBuilderPage} />
+        <Route path="/query"        component={QueryBuilderPage} />
+        <Route path="/dialogue"    component={ConversationPage} />
         <Route component={NotFound} />
       </Switch>
     </AppShell>
