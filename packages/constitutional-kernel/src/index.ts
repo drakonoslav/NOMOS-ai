@@ -88,6 +88,21 @@ export {
 } from "./evaluation/windowed_aggregator.js";
 
 export type { MacroProfile, MacrosPerGram, FoodPrimitive } from "./nutrition/food_primitive.js";
+export type { MealFoodEntry, MealBlock, PhasePlan } from "./nutrition/meal_types.js";
+export type {
+  MacroDelta,
+  FoodMacroResult,
+  MealMacroResult,
+  PhaseMacroResult,
+} from "./nutrition/macro_engine.js";
+export {
+  computeFoodMacros,
+  computeMealMacros,
+  computePhaseMacros,
+  computePhaseDelta,
+  round2,
+  roundDelta2,
+} from "./nutrition/macro_engine.js";
 export type { NutritionLabelEntry } from "./nutrition/label_parser.js";
 export { parseLabelEntry, parseLabelEntries } from "./nutrition/label_parser.js";
 export {
@@ -97,6 +112,32 @@ export {
   listLabelFoods,
   listEstimatedFoods,
 } from "./nutrition/food_registry.js";
+
+export type {
+  LockedRuleId, LockedRule, FoodLever, ProhibitedActionId, ProhibitedAction,
+  CorrectionConstraints,
+} from "./nutrition/correction_constraints.js";
+export { DEFAULT_CORRECTION_CONSTRAINTS } from "./nutrition/correction_constraints.js";
+
+export type {
+  FindingKind, FindingSeverity, Finding,
+  StateSection, ConstraintEntry, UncertaintyEntry,
+  PhaseAuditEntry, FinalVerdict, AuditReport,
+} from "./nutrition/audit_engine.js";
+export { runAudit } from "./nutrition/audit_engine.js";
+
+export type {
+  CorrectionAdjustment, CorrectionResult,
+} from "./nutrition/correction_engine.js";
+export { correctPhase } from "./nutrition/correction_engine.js";
+
+export type {
+  PipelineMode, PipelineInput, GlobalBias,
+  StateBlock, ConstraintsBlock, UncertaintiesBlock, FindingsBlock,
+  PhaseAuditBlock, CorrectionRuleBlock, CorrectedSystemBlock,
+  FinalVerdictBlock, PipelineOutput,
+} from "./nutrition/meal_audit_pipeline.js";
+export { runMealAuditPipeline } from "./nutrition/meal_audit_pipeline.js";
 
 export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
 export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";

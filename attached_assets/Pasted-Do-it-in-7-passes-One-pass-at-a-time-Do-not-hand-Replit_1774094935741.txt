@@ -1,0 +1,304 @@
+Do it in 7 passes. One pass at a time. Do not hand Replit the whole architecture at once.
+
+Pass 1 — label ingestion
+
+Tell Replit:
+
+Build label ingestion first.
+
+Goal:
+Extract nutrition facts from attached label images into structured FoodPrimitive objects.
+
+Create:
+- src/nutrition/food_primitive.ts
+- src/nutrition/label_parser.ts
+- src/nutrition/food_registry.ts
+
+Requirements:
+1. Define FoodPrimitive with:
+   - id
+   - name
+   - unit ("g" | "unit")
+   - referenceAmount
+   - macrosPerRef { calories, protein, carbs, fat }
+   - macrosPerGram for gram-based foods
+   - source ("label" | "estimated")
+
+2. Hardcode these verified foods from the attached labels:
+   - whey: 37g = 140 kcal, 28p, 3c, 1f
+   - flax: 14g = 60 kcal, 4p, 6c, 1.5f
+   - oats: 32g = 120 kcal, 4p, 22c, 2f
+   - dextrin: 30g = 120 kcal, 0p, 29c, 0f
+   - yogurt: 1 unit = 130 kcal, 20p, 6c, 3f
+
+3. Add estimated foods separately:
+   - banana
+   - egg
+
+4. Do not build correction logic yet.
+5. Output a registry object NOMOS can query by foodId.
+
+Goal of this pass: NOMOS must stop “reading images” every time and instead use a stable registry.
+
+⸻
+
+Pass 2 — meal encoding
+
+Tell Replit:
+
+Build meal-plan encoding next.
+
+Goal:
+Convert phase meal plans into computable structured objects.
+
+Create:
+- src/nutrition/meal_types.ts
+- src/nutrition/meal_plan_parser.ts
+
+Requirements:
+1. Define:
+   - MealFoodEntry { foodId, amount, unit }
+   - MealBlock { mealNumber, label, foods[] }
+   - PhasePlan { phaseId, target { calories, protein, carbs, fat }, meals[] }
+
+2. Encode the 8 phases exactly as declared by the user.
+3. Preserve:
+   - meal number
+   - meal order
+   - food placement
+   - protein placement
+4. Do not change grams yet.
+5. Output structured phase data that can be passed into a macro engine.
+
+Goal of this pass: NOMOS must hold the meal system as data, not prose.
+
+⸻
+
+Pass 3 — deterministic macro engine
+
+Tell Replit:
+
+Build the deterministic macro engine.
+
+Goal:
+Compute exact meal and phase macros from FoodPrimitive + PhasePlan.
+
+Create:
+- src/nutrition/macro_engine.ts
+
+Requirements:
+1. Add functions:
+   - computeFoodMacros(foodId, amount, unit)
+   - computeMealMacros(mealBlock)
+   - computePhaseMacros(phasePlan)
+   - computePhaseDelta(actual, target)
+
+2. Use label registry values only for labeled foods.
+3. Use estimated registry values only for banana and egg.
+4. Return:
+   - calories
+   - protein
+   - carbs
+   - fat
+5. Round only for UI display, not internal math.
+6. Do not add correction recommendations yet.
+
+Goal of this pass: NOMOS must be able to say actual vs target exactly.
+
+⸻
+
+Pass 4 — truth audit layer
+
+Tell Replit:
+
+Build a truth-audit layer.
+
+Goal:
+Make NOMOS explain what is licensed by the labels before suggesting corrections.
+
+Create:
+- src/nutrition/audit_engine.ts
+
+Requirements:
+1. Output sections:
+   - STATE
+   - CONSTRAINTS
+   - UNCERTAINTIES
+   - FINDINGS
+   - PHASE AUDIT
+   - FINAL VERDICT
+
+2. FINDINGS must distinguish:
+   - exact label truths
+   - estimated values
+   - system-level inferences
+
+3. Add explicit findings such as:
+   - whey is protein-dominant but not pure protein
+   - dextrin is a clean carb lever
+   - oats are carb-dominant with some protein/fat
+   - yogurt contributes protein and some fat
+   - flax is mixed-macro and should not automatically be treated as a primary fat-restoration lever
+
+4. Do not recommend gram changes yet.
+
+Goal of this pass: NOMOS learns to speak truth before trying to optimize.
+
+⸻
+
+Pass 5 — correction constraints
+
+Tell Replit:
+
+Build the correction constraint layer.
+
+Goal:
+Define what NOMOS is allowed to change.
+
+Create:
+- src/nutrition/correction_constraints.ts
+
+Requirements:
+1. Add locked rules:
+   - preserve meal order
+   - preserve meal count
+   - preserve protein placements by meal
+   - preserve overall dispersal
+   - keep calories close to target
+
+2. Add allowed levers:
+   - oats
+   - dextrin
+   - flax
+   - eggs
+3. Add optional lever:
+   - yogurt only if already present
+4. Add prohibited behavior:
+   - do not move whey between meals
+   - do not remove whey from assigned meals
+   - do not redesign the structure
+
+Goal of this pass: NOMOS knows what “fix without botching dispersal” actually means.
+
+⸻
+
+Pass 6 — correction engine
+
+Tell Replit:
+
+Build the macro correction engine.
+
+Goal:
+Propose minimal gram-level corrections while preserving structure.
+
+Create:
+- src/nutrition/correction_engine.ts
+
+Requirements:
+1. Input:
+   - PhasePlan
+   - actual macros
+   - target macros
+   - correction constraints
+
+2. Correction order:
+   - if carbs are high, reduce dextrin first, oats second
+   - if fat is low, increase eggs first, flax second
+   - preserve whey placements
+   - keep calories on lockdown
+
+3. Output:
+   - corrected PhasePlan
+   - macro deltas before/after
+   - explanation of each adjustment
+
+4. Do not change all phases at once blindly.
+   Evaluate each phase separately.
+
+5. Return correction notes in plain language:
+   - why this lever was chosen
+   - why other levers were not chosen
+
+Goal of this pass: NOMOS can now actually fix the plan.
+
+⸻
+
+Pass 7 — prompt-to-engine bridge
+
+Tell Replit:
+
+Build the NOMOS meal-audit pipeline.
+
+Goal:
+Allow a prompt with attached labels + meal text to compile into the nutrition engine automatically.
+
+Create:
+- src/nutrition/meal_audit_pipeline.ts
+
+Requirements:
+1. Pipeline order:
+   - load food registry
+   - parse meal system into PhasePlan objects
+   - compute actual macros
+   - compute deltas
+   - generate truth audit
+   - optionally generate corrected system
+
+2. Support output modes:
+   - audit_only
+   - audit_and_correct
+   - derive_global_bias
+
+3. Output format must follow:
+   - STATE
+   - CONSTRAINTS
+   - UNCERTAINTIES
+   - FINDINGS
+   - PHASE AUDIT
+   - CORRECTION RULE
+   - CORRECTED SYSTEM
+   - FINAL VERDICT
+
+Goal of this pass: your screenshot prompt style finally connects to real computation.
+
+⸻
+
+The order matters
+
+Do not skip around.
+
+The correct build order is:
+	1.	food registry
+	2.	meal encoding
+	3.	macro engine
+	4.	audit layer
+	5.	correction constraints
+	6.	correction engine
+	7.	full pipeline
+
+If Replit jumps straight to “correct all 8 phases,” it will likely make a mess.
+
+⸻
+
+What you should say to Replit first
+
+Start with only this:
+
+We are building NOMOS as a deterministic nutrition audit and correction system.
+
+Do not attempt the full architecture in one pass.
+
+We will build in this order:
+1. food registry from labels
+2. meal encoding
+3. macro engine
+4. audit layer
+5. correction constraints
+6. correction engine
+7. full pipeline
+
+Start with Pass 1 only: label ingestion and FoodPrimitive registry.
+
+After Pass 1 is done, move to Pass 2.
+
+If you want, I can turn these 7 passes into seven copy-paste messages exactly formatted for Replit, one per step.
