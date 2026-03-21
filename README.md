@@ -216,14 +216,17 @@ Start here in order:
 
 1. **[REVIEW_GUIDE.md](REVIEW_GUIDE.md)** — curated inspection path for external reviewers
 2. **[CANONICAL_BUILD_MAP.md](CANONICAL_BUILD_MAP.md)** — role classification of every folder
-3. **[ARCHITECTURE.md](ARCHITECTURE.md)** — full pipeline with module linkage and data contracts
-4. **[MODULE_MAP.md](MODULE_MAP.md)** — fast layer-by-layer inspection table
-5. **[DEPENDENCY_RULES.md](DEPENDENCY_RULES.md)** — allowed and forbidden import directions
-6. **[SYSTEM_RULES.md](SYSTEM_RULES.md)** — constitutional invariants (non-negotiable)
-7. **[TYPES_INDEX.md](TYPES_INDEX.md)** — canonical interface index by layer
-8. **[docs/generated/runtime-diagram.md](docs/generated/runtime-diagram.md)** — live runtime request flows
-9. **[CHANGELOG_ARCHITECTURE.md](CHANGELOG_ARCHITECTURE.md)** — architectural progression log
-10. **[examples/](examples/)** — worked examples with full input → output chain
+3. **[MACHINE_ALIGNMENT_REPORT.md](MACHINE_ALIGNMENT_REPORT.md)** — duplicated logic audit, drift risks, what is/isn't in production path
+4. **[PERSISTENCE_TRUTH_TABLE.md](PERSISTENCE_TRUTH_TABLE.md)** — what is durable vs in-memory for every subsystem
+5. **[LLM_BOUNDARY.md](LLM_BOUNDARY.md)** — where LLM is allowed, forbidden, and how outputs are normalized
+6. **[DEPENDENCY_RULES.md](DEPENDENCY_RULES.md)** — allowed and forbidden import directions
+7. **[ARCHITECTURE.md](ARCHITECTURE.md)** — full pipeline with module linkage and data contracts
+8. **[MODULE_MAP.md](MODULE_MAP.md)** — fast layer-by-layer inspection table
+9. **[SYSTEM_RULES.md](SYSTEM_RULES.md)** — constitutional invariants (non-negotiable)
+10. **[TYPES_INDEX.md](TYPES_INDEX.md)** — canonical interface index by layer
+11. **[docs/generated/runtime-diagram.md](docs/generated/runtime-diagram.md)** — live runtime request flows
+12. **[CHANGELOG_ARCHITECTURE.md](CHANGELOG_ARCHITECTURE.md)** — architectural progression log
+13. **[examples/](examples/)** — worked examples with full input → output chain
 
 If you only have 15 minutes, use the inspection path in **[REVIEW_GUIDE.md](REVIEW_GUIDE.md)**.
 
@@ -291,6 +294,9 @@ Guided workflows are navigation and inspection aids, not autonomous action.
 ## Cross-Document Links
 
 - Canonical role classification → [CANONICAL_BUILD_MAP.md](CANONICAL_BUILD_MAP.md)
+- Machine alignment + drift risks → [MACHINE_ALIGNMENT_REPORT.md](MACHINE_ALIGNMENT_REPORT.md)
+- Persistence truth table → [PERSISTENCE_TRUTH_TABLE.md](PERSISTENCE_TRUTH_TABLE.md)
+- LLM boundary → [LLM_BOUNDARY.md](LLM_BOUNDARY.md)
 - Import direction rules → [DEPENDENCY_RULES.md](DEPENDENCY_RULES.md)
 - Architecture detail → [ARCHITECTURE.md](ARCHITECTURE.md)
 - Constitutional invariants → [SYSTEM_RULES.md](SYSTEM_RULES.md)

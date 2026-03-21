@@ -1,5 +1,14 @@
 /**
- * constraint_algebra.ts
+ * constraint_algebra.ts — research / test-only algebra
+ *
+ * STATUS: NOT in the production UI call path. Imported only by test files
+ * (constraint_algebra_test.ts, baseline_trace_test.ts). The production
+ * evaluation pipeline runs in packages/constitutional-kernel via the API.
+ *
+ * This module contains a formal constraint expression model developed
+ * in parallel with the kernel's deterministic_matcher.ts. It is kept
+ * here for test coverage and research purposes. It is not a replacement
+ * for kernel evaluation and must not be presented as such.
  *
  * Formal constraint expression model for NOMOS.
  *

@@ -1,9 +1,14 @@
 /**
- * eval_types.ts (dashboard mirror)
+ * eval_types.ts — API response contract types
  *
- * Local type mirror of packages/constitutional-kernel/src/evaluation/eval_types.ts.
- * Kept in sync manually. The dashboard does not import from nomos-core directly
- * for these types — it uses this local file.
+ * Defines the shape of the EvaluationResult returned by POST /api/nomos/query/evaluate.
+ * These are the API boundary types seen by the dashboard, NOT the kernel's internal
+ * pipeline types (NormalizedConstraint, CandidateEvaluationDraft, etc.).
+ *
+ * Source of truth: the kernel's API response shape (packages/constitutional-kernel
+ * query/query_response_types.ts). If the API response shape changes, update this file.
+ *
+ * Preferred future: generate these from lib/api-spec/openapi.yaml via Orval.
  */
 
 import type { ConstraintTrace } from "../../evaluation/evaluation_report_types";

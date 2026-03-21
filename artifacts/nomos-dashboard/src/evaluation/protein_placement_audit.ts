@@ -18,8 +18,12 @@
  *      baseline, the engine's decisive variable must not name a protein placement
  *      violation, and no protein-placement adjustment text may appear.
  *
- * This audit operates independently of the engine verdict. It is the
- * GROUND TRUTH CHECK against which the engine's report is validated.
+ * This audit operates independently of the engine verdict. It is a
+ * SECONDARY DISPLAY ENRICHMENT LAYER — not a ground-truth arbiter.
+ * The authoritative verdict is the kernel's API response. This module
+ * adds structural placement detail to the display report. If its
+ * heuristics drift from the kernel's nutrition rules, the displayed
+ * enrichment may disagree with the kernel verdict.
  *
  * Definitions
  * -----------

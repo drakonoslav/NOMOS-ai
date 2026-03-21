@@ -23,8 +23,12 @@
  * - Each compiled constraint carries key, operator, lhs, rhs for the evaluator
  *   to reference. These are symbolic names, not computed values — the actual
  *   runtime values come from the candidate description.
- * - The mapping table mirrors nomos-core's constraint_normalizer.ts so both
- *   the API evaluator and the dashboard UI produce consistent classifications.
+ * - UI DISPLAY CLASSIFIER ONLY. The authoritative constraint classification
+ *   is performed by the kernel (packages/constitutional-kernel/src/evaluation/
+ *   constraint_normalizer.ts) during API evaluation. This table must track
+ *   the kernel's classification to keep displayed kinds consistent with
+ *   evaluated kinds. If the kernel adds a new constraint kind, update this
+ *   mapping table to match.
  */
 
 import { normalizeConstraintText } from "./constraint_normalizer";
