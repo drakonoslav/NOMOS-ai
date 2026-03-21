@@ -1,0 +1,239 @@
+Exactly. The UI becomes persuasive only when NOMOS can show both:
+	•	a lawful authorization path
+	•	a principled refusal path
+
+That gives you contrast, which is where the tone system starts to matter.
+
+What to do
+
+Build two explicit demo scenarios and make them selectable from the dashboard or query param.
+
+Scenario A — lawful_baseline
+
+This should end in:
+	•	verification.status = "LAWFUL"
+	•	authority = AUTHORIZED
+	•	action outcome = APPLIED
+
+Conditions to force
+
+Use values that make everything comfortably pass:
+	•	low epsilonX
+	•	identifiability = "FULL"
+	•	model confidence high
+	•	feasibility true
+	•	robustness epsilon clearly above epsilonMin
+	•	adaptation in recovery tube
+	•	no model mismatch
+	•	at least one conservative proposal survives screening
+
+Example targets
+	•	epsilonX = 0.03
+	•	modelConfidence = 0.92
+	•	robustness.epsilon = 0.12
+	•	robustness.epsilonMin = 0.03
+	•	feasibilityOk = true
+	•	robustnessOk = true
+	•	observabilityOk = true
+	•	identifiabilityOk = true
+	•	modelOk = true
+	•	adaptationOk = true
+
+Tone should resolve to TERSE or CONCISE.
+
+Expected UI feel:
+	•	calm
+	•	compressed
+	•	inevitable
+
+Example language:
+	•	LAWFUL
+	•	Action authorized.
+	•	Execution permitted.
+
+⸻
+
+Scenario B — refused_infeasible
+
+This should end in:
+	•	verification.status = "INVALID"
+	•	authority = REFUSED
+	•	action outcome = REFUSED
+
+Best refusal cause
+
+Use feasibility failure first. It’s the cleanest constitutional refusal because it hits the lowest layer.
+
+Conditions to force
+	•	one or more candidate plans violate a hard constraint
+	•	no lawful candidate survives decision screening
+	•	or verification sees feasibilityOk = false
+
+Example targets
+	•	energy drops below required lower bound
+	•	fuel goes negative
+	•	terminal condition impossible
+	•	stale dependency stamp mismatch
+
+Example values
+	•	nominalR = [-0.05] or near-zero such that plan burns past zero
+	•	feasibilityOk = false
+	•	verification.status = "INVALID"
+
+Tone should resolve to TERSE.
+
+Expected UI language:
+	•	INVALID
+	•	Action refused.
+	•	Feasibility violation detected.
+
+⸻
+
+Best implementation pattern
+
+Do not rely on randomness for these two demo states.
+
+Create an explicit scenario selector.
+
+Add a scenario type
+
+export type DemoScenario =
+  | "lawful_baseline"
+  | "refused_infeasible";
+
+Add a scenario loader
+
+export interface DemoScenarioConfig {
+  measurement: MeasurementSnapshot;
+  resourcesAtObserve: number[];
+  disturbancesAtObserve: number[];
+  operatorHints: string[];
+  forceDeterministicFallback: boolean;
+}
+
+Then make:
+
+function buildScenarioConfig(scenario: DemoScenario): DemoScenarioConfig
+
+
+⸻
+
+Where to wire it
+
+In main.ts
+
+Read scenario from:
+	•	query param
+	•	env var
+	•	hardcoded toggle for now
+
+Simplest first pass:
+
+const scenario: DemoScenario =
+  (process.env.NOMOS_SCENARIO as DemoScenario) || "lawful_baseline";
+
+Then branch values based on scenario.
+
+⸻
+
+How to make the lawful path actually survive
+
+Right now your planner may screen everything out if margins are too tight.
+
+For lawful_baseline, loosen them deliberately:
+	•	increase fuel
+	•	reduce disturbance
+	•	reduce control aggressiveness
+	•	reduce sensitivity matrix values
+	•	widen terminal tolerance slightly
+	•	keep dependency stamps identical
+
+For example
+	•	resourcesAtObserve = [1.0]
+	•	disturbancesAtObserve = [0.02]
+	•	conservative control sequence from fallback proposer
+	•	sensitivity matrix:
+
+[
+  [1.05, 0.05],
+  [0.02, 1.03]
+]
+
+	•	terminal condition:
+
+Math.abs((x[0] ?? 0) - 1.0) - 0.95
+
+That gives enough room for one candidate to survive.
+
+⸻
+
+How to make the refused path clean
+
+For refused_infeasible, keep everything else normal and fail one hard thing.
+
+Best options:
+	1.	fuel below zero after rollout
+	2.	stale solution stamp mismatch
+	3.	impossible terminal bound
+
+The cleanest is fuel/resource violation.
+
+Example
+	•	resourcesAtObserve = [0.04]
+	•	same fallback control rollout burns > 0.04
+	•	resourceChecks fail
+	•	plan rejected
+	•	no survivor
+	•	final result = refused
+
+⸻
+
+What Replit should build
+
+Paste this:
+
+Add two deterministic demo scenarios to NOMOS so the UI can show both a lawful and a refused path.
+
+Required scenarios:
+1. lawful_baseline
+   - final verification.status must be LAWFUL
+   - authority must be AUTHORIZED
+   - action outcome must be APPLIED
+   - use low epsilonX, high model confidence, full identifiability, feasible candidate, robustness epsilon above epsilonMin
+
+2. refused_infeasible
+   - final verification.status must be INVALID
+   - authority must be REFUSED
+   - action outcome must be REFUSED
+   - fail at the feasibility layer with a hard resource or constraint violation
+
+Implementation requirements:
+- add a DemoScenario type
+- add a scenario config builder
+- select scenario via env var NOMOS_SCENARIO or simple UI toggle
+- keep scenarios deterministic, not random
+- do not bypass llm_proposer, decision_engine, verification_kernel, or constitution_guard
+- keep both paths going through the full NOMOS chain
+
+UI requirements:
+- add a scenario selector in the dashboard top bar or overview page
+- allow switching between lawful_baseline and refused_infeasible
+- ensure the tone resolver visibly differs between the two states
+
+
+⸻
+
+Why this is the right next step
+
+Because once you have those two paths:
+	•	Overview becomes compelling
+	•	Verification becomes legible
+	•	Tone system proves itself
+	•	NOMOS stops being abstract
+
+You’ll have:
+	•	one screen that says “yes”
+	•	one screen that says “no”
+	•	and both will look correct
+
+That is the moment NOMOS becomes real.

@@ -29,3 +29,6 @@ export type {
   GenerateProposalJSONInput,
 } from "./llm/openai_client.js";
 export { generateProposalJSON } from "./llm/openai_client.js";
+
+export { runKernelOnce } from "./kernel_runner.js";
+export type { KernelRunResult, KernelProposalResult, KernelVerificationResult, KernelBeliefResult, KernelModelResult, KernelDecisionResult, KernelAuditResult } from "./kernel_runner.js";

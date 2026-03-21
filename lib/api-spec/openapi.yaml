@@ -1,6 +1,5 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
   description: API specification
@@ -10,13 +9,14 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: nomos
+    description: NOMOS constitutional kernel state
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +24,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /nomos/state:
+    get:
+      operationId: getNomosState
+      tags: [nomos]
+      summary: Run the NOMOS constitutional kernel and return full system state
+      responses:
+        "200":
+          description: Full NOMOS kernel run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NomosState"
 components:
   schemas:
     HealthStatus:
@@ -31,6 +43,239 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    NomosVerificationStatus:
+      type: string
+      enum: [LAWFUL, DEGRADED, INVALID]
+
+    NomosAuthorityDecision:
+      type: string
+      enum: [AUTHORIZED, CONSTRAINED, REFUSED]
+
+    NomosActionOutcome:
+      type: string
+      enum: [APPLIED, DEGRADED_ACTION_APPLIED, REFUSED]
+
+    NomosConfidenceBand:
+      type: string
+      enum: [HIGH, MEDIUM, LOW, UNKNOWN]
+
+    NomosProposal:
+      type: object
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [CONTROL_PLAN, STATE_HYPOTHESIS, PARAMETER_HYPOTHESIS, RECOVERY_ACTION, OBJECTIVE_REFRAME]
+        confidence:
+          $ref: "#/components/schemas/NomosConfidenceBand"
+        rationale:
+          type: string
+        assumptions:
+          type: array
+          items:
+            type: string
+        lawful:
+          type: boolean
+        planSketch:
+          type: object
+          nullable: true
+          properties:
+            controlSequence:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+            rationale:
+              type: string
+            assumptions:
+              type: array
+              items:
+                type: string
+          required: [controlSequence, rationale, assumptions]
+        provenance:
+          type: array
+          items:
+            type: string
+        notes:
+          type: array
+          items:
+            type: string
+      required: [id, kind, confidence, rationale, assumptions, lawful, provenance, notes]
+
+    NomosVerificationMatrix:
+      type: object
+      properties:
+        feasibilityOk:
+          type: boolean
+        robustnessOk:
+          type: boolean
+        observabilityOk:
+          type: boolean
+        identifiabilityOk:
+          type: boolean
+        modelOk:
+          type: boolean
+        adaptationOk:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/NomosVerificationStatus"
+        reasons:
+          type: array
+          items:
+            type: string
+      required: [feasibilityOk, robustnessOk, observabilityOk, identifiabilityOk, modelOk, adaptationOk, status, reasons]
+
+    NomosBeliefSnapshot:
+      type: object
+      properties:
+        xHat:
+          type: array
+          items:
+            type: number
+        epsilonX:
+          type: number
+        confidence:
+          type: string
+        identifiability:
+          type: string
+        staleByMs:
+          type: number
+        thetaMean:
+          type: object
+          additionalProperties:
+            type: number
+        thetaVariance:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: number
+        provenance:
+          type: array
+          items:
+            type: string
+        lower:
+          type: array
+          nullable: true
+          items:
+            type: number
+        upper:
+          type: array
+          nullable: true
+          items:
+            type: number
+      required: [xHat, epsilonX, confidence, identifiability, staleByMs, thetaMean, provenance]
+
+    NomosModelSnapshot:
+      type: object
+      properties:
+        activeModelId:
+          type: string
+        version:
+          type: string
+        delayAware:
+          type: boolean
+        confidenceScore:
+          type: number
+        degraded:
+          type: boolean
+        fallbackActive:
+          type: boolean
+      required: [activeModelId, version, delayAware, confidenceScore, degraded, fallbackActive]
+
+    NomosDecisionSnapshot:
+      type: object
+      properties:
+        selectedPlanId:
+          type: string
+        rankedCandidateCount:
+          type: number
+        rejectedCandidateCount:
+          type: number
+        robustnessEpsilon:
+          type: number
+        topRejectionReason:
+          type: string
+          nullable: true
+      required: [selectedPlanId, rankedCandidateCount, rejectedCandidateCount, robustnessEpsilon]
+
+    NomosAuditSnapshot:
+      type: object
+      properties:
+        recordId:
+          type: string
+        timestamp:
+          type: number
+        outcome:
+          $ref: "#/components/schemas/NomosActionOutcome"
+        verificationStatus:
+          $ref: "#/components/schemas/NomosVerificationStatus"
+        appliedControl:
+          type: array
+          items:
+            type: number
+        notes:
+          type: array
+          items:
+            type: string
+      required: [recordId, timestamp, outcome, verificationStatus, appliedControl, notes]
+
+    NomosState:
+      type: object
+      properties:
+        runId:
+          type: string
+        timestamp:
+          type: number
+        missionId:
+          type: string
+        verificationStatus:
+          $ref: "#/components/schemas/NomosVerificationStatus"
+        authority:
+          $ref: "#/components/schemas/NomosAuthorityDecision"
+        actionOutcome:
+          $ref: "#/components/schemas/NomosActionOutcome"
+        modelConfidenceScore:
+          type: number
+        proposalCount:
+          type: number
+        rejectedFragmentCount:
+          type: number
+        proposalReasons:
+          type: array
+          items:
+            type: string
+        proposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/NomosProposal"
+        verification:
+          $ref: "#/components/schemas/NomosVerificationMatrix"
+        belief:
+          $ref: "#/components/schemas/NomosBeliefSnapshot"
+        model:
+          $ref: "#/components/schemas/NomosModelSnapshot"
+        decision:
+          $ref: "#/components/schemas/NomosDecisionSnapshot"
+        audit:
+          $ref: "#/components/schemas/NomosAuditSnapshot"
+      required:
+        - runId
+        - timestamp
+        - missionId
+        - verificationStatus
+        - authority
+        - actionOutcome
+        - modelConfidenceScore
+        - proposalCount
+        - rejectedFragmentCount
+        - proposalReasons
+        - proposals
+        - verification
+        - belief
+        - model
+        - decision
+        - audit

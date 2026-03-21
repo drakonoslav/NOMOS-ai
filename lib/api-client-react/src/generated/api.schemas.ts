@@ -8,3 +8,142 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type NomosVerificationStatus =
+  (typeof NomosVerificationStatus)[keyof typeof NomosVerificationStatus];
+
+export const NomosVerificationStatus = {
+  LAWFUL: "LAWFUL",
+  DEGRADED: "DEGRADED",
+  INVALID: "INVALID",
+} as const;
+
+export type NomosAuthorityDecision =
+  (typeof NomosAuthorityDecision)[keyof typeof NomosAuthorityDecision];
+
+export const NomosAuthorityDecision = {
+  AUTHORIZED: "AUTHORIZED",
+  CONSTRAINED: "CONSTRAINED",
+  REFUSED: "REFUSED",
+} as const;
+
+export type NomosActionOutcome =
+  (typeof NomosActionOutcome)[keyof typeof NomosActionOutcome];
+
+export const NomosActionOutcome = {
+  APPLIED: "APPLIED",
+  DEGRADED_ACTION_APPLIED: "DEGRADED_ACTION_APPLIED",
+  REFUSED: "REFUSED",
+} as const;
+
+export type NomosConfidenceBand =
+  (typeof NomosConfidenceBand)[keyof typeof NomosConfidenceBand];
+
+export const NomosConfidenceBand = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+  UNKNOWN: "UNKNOWN",
+} as const;
+
+export type NomosProposalKind =
+  (typeof NomosProposalKind)[keyof typeof NomosProposalKind];
+
+export const NomosProposalKind = {
+  CONTROL_PLAN: "CONTROL_PLAN",
+  STATE_HYPOTHESIS: "STATE_HYPOTHESIS",
+  PARAMETER_HYPOTHESIS: "PARAMETER_HYPOTHESIS",
+  RECOVERY_ACTION: "RECOVERY_ACTION",
+  OBJECTIVE_REFRAME: "OBJECTIVE_REFRAME",
+} as const;
+
+export type NomosProposalPlanSketch = {
+  controlSequence: number[][];
+  rationale: string;
+  assumptions: string[];
+} | null;
+
+export interface NomosProposal {
+  id: string;
+  kind: NomosProposalKind;
+  confidence: NomosConfidenceBand;
+  rationale: string;
+  assumptions: string[];
+  lawful: boolean;
+  planSketch?: NomosProposalPlanSketch;
+  provenance: string[];
+  notes: string[];
+}
+
+export interface NomosVerificationMatrix {
+  feasibilityOk: boolean;
+  robustnessOk: boolean;
+  observabilityOk: boolean;
+  identifiabilityOk: boolean;
+  modelOk: boolean;
+  adaptationOk: boolean;
+  status: NomosVerificationStatus;
+  reasons: string[];
+}
+
+export type NomosBeliefSnapshotThetaMean = { [key: string]: number };
+
+export type NomosBeliefSnapshotThetaVariance = { [key: string]: number } | null;
+
+export interface NomosBeliefSnapshot {
+  xHat: number[];
+  epsilonX: number;
+  confidence: string;
+  identifiability: string;
+  staleByMs: number;
+  thetaMean: NomosBeliefSnapshotThetaMean;
+  thetaVariance?: NomosBeliefSnapshotThetaVariance;
+  provenance: string[];
+  lower?: number[] | null;
+  upper?: number[] | null;
+}
+
+export interface NomosModelSnapshot {
+  activeModelId: string;
+  version: string;
+  delayAware: boolean;
+  confidenceScore: number;
+  degraded: boolean;
+  fallbackActive: boolean;
+}
+
+export interface NomosDecisionSnapshot {
+  selectedPlanId: string;
+  rankedCandidateCount: number;
+  rejectedCandidateCount: number;
+  robustnessEpsilon: number;
+  topRejectionReason?: string | null;
+}
+
+export interface NomosAuditSnapshot {
+  recordId: string;
+  timestamp: number;
+  outcome: NomosActionOutcome;
+  verificationStatus: NomosVerificationStatus;
+  appliedControl: number[];
+  notes: string[];
+}
+
+export interface NomosState {
+  runId: string;
+  timestamp: number;
+  missionId: string;
+  verificationStatus: NomosVerificationStatus;
+  authority: NomosAuthorityDecision;
+  actionOutcome: NomosActionOutcome;
+  modelConfidenceScore: number;
+  proposalCount: number;
+  rejectedFragmentCount: number;
+  proposalReasons: string[];
+  proposals: NomosProposal[];
+  verification: NomosVerificationMatrix;
+  belief: NomosBeliefSnapshot;
+  model: NomosModelSnapshot;
+  decision: NomosDecisionSnapshot;
+  audit: NomosAuditSnapshot;
+}

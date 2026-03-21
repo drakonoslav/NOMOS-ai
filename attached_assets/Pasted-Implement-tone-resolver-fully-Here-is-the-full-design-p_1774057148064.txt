@@ -1,0 +1,786 @@
+Implement tone resolver fully
+
+Here is the full design: phrasing templates, resolver logic, UI wiring, and data hookup.
+
+Purpose
+
+NOMOS should not “sound nicer” arbitrarily.
+
+It should sound:
+	•	more compressed when certainty is high
+	•	more explicit when uncertainty is high
+	•	more final when legality is broken
+
+So tone becomes a function of:
+	•	verification.status
+	•	belief.uncertainty.epsilonX
+	•	belief.identifiability
+	•	model.confidenceScore
+	•	robustness.epsilon
+	•	robustness.epsilonMin
+
+⸻
+
+1. Tone model
+
+Tone levels
+
+export type ToneLevel =
+  | "TERSE"
+  | "CONCISE"
+  | "EXPLAINED"
+  | "EXPANDED";
+
+Interpretation
+	•	TERSE
+Highest certainty or hard invalidity. Minimal language.
+	•	CONCISE
+Good certainty, lawful enough, small qualification.
+	•	EXPLAINED
+Moderate uncertainty, degraded conditions, needs context.
+	•	EXPANDED
+High uncertainty, partial identifiability, model degradation, or constrained fallback.
+
+⸻
+
+2. Resolver inputs
+
+Create a normalized input shape so the UI does not need to know every source object.
+
+src/ui/tone/tone_types.ts
+
+export type VerificationStatus = "LAWFUL" | "DEGRADED" | "INVALID";
+export type IdentifiabilityStatus = "FULL" | "PARTIAL" | "NONE";
+
+export interface ToneResolverInput {
+  verificationStatus: VerificationStatus;
+  epsilonX: number;
+  identifiability: IdentifiabilityStatus;
+  modelConfidence: number;
+  robustnessEpsilon?: number;
+  robustnessEpsilonMin?: number;
+  feasibilityOk?: boolean;
+  robustnessOk?: boolean;
+  observabilityOk?: boolean;
+  modelOk?: boolean;
+  adaptationOk?: boolean;
+}
+
+
+⸻
+
+3. Tone resolver logic
+
+src/ui/tone/tone_resolver.ts
+
+import { ToneResolverInput } from "./tone_types";
+
+export type ToneLevel =
+  | "TERSE"
+  | "CONCISE"
+  | "EXPLAINED"
+  | "EXPANDED";
+
+export function resolveToneLevel(input: ToneResolverInput): ToneLevel {
+  const {
+    verificationStatus,
+    epsilonX,
+    identifiability,
+    modelConfidence,
+    robustnessEpsilon,
+    robustnessEpsilonMin,
+    feasibilityOk,
+    robustnessOk,
+    observabilityOk,
+    modelOk,
+    adaptationOk,
+  } = input;
+
+  // Invalid states should be brief and final.
+  if (verificationStatus === "INVALID") {
+    return "TERSE";
+  }
+
+  // Strong lawful state: highly compressed language.
+  const strongLawful =
+    verificationStatus === "LAWFUL" &&
+    epsilonX <= 0.05 &&
+    identifiability === "FULL" &&
+    modelConfidence >= 0.85 &&
+    (robustnessEpsilon === undefined ||
+      robustnessEpsilonMin === undefined ||
+      robustnessEpsilon >= robustnessEpsilonMin * 1.5);
+
+  if (strongLawful) {
+    return "TERSE";
+  }
+
+  // Standard lawful state: concise with light qualification.
+  const stableLawful =
+    verificationStatus === "LAWFUL" &&
+    epsilonX <= 0.10 &&
+    identifiability === "FULL" &&
+    modelConfidence >= 0.65;
+
+  if (stableLawful) {
+    return "CONCISE";
+  }
+
+  // Degraded but still interpretable: explain briefly.
+  const moderatelyUncertain =
+    verificationStatus === "DEGRADED" ||
+    identifiability === "PARTIAL" ||
+    modelConfidence < 0.65 ||
+    epsilonX > 0.10 ||
+    robustnessOk === false ||
+    modelOk === false ||
+    adaptationOk === false;
+
+  if (moderatelyUncertain) {
+    const highUncertainty =
+      identifiability === "NONE" ||
+      epsilonX > 0.20 ||
+      modelConfidence < 0.40 ||
+      observabilityOk === false ||
+      feasibilityOk === false;
+
+    return highUncertainty ? "EXPANDED" : "EXPLAINED";
+  }
+
+  return "CONCISE";
+}
+
+
+⸻
+
+4. Phrasing template system
+
+Design rule
+
+Each template should return:
+	•	title
+	•	summary
+	•	optional detail lines
+
+That way cards can be visually compact while still scaling with uncertainty.
+
+src/ui/tone/tone_templates.ts
+
+import { ToneLevel } from "./tone_resolver";
+import { ToneResolverInput } from "./tone_types";
+
+export interface ToneMessage {
+  title: string;
+  summary: string;
+  details?: string[];
+}
+
+function lawfulMessage(level: ToneLevel, input: ToneResolverInput): ToneMessage {
+  switch (level) {
+    case "TERSE":
+      return {
+        title: "LAWFUL",
+        summary: "Action authorized.",
+      };
+
+    case "CONCISE":
+      return {
+        title: "LAWFUL",
+        summary: "Action authorized under current model assumptions.",
+      };
+
+    case "EXPLAINED":
+      return {
+        title: "LAWFUL",
+        summary: "Action authorized with bounded uncertainty.",
+        details: [
+          `State tolerance εx = ${input.epsilonX.toFixed(3)}`,
+          `Model confidence = ${input.modelConfidence.toFixed(2)}`,
+        ],
+      };
+
+    case "EXPANDED":
+      return {
+        title: "LAWFUL",
+        summary: "Action authorized, but confidence is limited by current uncertainty.",
+        details: [
+          `State tolerance εx = ${input.epsilonX.toFixed(3)}`,
+          `Identifiability = ${input.identifiability}`,
+          `Model confidence = ${input.modelConfidence.toFixed(2)}`,
+        ],
+      };
+  }
+}
+
+function degradedMessage(level: ToneLevel, input: ToneResolverInput): ToneMessage {
+  switch (level) {
+    case "TERSE":
+      return {
+        title: "DEGRADED",
+        summary: "Constrained action applied.",
+      };
+
+    case "CONCISE":
+      return {
+        title: "DEGRADED",
+        summary: "Constrained action applied under reduced margin.",
+      };
+
+    case "EXPLAINED":
+      return {
+        title: "DEGRADED",
+        summary: "Robustness or model confidence is below preferred threshold.",
+        details: [
+          input.robustnessEpsilon !== undefined && input.robustnessEpsilonMin !== undefined
+            ? `Robustness ε = ${input.robustnessEpsilon.toFixed(3)} (min ${input.robustnessEpsilonMin.toFixed(3)})`
+            : `Model confidence = ${input.modelConfidence.toFixed(2)}`,
+        ].filter(Boolean) as string[],
+      };
+
+    case "EXPANDED":
+      return {
+        title: "DEGRADED",
+        summary: "Reliable full-authority action is not supported by the current epistemic state.",
+        details: [
+          `State tolerance εx = ${input.epsilonX.toFixed(3)}`,
+          `Identifiability = ${input.identifiability}`,
+          `Model confidence = ${input.modelConfidence.toFixed(2)}`,
+          input.robustnessEpsilon !== undefined && input.robustnessEpsilonMin !== undefined
+            ? `Robustness ε = ${input.robustnessEpsilon.toFixed(3)} (min ${input.robustnessEpsilonMin.toFixed(3)})`
+            : "Robustness margin reduced",
+        ],
+      };
+  }
+}
+
+function invalidMessage(level: ToneLevel, input: ToneResolverInput): ToneMessage {
+  switch (level) {
+    case "TERSE":
+      return {
+        title: "INVALID",
+        summary: "Action refused.",
+        details: [
+          deriveInvalidReason(input),
+        ],
+      };
+
+    case "CONCISE":
+      return {
+        title: "INVALID",
+        summary: "No lawful action exists.",
+        details: [
+          deriveInvalidReason(input),
+        ],
+      };
+
+    case "EXPLAINED":
+      return {
+        title: "INVALID",
+        summary: "The current state does not satisfy minimum legality conditions.",
+        details: [
+          deriveInvalidReason(input),
+          `State tolerance εx = ${input.epsilonX.toFixed(3)}`,
+        ],
+      };
+
+    case "EXPANDED":
+      return {
+        title: "INVALID",
+        summary: "Action is refused because legality cannot be established under the current constraints, knowledge state, or model condition.",
+        details: [
+          deriveInvalidReason(input),
+          `Identifiability = ${input.identifiability}`,
+          `Model confidence = ${input.modelConfidence.toFixed(2)}`,
+          `State tolerance εx = ${input.epsilonX.toFixed(3)}`,
+        ],
+      };
+  }
+}
+
+function deriveInvalidReason(input: ToneResolverInput): string {
+  if (input.feasibilityOk === false) return "Feasibility violation detected.";
+  if (input.observabilityOk === false) return "Observability insufficient for reliable control.";
+  if (input.identifiability === "NONE") return "Identifiability failure detected.";
+  if (input.modelOk === false) return "Model adequacy below legal threshold.";
+  if (input.robustnessOk === false) return "Robustness below minimum required margin.";
+  return "Verification failed.";
+}
+
+export function buildToneMessage(
+  input: ToneResolverInput,
+  level: ToneLevel
+): ToneMessage {
+  switch (input.verificationStatus) {
+    case "LAWFUL":
+      return lawfulMessage(level, input);
+    case "DEGRADED":
+      return degradedMessage(level, input);
+    case "INVALID":
+      return invalidMessage(level, input);
+  }
+}
+
+
+⸻
+
+5. Authority wording templates
+
+Verification status and action authority are related, but not identical.
+
+src/ui/tone/authority_templates.ts
+
+export type AuthorityState = "AUTHORIZED" | "CONSTRAINED" | "REFUSED";
+export type ToneLevel =
+  | "TERSE"
+  | "CONCISE"
+  | "EXPLAINED"
+  | "EXPANDED";
+
+export interface AuthorityMessage {
+  label: AuthorityState;
+  summary: string;
+}
+
+export function buildAuthorityMessage(
+  authority: AuthorityState,
+  level: ToneLevel
+): AuthorityMessage {
+  if (authority === "AUTHORIZED") {
+    return {
+      label: "AUTHORIZED",
+      summary:
+        level === "TERSE"
+          ? "Execution permitted."
+          : "Execution permitted under current verified conditions.",
+    };
+  }
+
+  if (authority === "CONSTRAINED") {
+    return {
+      label: "CONSTRAINED",
+      summary:
+        level === "EXPANDED"
+          ? "Only constrained action is permitted under current uncertainty."
+          : "Constrained action permitted.",
+    };
+  }
+
+  return {
+    label: "REFUSED",
+    summary:
+      level === "TERSE"
+        ? "Execution denied."
+        : "Execution denied because legal action conditions are not met.",
+  };
+}
+
+
+⸻
+
+6. Connect tone to runtime outputs
+
+Create an adapter that converts your existing runtime objects into ToneResolverInput.
+
+src/ui/tone/tone_adapter.ts
+
+import { BeliefState } from "../../belief_state";
+import { RobustnessReport } from "../../robustness_analyzer";
+import { VerificationReport } from "../../verification_kernel";
+
+import { ToneResolverInput } from "./tone_types";
+
+export function toToneResolverInput(args: {
+  belief: BeliefState;
+  robustness?: RobustnessReport;
+  verification: VerificationReport;
+  modelConfidence?: number;
+}): ToneResolverInput {
+  const { belief, robustness, verification, modelConfidence } = args;
+
+  return {
+    verificationStatus: verification.status,
+    epsilonX: belief.uncertainty.epsilonX,
+    identifiability: belief.identifiability,
+    modelConfidence: modelConfidence ?? 0,
+    robustnessEpsilon: robustness?.epsilon,
+    robustnessEpsilonMin: robustness?.epsilonMin,
+    feasibilityOk: verification.feasibilityOk,
+    robustnessOk: verification.robustnessOk,
+    observabilityOk: verification.observabilityOk,
+    identifiabilityOk: verification.identifiabilityOk,
+    modelOk: verification.modelOk,
+    adaptationOk: verification.adaptationOk,
+  };
+}
+
+
+⸻
+
+7. UI component wiring
+
+A. StatusCard
+
+This should render the main verification state with tone-aware summary.
+
+src/ui/components/nomos/StatusCard.tsx
+
+import React from "react";
+import { resolveToneLevel } from "../../tone/tone_resolver";
+import { buildToneMessage } from "../../tone/tone_templates";
+import { toToneResolverInput } from "../../tone/tone_adapter";
+
+import { BeliefState } from "../../../belief_state";
+import { RobustnessReport } from "../../../robustness_analyzer";
+import { VerificationReport } from "../../../verification_kernel";
+
+type Props = {
+  belief: BeliefState;
+  robustness?: RobustnessReport;
+  verification: VerificationReport;
+  modelConfidence?: number;
+};
+
+export function StatusCard({
+  belief,
+  robustness,
+  verification,
+  modelConfidence,
+}: Props) {
+  const toneInput = toToneResolverInput({
+    belief,
+    robustness,
+    verification,
+    modelConfidence,
+  });
+
+  const tone = resolveToneLevel(toneInput);
+  const message = buildToneMessage(toneInput, tone);
+
+  return (
+    <div className="panel">
+      <div className="panel-header">Verification Status</div>
+      <div className={`status-title status-${verification.status.toLowerCase()}`}>
+        {message.title}
+      </div>
+      <div className="status-summary">{message.summary}</div>
+      {message.details && message.details.length > 0 && (
+        <ul className="status-details">
+          {message.details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+B. AuthorityCard
+
+src/ui/components/nomos/AuthorityCard.tsx
+
+import React from "react";
+import { resolveToneLevel } from "../../tone/tone_resolver";
+import { buildAuthorityMessage, AuthorityState } from "../../tone/authority_templates";
+import { toToneResolverInput } from "../../tone/tone_adapter";
+
+import { BeliefState } from "../../../belief_state";
+import { RobustnessReport } from "../../../robustness_analyzer";
+import { VerificationReport } from "../../../verification_kernel";
+
+type Props = {
+  belief: BeliefState;
+  robustness?: RobustnessReport;
+  verification: VerificationReport;
+  modelConfidence?: number;
+  authority: AuthorityState;
+};
+
+export function AuthorityCard({
+  belief,
+  robustness,
+  verification,
+  modelConfidence,
+  authority,
+}: Props) {
+  const toneInput = toToneResolverInput({
+    belief,
+    robustness,
+    verification,
+    modelConfidence,
+  });
+
+  const tone = resolveToneLevel(toneInput);
+  const message = buildAuthorityMessage(authority, tone);
+
+  return (
+    <div className="panel">
+      <div className="panel-header">Authority</div>
+      <div className={`status-title authority-${authority.toLowerCase()}`}>
+        {message.label}
+      </div>
+      <div className="status-summary">{message.summary}</div>
+    </div>
+  );
+}
+
+
+⸻
+
+C. VerificationPanel
+
+Use tone only for the summary header. Keep raw booleans exact.
+
+src/ui/components/nomos/VerificationPanel.tsx
+
+import React from "react";
+import { resolveToneLevel } from "../../tone/tone_resolver";
+import { buildToneMessage } from "../../tone/tone_templates";
+import { toToneResolverInput } from "../../tone/tone_adapter";
+
+import { BeliefState } from "../../../belief_state";
+import { RobustnessReport } from "../../../robustness_analyzer";
+import { VerificationReport } from "../../../verification_kernel";
+
+type Props = {
+  belief: BeliefState;
+  robustness?: RobustnessReport;
+  verification: VerificationReport;
+  modelConfidence?: number;
+};
+
+export function VerificationPanel({
+  belief,
+  robustness,
+  verification,
+  modelConfidence,
+}: Props) {
+  const toneInput = toToneResolverInput({
+    belief,
+    robustness,
+    verification,
+    modelConfidence,
+  });
+
+  const tone = resolveToneLevel(toneInput);
+  const message = buildToneMessage(toneInput, tone);
+
+  const rows = [
+    ["Feasibility", verification.feasibilityOk],
+    ["Robustness", verification.robustnessOk],
+    ["Observability", verification.observabilityOk],
+    ["Identifiability", verification.identifiabilityOk],
+    ["Model", verification.modelOk],
+    ["Adaptation", verification.adaptationOk],
+  ];
+
+  return (
+    <div className="panel">
+      <div className="panel-header">Verification</div>
+      <div className="status-summary">{message.summary}</div>
+
+      <table className="data-table">
+        <tbody>
+          {rows.map(([label, ok]) => (
+            <tr key={label}>
+              <td>{label}</td>
+              <td>{ok ? "PASS" : "FAIL"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {verification.reasons.length > 0 && (
+        <div className="verification-findings">
+          {verification.reasons.map((reason, i) => (
+            <div key={`${i}-${reason}`} className="finding-row">
+              <span className="finding-index">Finding {String(i + 1).padStart(2, "0")}</span>
+              <span>{reason}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+8. Tone rules by page
+
+Overview page
+
+Use tone-aware summary text.
+
+Verification page
+
+Use tone-aware summary + exact findings.
+
+Belief page
+
+Do not tone-shift raw numbers. Only tone-shift the explanatory header.
+
+Proposals page
+
+No tone smoothing. Keep proposal text literal. This is important because proposals are non-authoritative.
+
+Decision page
+
+Use restrained tone in summary:
+	•	“Candidate selected under current constraints.”
+	•	“No lawful candidate survived screening.”
+
+Audit page
+
+No tone system. Audit is factual only.
+
+⸻
+
+9. Exact phrasing templates by level
+
+TERSE
+
+Use when:
+	•	LAWFUL high certainty
+	•	any INVALID
+
+Examples:
+	•	Action authorized.
+	•	Action refused.
+	•	Execution permitted.
+	•	No lawful action exists.
+
+CONCISE
+
+Use when:
+	•	lawful but slightly qualified
+
+Examples:
+	•	Action authorized under current model assumptions.
+	•	Robustness margin acceptable.
+	•	Execution permitted under current verified conditions.
+
+EXPLAINED
+
+Use when:
+	•	degraded or moderately uncertain
+
+Examples:
+	•	Constrained action applied under reduced margin.
+	•	Robustness or model confidence is below preferred threshold.
+	•	State estimate remains usable but no longer strongly resolved.
+
+EXPANDED
+
+Use when:
+	•	uncertainty is materially affecting legal authority
+
+Examples:
+	•	Reliable full-authority action is not supported by the current epistemic state.
+	•	Action is refused because legality cannot be established under the current constraints, knowledge state, or model condition.
+	•	Current belief uncertainty exceeds preferred control conditions, so only conservative action is permitted.
+
+⸻
+
+10. Styling guidance for tone
+
+Tone should change copy length, not visual loudness.
+
+So:
+	•	TERSE = shorter text
+	•	CONCISE = one qualifier
+	•	EXPLAINED = one short explanation + details
+	•	EXPANDED = explicit reasoning + details
+
+But the card itself should not become more dramatic.
+
+That keeps NOMOS calm.
+
+⸻
+
+11. Optional top-level hook
+
+If you want a single reusable hook:
+
+src/ui/tone/useToneMessage.ts
+
+import { resolveToneLevel } from "./tone_resolver";
+import { buildToneMessage } from "./tone_templates";
+import { toToneResolverInput } from "./tone_adapter";
+
+import { BeliefState } from "../../belief_state";
+import { RobustnessReport } from "../../robustness_analyzer";
+import { VerificationReport } from "../../verification_kernel";
+
+export function useToneMessage(args: {
+  belief: BeliefState;
+  robustness?: RobustnessReport;
+  verification: VerificationReport;
+  modelConfidence?: number;
+}) {
+  const input = toToneResolverInput(args);
+  const tone = resolveToneLevel(input);
+  const message = buildToneMessage(input, tone);
+
+  return {
+    tone,
+    message,
+    input,
+  };
+}
+
+Then components get much simpler.
+
+⸻
+
+12. What to tell Replit
+
+Paste this:
+
+Implement the NOMOS tone resolver fully.
+
+Requirements:
+1. Create a UI tone system where tone is a function of epistemic state, not personality.
+2. Add:
+   - src/ui/tone/tone_types.ts
+   - src/ui/tone/tone_resolver.ts
+   - src/ui/tone/tone_templates.ts
+   - src/ui/tone/authority_templates.ts
+   - src/ui/tone/tone_adapter.ts
+   - optional src/ui/tone/useToneMessage.ts
+3. Tone levels:
+   - TERSE
+   - CONCISE
+   - EXPLAINED
+   - EXPANDED
+4. Tone must depend on:
+   - verification.status
+   - belief.uncertainty.epsilonX
+   - belief.identifiability
+   - model confidence
+   - robustness epsilon vs epsilonMin
+5. Wire tone-aware summaries into:
+   - StatusCard
+   - AuthorityCard
+   - VerificationPanel
+6. Do not tone-shift raw data tables or audit logs.
+7. Keep proposals literal and visibly non-authoritative.
+8. Use calm authority, not alarmist language.
+9. Keep final status wording exact:
+   - LAWFUL
+   - DEGRADED
+   - INVALID
+
+
+⸻
+
+Best next move after this
+
+After tone resolver, the strongest move is:
+	•	make one runtime path produce LAWFUL
+	•	make one runtime path produce REFUSED
+
+Then the tone system will actually show its value in the UI.

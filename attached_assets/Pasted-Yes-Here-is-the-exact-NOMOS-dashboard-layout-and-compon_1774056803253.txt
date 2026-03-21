@@ -1,0 +1,1030 @@
+Yes. Here is the exact NOMOS dashboard layout and component hierarchy so Replit has zero ambiguity.
+
+This is designed to make NOMOS feel:
+	•	severe
+	•	high-authority
+	•	architectural
+	•	verification-first
+
+Not:
+	•	chatty
+	•	playful
+	•	assistant-like
+	•	consumer SaaS generic
+
+⸻
+
+NOMOS Dashboard Specification
+
+Primary design goal
+
+The UI must communicate this instantly:
+
+NOMOS is not here to help. It is here to decide whether action is lawful.
+
+So the dashboard should read like:
+	•	a control room
+	•	a constitutional instrument panel
+	•	a systems verification console
+
+⸻
+
+1. App shell
+
+Top-level structure
+
+AppShell
+├── Sidebar
+├── TopBar
+└── MainContent
+    ├── OverviewPage
+    ├── BeliefPage
+    ├── ProposalsPage
+    ├── DecisionPage
+    ├── VerificationPage
+    └── AuditPage
+
+
+⸻
+
+Sidebar
+
+Purpose
+
+Persistent navigation and identity anchor.
+
+Layout
+
+Top to bottom:
+
+Sidebar
+├── BrandBlock
+│   ├── NomosLogo
+│   ├── ProductName
+│   └── Tagline
+├── NavSection
+│   ├── NavItem: Overview
+│   ├── NavItem: Belief
+│   ├── NavItem: Proposals
+│   ├── NavItem: Decision
+│   ├── NavItem: Verification
+│   └── NavItem: Audit
+└── SystemFooter
+    ├── RuntimePackage
+    ├── ModelName
+    └── ThemeToggle
+
+Exact content
+	•	Logo: NOMOS Gate mark
+	•	Title: NOMOS
+	•	Subtitle: Only the lawful may act.
+
+Sidebar style
+	•	fixed width: 272px
+	•	full height
+	•	dark surface
+	•	crisp divider lines
+	•	small caps section labels
+	•	active nav item has strong left rule or inset border
+
+⸻
+
+TopBar
+
+Purpose
+
+Global status and command identity.
+
+Layout
+
+TopBar
+├── PageTitle
+├── GlobalStatusCluster
+│   ├── VerificationStatusBadge
+│   ├── AuthorityBadge
+│   └── ModelConfidenceBadge
+└── SessionMeta
+    ├── MissionId
+    ├── Timestamp
+    └── RunMode
+
+Exact behavior
+	•	left: current page title
+	•	right: compact status chips
+
+Required global badges
+	•	LAWFUL / DEGRADED / INVALID
+	•	AUTHORIZED / CONSTRAINED / REFUSED
+	•	model confidence score
+
+⸻
+
+2. Design system primitives
+
+Base components
+
+components/
+├── layout/
+│   ├── AppShell
+│   ├── Sidebar
+│   ├── TopBar
+│   └── PageSection
+├── primitives/
+│   ├── Panel
+│   ├── PanelHeader
+│   ├── MetricCard
+│   ├── StatusBadge
+│   ├── DataRow
+│   ├── DataTable
+│   ├── KeyValueList
+│   ├── CodeBlock
+│   ├── Divider
+│   └── EmptyState
+├── nomos/
+│   ├── VerificationBadge
+│   ├── AuthorityBadge
+│   ├── ProposalCard
+│   ├── CandidatePlanCard
+│   ├── BeliefSnapshotCard
+│   ├── ModelConfidenceCard
+│   ├── ConstraintCheckTable
+│   ├── VerificationMatrix
+│   ├── AuditRecordCard
+│   └── RuntimeTimeline
+
+
+⸻
+
+Primitive rules
+
+Panel
+
+Base rectangular container for all system blocks.
+
+Style:
+	•	sharp corners or very low radius (6px max)
+	•	strong border
+	•	no soft drop shadows
+	•	layered surface contrast
+
+MetricCard
+
+For single important values.
+
+Used for:
+	•	epsilonX
+	•	proposal count
+	•	model confidence
+	•	robustness epsilon
+	•	selected plan
+
+StatusBadge
+
+Only saturated element category.
+
+States:
+	•	lawful = muted deep green
+	•	degraded = amber
+	•	invalid = dark red
+	•	authorized = steel blue or white-outline
+	•	refused = red-outline
+
+DataTable
+
+Dense but breathable, no playful striping.
+
+CodeBlock
+
+For exact JSON-like or vector display.
+
+⸻
+
+3. Overview page
+
+Purpose
+
+Single-screen answer to:
+
+What is NOMOS seeing, deciding, and allowing right now?
+
+Layout
+
+OverviewPage
+├── HeroStatusRow
+│   ├── VerificationStatusCard
+│   ├── AuthorityCard
+│   ├── SelectedPlanCard
+│   └── ActionOutcomeCard
+├── MetricsGrid
+│   ├── ModelConfidenceCard
+│   ├── BeliefEpsilonCard
+│   ├── ProposalCountCard
+│   └── RobustnessEpsilonCard
+├── StateSummaryRow
+│   ├── BeliefSnapshotCard
+│   └── ModelSnapshotCard
+├── VerificationSummaryRow
+│   ├── VerificationMatrix
+│   └── DecisionSummaryCard
+└── RecentAuditRow
+    └── LatestAuditCard
+
+
+⸻
+
+HeroStatusRow
+
+Cards
+	1.	Verification Status
+	•	large word: LAWFUL / DEGRADED / INVALID
+	•	subtitle: Current constitutional status
+	2.	Authority
+	•	large word: AUTHORIZED / CONSTRAINED / REFUSED
+	3.	Selected Plan
+	•	plan id
+	•	candidate source
+	•	proposal origin
+	4.	Action Outcome
+	•	APPLIED
+	•	DEGRADED_ACTION_APPLIED
+	•	REFUSED
+
+Layout
+
+4 cards in a row on desktop
+2x2 on tablet
+stacked on mobile
+
+⸻
+
+MetricsGrid
+
+Cards
+	•	Model confidence
+	•	Belief epsilonX
+	•	Proposal count
+	•	Robustness epsilon
+
+Each card:
+	•	title
+	•	main value
+	•	one-line note
+
+Example:
+
+Belief εx
+0.080
+Required estimation tolerance
+
+
+⸻
+
+StateSummaryRow
+
+Left: BeliefSnapshotCard
+
+Show:
+	•	xHat
+	•	thetaHat
+	•	identifiability
+	•	staleByMs
+
+Right: ModelSnapshotCard
+
+Show:
+	•	active model id
+	•	model version
+	•	delayAware
+	•	degraded flag
+
+⸻
+
+VerificationSummaryRow
+
+Left: VerificationMatrix
+
+Boolean matrix:
+	•	feasibilityOk
+	•	robustnessOk
+	•	observabilityOk
+	•	identifiabilityOk
+	•	modelOk
+	•	adaptationOk
+
+Right: DecisionSummaryCard
+
+Show:
+	•	selected plan id
+	•	ranked candidate count
+	•	rejected candidate count
+	•	top rejection reason
+
+⸻
+
+RecentAuditRow
+
+LatestAuditCard
+
+Show:
+	•	latest audit id
+	•	timestamp
+	•	outcome
+	•	notes preview
+
+⸻
+
+4. Belief page
+
+Purpose
+
+Expose the epistemic state without ambiguity.
+
+Layout
+
+BeliefPage
+├── BeliefHeaderRow
+│   ├── BeliefStatusCard
+│   ├── IdentifiabilityCard
+│   └── StalenessCard
+├── BeliefDetailRow
+│   ├── StateEstimatePanel
+│   └── ParameterBeliefPanel
+├── UncertaintyRow
+│   ├── UncertaintyEnvelopePanel
+│   └── ProvenancePanel
+└── ObserverDiagnosticsRow
+    ├── InnovationResidualPanel
+    └── InformationSufficiencyPanel
+
+
+⸻
+
+StateEstimatePanel
+
+Display:
+	•	xHat as vector
+	•	optional indexed rows:
+	•	x[0]
+	•	x[1]
+
+ParameterBeliefPanel
+
+Display:
+	•	each parameter
+	•	mean
+	•	variance
+	•	identifiable true/false
+
+UncertaintyEnvelopePanel
+
+Display:
+	•	epsilonX
+	•	covariance matrix if available
+	•	lower/upper bounds if available
+
+ProvenancePanel
+
+List provenance entries as ordered sequence.
+
+InnovationResidualPanel
+
+Display:
+	•	innovation vector
+	•	innovation norm
+	•	bias suspected
+	•	drift suspected
+	•	delay detected
+
+InformationSufficiencyPanel
+
+Display:
+	•	observable true/false
+	•	observability rank
+	•	information sufficient true/false
+	•	false legibility risk
+
+⸻
+
+5. Proposals page
+
+Purpose
+
+Make LLM participation visible without granting it authority.
+
+Layout
+
+ProposalsPage
+├── ProposalSummaryRow
+│   ├── ProposalCountCard
+│   ├── AcceptedProposalCountCard
+│   ├── RejectedFragmentCountCard
+│   └── ProposerModeCard
+├── ProposalTableSection
+│   └── ProposalList
+├── ProposalDetailSection
+│   ├── ProposalMetadataPanel
+│   ├── ProposalRationalePanel
+│   ├── ProposalAssumptionsPanel
+│   └── ProposalPayloadPanel
+└── RejectedFragmentsSection
+    └── RejectedFragmentList
+
+
+⸻
+
+ProposalList
+
+Table columns:
+	•	proposal id
+	•	kind
+	•	confidence
+	•	lawful
+	•	provenance source
+	•	generatedAt
+
+Important: lawful must always visually display false
+
+Not subtle. Make it explicit.
+
+Possible rendering:
+	•	a badge with muted outline and text: NON-AUTHORITATIVE
+
+⸻
+
+Proposal detail
+
+When clicking a proposal, show:
+
+ProposalMetadataPanel
+	•	proposerId
+	•	modelName
+	•	generatedAt
+	•	notes
+
+ProposalRationalePanel
+	•	exact rationale text
+
+ProposalAssumptionsPanel
+	•	bulleted assumptions
+
+ProposalPayloadPanel
+
+Depending on kind:
+	•	controlSequence
+	•	xHatCandidate
+	•	thetaCandidate
+
+RejectedFragmentList
+
+Show raw rejected fragments in compact code blocks.
+
+⸻
+
+6. Decision page
+
+Purpose
+
+Show constitutional screening and ranking.
+
+Layout
+
+DecisionPage
+├── DecisionOutcomeRow
+│   ├── DecisionLawfulnessCard
+│   ├── SelectedCandidateCard
+│   └── RankingBasisCard
+├── CandidateRankingSection
+│   └── CandidateTable
+├── SelectedCandidateSection
+│   ├── CandidatePlanCard
+│   ├── FeasibilityPanel
+│   └── RobustnessPanel
+└── RejectedPlansSection
+    └── RejectedPlansTable
+
+
+⸻
+
+CandidateTable
+
+Columns:
+	•	candidate id
+	•	expected cost
+	•	epsilon
+	•	feasible
+	•	bounded
+	•	delay consistent
+	•	rank
+
+Sort by actual decision order:
+	1.	feasible first
+	2.	epsilon descending
+	3.	cost ascending
+
+⸻
+
+FeasibilityPanel
+
+Show grouped checks:
+	•	equality
+	•	inequality
+	•	resource
+	•	terminal
+	•	conservation
+
+Best structure:
+accordion or grouped tables
+
+Each row:
+	•	name
+	•	passed
+	•	value
+	•	threshold
+	•	margin
+	•	reason
+
+⸻
+
+RobustnessPanel
+
+Show:
+	•	epsilon
+	•	epsilonMin
+	•	bounded
+	•	horizonBound
+	•	delayConsistent
+	•	fragileDimensions
+	•	sensitivity spectrum
+
+⸻
+
+RejectedPlansTable
+
+Columns:
+	•	candidate id
+	•	reasons
+
+This page should make rejections feel principled, not unfortunate.
+
+⸻
+
+7. Verification page
+
+Purpose
+
+This is the sovereign page.
+
+It should feel like the heart of NOMOS.
+
+Layout
+
+VerificationPage
+├── VerificationHero
+│   ├── FinalStatusCard
+│   ├── AuthorityCard
+│   └── VerificationSupremacyCard
+├── VerificationMatrixSection
+│   └── VerificationMatrix
+├── VerificationReasonsSection
+│   └── ReasonsPanel
+├── CrossLayerSection
+│   ├── FeasibilityStatusPanel
+│   ├── RobustnessStatusPanel
+│   ├── ObservabilityStatusPanel
+│   ├── ModelStatusPanel
+│   └── AdaptationStatusPanel
+└── ConstitutionalRuleSection
+    └── RulePanel
+
+
+⸻
+
+VerificationHero
+
+FinalStatusCard
+
+Huge typography:
+	•	LAWFUL
+	•	DEGRADED
+	•	INVALID
+
+AuthorityCard
+
+Huge typography:
+	•	AUTHORIZED
+	•	CONSTRAINED
+	•	REFUSED
+
+VerificationSupremacyCard
+
+Static message:
+
+Verification is the final authority.
+
+⸻
+
+VerificationMatrix
+
+Grid with 6 cells:
+	•	Feasibility
+	•	Robustness
+	•	Observability
+	•	Identifiability
+	•	Model
+	•	Adaptation
+
+Each cell:
+	•	label
+	•	pass/fail badge
+	•	one-line note
+
+⸻
+
+ReasonsPanel
+
+Full ordered list of reasons from verification.reasons
+
+Render as numbered constitutional findings, not generic alerts.
+
+Example label:
+	•	Finding 01
+	•	Finding 02
+
+⸻
+
+CrossLayer panels
+
+Each panel shows:
+	•	current boolean
+	•	supporting values
+	•	failure reason if any
+
+Example:
+
+ModelStatusPanel
+	•	confidenceScore
+	•	degraded
+	•	residualNorm
+	•	residualTolerance
+
+⸻
+
+RulePanel
+
+Static constitutional reminder:
+
+Lower-layer supremacy:
+- infeasibility invalidates optimization
+- non-robustness invalidates preference
+- non-observability invalidates reliable control
+- failed verification invalidates action
+
+
+⸻
+
+8. Audit page
+
+Purpose
+
+Trace everything.
+
+Layout
+
+AuditPage
+├── AuditSummaryRow
+│   ├── TotalRecordsCard
+│   ├── AppliedCountCard
+│   ├── DegradedCountCard
+│   └── RefusedCountCard
+├── AuditTimelineSection
+│   └── AuditTimeline
+└── AuditDetailSection
+    ├── AuditRecordList
+    └── AuditRecordDetail
+
+
+⸻
+
+AuditTimeline
+
+Vertical timeline of records:
+	•	timestamp
+	•	outcome
+	•	selected plan id
+	•	verification status
+
+AuditRecordList
+
+Dense list of records
+
+AuditRecordDetail
+
+On selection, show:
+	•	measurement snapshot
+	•	belief snapshot
+	•	model signature
+	•	model confidence
+	•	feasibility summary
+	•	robustness summary
+	•	verification report
+	•	control action
+	•	notes
+
+This page should feel forensic.
+
+⸻
+
+9. Exact page routing
+
+Recommended route map
+
+/                  -> OverviewPage
+/belief            -> BeliefPage
+/proposals         -> ProposalsPage
+/decision          -> DecisionPage
+/verification      -> VerificationPage
+/audit             -> AuditPage
+
+
+⸻
+
+10. State management shape
+
+Suggested app-level state
+
+interface DashboardState {
+  overview: {
+    verificationStatus: "LAWFUL" | "DEGRADED" | "INVALID";
+    authority: "AUTHORIZED" | "CONSTRAINED" | "REFUSED";
+    selectedPlanId?: string;
+    actionOutcome?: string;
+    modelConfidence?: number;
+    proposalCount: number;
+    robustnessEpsilon?: number;
+    epsilonX?: number;
+  };
+
+  belief?: BeliefState;
+  observer?: ObserverResult;
+  modelSignature?: ModelSignature;
+  modelConfidence?: ModelConfidence;
+  proposals: LLMProposal[];
+  decision?: DecisionResult;
+  verification?: VerificationReport;
+  auditRecords: AuditRecord[];
+}
+
+
+⸻
+
+11. Visual design rules
+
+Surfaces
+
+Three layers only:
+	•	background
+	•	panel
+	•	elevated panel
+
+Borders
+
+Use borders, not blur-heavy shadows.
+
+Radius
+
+Low radius:
+	•	4px to 8px max
+
+Typography
+	•	page titles: strong serif or severe display sans
+	•	data: mono or semi-mono option for vectors and ids
+	•	labels: uppercase/small caps
+
+Spacing
+
+Generous spacing. Do not cram.
+This should feel judicial and engineered.
+
+Charts
+
+Minimal.
+Prefer:
+	•	bars
+	•	line traces
+	•	matrices
+Do not use playful donut charts.
+
+⸻
+
+12. Theme specification
+
+Dark theme
+
+Default.
+
+Suggested tokens
+	•	background: #0B0B0C
+	•	panel: #121417
+	•	panel-alt: #171A1F
+	•	border: #2A2F36
+	•	text-primary: #E8E6E3
+	•	text-secondary: #A6ADB8
+	•	accent-bronze: #6B5A3A
+
+Status
+	•	lawful: #2E6A4F
+	•	degraded: #A56A1E
+	•	invalid: #7A2E2E
+
+Light theme
+
+Optional secondary theme.
+	•	background: #F4F1EC
+	•	panel: #FFFFFF
+	•	border: #D6D0C7
+	•	text-primary: #111317
+	•	text-secondary: #4E5661
+
+⸻
+
+13. Recommended component file tree
+
+src/ui/
+  app/
+    AppShell.tsx
+    Sidebar.tsx
+    TopBar.tsx
+    routes.tsx
+
+  pages/
+    OverviewPage.tsx
+    BeliefPage.tsx
+    ProposalsPage.tsx
+    DecisionPage.tsx
+    VerificationPage.tsx
+    AuditPage.tsx
+
+  components/
+    layout/
+      PageSection.tsx
+      TwoColumn.tsx
+      MetricsGrid.tsx
+
+    primitives/
+      Panel.tsx
+      PanelHeader.tsx
+      MetricCard.tsx
+      StatusBadge.tsx
+      DataTable.tsx
+      KeyValueList.tsx
+      EmptyState.tsx
+
+    nomos/
+      VerificationBadge.tsx
+      AuthorityBadge.tsx
+      BeliefSnapshotCard.tsx
+      ModelConfidenceCard.tsx
+      ProposalCard.tsx
+      CandidatePlanCard.tsx
+      ConstraintCheckTable.tsx
+      VerificationMatrix.tsx
+      AuditRecordCard.tsx
+      ReasonsPanel.tsx
+
+
+⸻
+
+14. What to tell Replit
+
+Paste this exactly:
+
+Build the NOMOS dashboard with zero ambiguity using this exact layout and hierarchy.
+
+Primary style:
+- severe
+- elegant
+- verification-first
+- dark theme default
+- no chatbot UI
+- no consumer SaaS softness
+
+Routing:
+- / -> OverviewPage
+- /belief -> BeliefPage
+- /proposals -> ProposalsPage
+- /decision -> DecisionPage
+- /verification -> VerificationPage
+- /audit -> AuditPage
+
+App shell:
+- fixed left sidebar
+- top status bar
+- main content area
+
+Sidebar content:
+- NOMOS logo
+- title: NOMOS
+- tagline: Only the lawful may act.
+- nav items: Overview, Belief, Proposals, Decision, Verification, Audit
+- footer: active model, theme toggle
+
+Top bar content:
+- page title
+- verification status badge
+- authority badge
+- model confidence badge
+- mission id and timestamp
+
+Pages:
+1. OverviewPage
+   - hero row with Verification Status, Authority, Selected Plan, Action Outcome
+   - metrics grid with Model Confidence, Belief epsilonX, Proposal Count, Robustness epsilon
+   - belief snapshot
+   - model snapshot
+   - verification matrix
+   - decision summary
+   - latest audit card
+
+2. BeliefPage
+   - belief status card
+   - identifiability card
+   - staleness card
+   - state estimate panel
+   - parameter belief panel
+   - uncertainty envelope panel
+   - provenance panel
+   - observer diagnostics panel
+
+3. ProposalsPage
+   - proposal count cards
+   - proposal list table
+   - proposal detail panel
+   - rationale panel
+   - assumptions panel
+   - payload panel
+   - rejected fragments section
+   - every proposal must visibly display lawful: false
+
+4. DecisionPage
+   - decision outcome row
+   - candidate ranking table
+   - selected candidate section
+   - feasibility panel
+   - robustness panel
+   - rejected plans table
+
+5. VerificationPage
+   - hero with final status, authority, verification supremacy
+   - verification matrix
+   - findings/reasons panel
+   - cross-layer status panels
+   - constitutional rule panel
+
+6. AuditPage
+   - audit summary cards
+   - audit timeline
+   - audit record list
+   - audit record detail view
+
+Data rule:
+- wire UI to actual NOMOS runtime data if possible
+- if not, create a typed dashboard state adapter from the existing main.ts outputs
+
+Visual rules:
+- dark theme default
+- geometric panels
+- low border radius
+- strong borders
+- no playful colors
+- no gradients unless extremely restrained
+- use status colors only for lawful / degraded / invalid
+- use mono or semi-mono for vectors, IDs, and structured values
+
+Critical architecture rule:
+- Do not move authority out of verification_kernel or constitution_guard
+- The UI displays state; it does not determine legality
+
+
+⸻
+
+15. My recommendation
+
+Tell Replit to build:
+	•	Overview
+	•	Verification
+	•	Proposals
+first.
+
+Those three pages will make NOMOS feel real fastest.
+
+After that:
+	•	Belief
+	•	Decision
+	•	Audit
+
+If you want, I can next write the exact visual token system too:
+	•	spacing scale
+	•	font scale
+	•	border radii
+	•	color tokens
+	•	component states

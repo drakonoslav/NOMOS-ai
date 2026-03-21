@@ -1,0 +1,105 @@
+Build the NOMOS dashboard with zero ambiguity using this exact layout and hierarchy.
+
+Primary style:
+- severe
+- elegant
+- verification-first
+- dark theme default
+- no chatbot UI
+- no consumer SaaS softness
+
+Routing:
+- / -> OverviewPage
+- /belief -> BeliefPage
+- /proposals -> ProposalsPage
+- /decision -> DecisionPage
+- /verification -> VerificationPage
+- /audit -> AuditPage
+
+App shell:
+- fixed left sidebar
+- top status bar
+- main content area
+
+Sidebar content:
+- NOMOS logo
+- title: NOMOS
+- tagline: Only the lawful may act.
+- nav items: Overview, Belief, Proposals, Decision, Verification, Audit
+- footer: active model, theme toggle
+
+Top bar content:
+- page title
+- verification status badge
+- authority badge
+- model confidence badge
+- mission id and timestamp
+
+Pages:
+1. OverviewPage
+   - hero row with Verification Status, Authority, Selected Plan, Action Outcome
+   - metrics grid with Model Confidence, Belief epsilonX, Proposal Count, Robustness epsilon
+   - belief snapshot
+   - model snapshot
+   - verification matrix
+   - decision summary
+   - latest audit card
+
+2. BeliefPage
+   - belief status card
+   - identifiability card
+   - staleness card
+   - state estimate panel
+   - parameter belief panel
+   - uncertainty envelope panel
+   - provenance panel
+   - observer diagnostics panel
+
+3. ProposalsPage
+   - proposal count cards
+   - proposal list table
+   - proposal detail panel
+   - rationale panel
+   - assumptions panel
+   - payload panel
+   - rejected fragments section
+   - every proposal must visibly display lawful: false
+
+4. DecisionPage
+   - decision outcome row
+   - candidate ranking table
+   - selected candidate section
+   - feasibility panel
+   - robustness panel
+   - rejected plans table
+
+5. VerificationPage
+   - hero with final status, authority, verification supremacy
+   - verification matrix
+   - findings/reasons panel
+   - cross-layer status panels
+   - constitutional rule panel
+
+6. AuditPage
+   - audit summary cards
+   - audit timeline
+   - audit record list
+   - audit record detail view
+
+Data rule:
+- wire UI to actual NOMOS runtime data if possible
+- if not, create a typed dashboard state adapter from the existing main.ts outputs
+
+Visual rules:
+- dark theme default
+- geometric panels
+- low border radius
+- strong borders
+- no playful colors
+- no gradients unless extremely restrained
+- use status colors only for lawful / degraded / invalid
+- use mono or semi-mono for vectors, IDs, and structured values
+
+Critical architecture rule:
+- Do not move authority out of verification_kernel or constitution_guard
+- The UI displays state; it does not determine legality

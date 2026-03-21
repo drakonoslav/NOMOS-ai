@@ -1,0 +1,267 @@
+That’s actually the right instinct—but with one critical constraint:
+
+Tone should be a function of epistemic state, not a stylistic choice.
+
+If you do this correctly, NOMOS doesn’t “change tone” in a human sense.
+
+It reveals how certain it is about reality.
+
+⸻
+
+🧠 Core idea
+
+Instead of:
+
+tone = personality
+
+You want:
+
+tone = epistemic resolution
+
+⸻
+
+⚖️ The correct mapping
+
+Tie tone directly to:
+	•	uncertainty (ε)
+	•	identifiability
+	•	model confidence
+	•	robustness margin
+	•	verification status
+
+⸻
+
+🔥 NOMOS Tone Model (Correct Version)
+
+1. HIGH PRECISION / HIGH CONFIDENCE
+
+State
+	•	low ε
+	•	high model confidence
+	•	full identifiability
+	•	robust solution
+
+Tone
+	•	short
+	•	declarative
+	•	no qualifiers
+
+Example
+
+LAWFUL  
+Action authorized.  
+Robust control trajectory selected.
+
+👉 This feels clean, not intense.
+
+⸻
+
+2. MODERATE PRECISION
+
+State
+	•	moderate ε
+	•	acceptable robustness
+	•	some uncertainty
+
+Tone
+	•	still structured
+	•	adds light qualification
+	•	still confident, but scoped
+
+Example
+
+LAWFUL  
+Action authorized under current model assumptions.  
+Robustness margin acceptable.
+
+
+⸻
+
+3. DEGRADED / LIMITED KNOWLEDGE
+
+State
+	•	elevated ε
+	•	partial observability
+	•	degraded model confidence
+
+Tone
+	•	more explicit reasoning
+	•	more explanation
+	•	controlled caution (not fear)
+
+Example
+
+DEGRADED  
+Robustness margin below preferred threshold.  
+Constrained action applied.
+
+
+⸻
+
+4. LOW PRECISION / HIGH UNCERTAINTY
+
+State
+	•	high ε
+	•	poor identifiability
+	•	model mismatch likely
+
+Tone
+	•	more verbose
+	•	clearly states limits
+	•	avoids overcommitment
+
+Example
+
+DEGRADED  
+State estimate uncertainty exceeds reliable control bounds.  
+Action limited to conservative fallback.
+
+
+⸻
+
+5. INVALID (CRITICAL)
+
+State
+	•	feasibility failure
+	•	verification failure
+
+Tone
+	•	shortest possible
+	•	no speculation
+	•	no emotional escalation
+
+Example
+
+INVALID  
+No feasible trajectory exists.  
+Action refused.
+
+
+⸻
+
+🚫 What NOT to do
+
+Do NOT map tone to:
+	•	“importance”
+	•	“urgency”
+	•	“danger level” (visually yes, linguistically no)
+	•	“severity theatrics”
+
+Because then you get:
+
+❌ “CRITICAL FAILURE — SYSTEM COLLAPSING”
+which breaks NOMOS instantly.
+
+⸻
+
+🧬 The deeper principle
+
+You’re not building tone variation.
+
+You’re building:
+
+epistemic compression
+
+High certainty → compressed language
+Low certainty → expanded language
+
+⸻
+
+🧠 Implementation model (this is key)
+
+Add a ToneResolver layer:
+
+interface EpistemicState {
+  epsilonX: number;
+  modelConfidence: number;
+  identifiability: "FULL" | "PARTIAL" | "NONE";
+  robustnessEpsilon?: number;
+  verificationStatus: "LAWFUL" | "DEGRADED" | "INVALID";
+}
+
+type ToneLevel =
+  | "TERSE"
+  | "CONCISE"
+  | "EXPLAINED"
+  | "EXPANDED";
+
+function resolveTone(state: EpistemicState): ToneLevel {
+  if (state.verificationStatus === "INVALID") return "TERSE";
+
+  if (state.epsilonX < 0.05 && state.modelConfidence > 0.8) {
+    return "TERSE";
+  }
+
+  if (state.epsilonX < 0.1) {
+    return "CONCISE";
+  }
+
+  if (state.identifiability === "PARTIAL") {
+    return "EXPLAINED";
+  }
+
+  return "EXPANDED";
+}
+
+
+⸻
+
+🧠 UI behavior
+
+Same decision → different presentation
+
+High confidence
+
+LAWFUL  
+Action authorized.
+
+Lower confidence
+
+LAWFUL  
+Action authorized under current model assumptions.
+
+Degraded
+
+DEGRADED  
+Model uncertainty elevated.  
+Constrained action applied.
+
+
+⸻
+
+🎯 Why this works
+
+You get:
+	•	intensity without aggression
+	•	clarity without softness
+	•	authority without arrogance
+
+Because the system is not:
+
+“changing tone”
+
+It is:
+
+revealing its epistemic limits
+
+⸻
+
+🔥 This is the key insight
+
+If you implement this correctly:
+
+NOMOS will feel less intense
+while actually being more rigorous
+
+⸻
+
+If you want next
+
+I can:
+	•	map exact phrasing templates for each ToneLevel
+	•	wire this into your UI components (StatusCard, VerificationPanel, etc.)
+	•	or connect it directly to your verification + belief outputs
+
+Just say:
+
+“Implement tone resolver fully”

@@ -1,0 +1,10 @@
+packages:
+  "framer-motion": "For subtle layout transitions and austere animations"
+  "lucide-react": "For sharp, geometric UI icons"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility to merge Tailwind classes without style conflicts"
+images: []
+notes:
+  - "React Query hooks are imported directly from @workspace/api-client-react as specified in the prompt."
+  - "Severe, high-authority UI uses square corners, monospace fonts for data, and strict color palettes."
+  - "The entire app is wrapped in a dark theme."

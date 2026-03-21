@@ -95,16 +95,31 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
 
-### `packages/constitutional-kernel` (`@nomos/core`)
+### `packages/constitutional-kernel` (`nomos-core`)
 
 **NOMOS** — a constitutional system governing lawful action under reality. *Only the lawful may act.*
 
 Implements four Constitutional Laws (Feasibility, Robustness, Observability, Adaptive Correction) for mission-critical autonomous decision-making. This is **not** an LLM chatbot; it is a typed, testable constitutional reasoning engine with an integrated LLM proposal layer.
 
-- Module resolution: NodeNext (ESM), `composite: false`, `noEmit: true`
-- Uses `tsx` for direct execution (no compile step required)
-- Run demo: `pnpm --filter @nomos/core run start`
-- Typecheck: `pnpm --filter @nomos/core run check`
-- NOMOS modules: `NOMOS Belief`, `NOMOS Observer`, `NOMOS Model`, `NOMOS Proposer`, `NOMOS Decision`, `NOMOS Verifier`, `NOMOS Guard`, `NOMOS Audit`
+- Package name: `nomos-core` (workspace:*)
+- Module resolution: NodeNext (ESM)
+- Build: `tsc` → `dist/` (required before api-server imports it)
+- Run demo: `pnpm --filter nomos-core run start`
+- Typecheck: `pnpm --filter nomos-core run check`
+- Build: `pnpm --filter nomos-core run build`
+- NOMOS modules: `belief_state`, `observer`, `feasibility_engine`, `robustness_analyzer`, `verification_kernel`, `model_registry`, `decision_engine`, `constitution_guard`, `audit_log`, `llm_proposer`, `kernel_runner`
 - Constitutional chain: belief → observer → model → llm_proposer → decision_engine → verification_kernel → constitution_guard → audit_log
-- Logo: `nomos-gate.svg` (Gate concept — passage conditional on law)
+- `kernel_runner.ts` — exports `runKernelOnce()` which runs the full chain and returns typed `KernelRunResult` JSON for the API
+- LLM proposer uses OpenAI (gpt-4o by default); falls back to deterministic proposals if `OPENAI_API_KEY` is absent
+
+### `artifacts/nomos-dashboard` (`@workspace/nomos-dashboard`)
+
+**NOMOS Dashboard** — constitutional AI kernel monitoring interface. *Severe, austere, authority-first UI.*
+
+React + Vite SPA at previewPath `/`. Dark theme, monospace data display, status colors only for LAWFUL/DEGRADED/INVALID.
+
+- 6 pages: Overview, Verification, Proposals, Belief, Decision, Audit
+- API client: uses generated React Query hooks from `lib/api-client-react`
+- Endpoint: `GET /api/nomos/state` → runs kernel once, returns full `NomosState`
+- Auto-refreshes every 10 seconds
+- All proposals display `LAWFUL: FALSE` / `NON-AUTHORITATIVE` badge (constitutional rule: LLM is proposer only)

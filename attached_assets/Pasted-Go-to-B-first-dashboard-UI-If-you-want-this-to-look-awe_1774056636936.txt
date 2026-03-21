@@ -1,0 +1,97 @@
+Go to B first: dashboard UI.
+
+If you want this to look awesome, polish items are not the move right now. They make the repo cleaner, but they do not change how NOMOS feels.
+
+The highest-leverage sequence is:
+
+1. Build the dashboard UI
+2. Then sharpen the demo states
+3. Then do the whitepaper
+
+Why this order:
+	•	UI makes NOMOS legible and impressive immediately
+	•	demo refinement gives the UI something compelling to show
+	•	whitepaper lands much harder once screenshots and runtime states exist
+
+Tell Replit this:
+
+Go with path B first: build a dashboard UI for NOMOS.
+
+Goal:
+Make NOMOS look visually severe, elegant, and high-authority — not playful, not chatbot-like, not consumer-app-like.
+
+Design identity:
+- Brand: NOMOS
+- Tagline: Only the lawful may act.
+- Style: dark/light professional systems dashboard
+- Tone: constitutional, austere, exact
+- Feel: verification-first control kernel, not assistant UI
+
+Required UI views:
+1. Overview
+   - current system status: LAWFUL / DEGRADED / INVALID
+   - authority: AUTHORIZED / CONSTRAINED / REFUSED
+   - selected plan
+   - model confidence
+   - belief epsilonX
+   - proposal count
+2. Belief
+   - xHat
+   - thetaHat
+   - uncertainty envelope
+   - identifiability
+   - staleness
+3. Proposals
+   - list of LLM proposals
+   - kind
+   - confidence
+   - rationale
+   - assumptions
+   - lawful must display false
+4. Decision
+   - candidate ranking
+   - feasibility result
+   - robustness epsilon
+   - rejection reasons
+5. Verification
+   - feasibilityOk
+   - robustnessOk
+   - observabilityOk
+   - identifiabilityOk
+   - modelOk
+   - adaptationOk
+   - final status
+6. Audit
+   - latest audit record
+   - action outcome
+   - notes
+
+Technical requirements:
+- Keep NOMOS as the backend kernel
+- Build a small frontend, preferably React + TypeScript if workspace supports it
+- If a full frontend is too heavy, build a server-rendered dashboard page first
+- Use mock/live data from the existing main.ts flow
+- Do not move authority out of verification_kernel or constitution_guard
+- Preserve the constitutional chain exactly
+
+Visual requirements:
+- Dark theme default
+- Optional light theme
+- Sharp typography
+- Strong spacing
+- Geometric panels
+- Status colors only for lawful/degraded/invalid
+- No rounded toy-like consumer styling
+- No chat bubbles
+- No “assistant” framing
+
+After UI foundation is in place:
+- Then refine the demo so one path ends LAWFUL and one ends REFUSED
+- Then we can do the optional polish items
+
+My recommendation on the polish items:
+	•	let Replit do .gitignore now if it’s trivial
+	•	skip "files" unless you plan to publish soon
+	•	skip root "test" until after the UI exists
+
+If you want, I can now design the exact screen layout and component hierarchy for the NOMOS dashboard so Replit has zero ambiguity.

@@ -8,9 +8,94 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+});
+
+/**
+ * @summary Run the NOMOS constitutional kernel and return full system state
+ */
+export const GetNomosStateResponse = zod.object({
+  runId: zod.string(),
+  timestamp: zod.number(),
+  missionId: zod.string(),
+  verificationStatus: zod.enum(["LAWFUL", "DEGRADED", "INVALID"]),
+  authority: zod.enum(["AUTHORIZED", "CONSTRAINED", "REFUSED"]),
+  actionOutcome: zod.enum(["APPLIED", "DEGRADED_ACTION_APPLIED", "REFUSED"]),
+  modelConfidenceScore: zod.number(),
+  proposalCount: zod.number(),
+  rejectedFragmentCount: zod.number(),
+  proposalReasons: zod.array(zod.string()),
+  proposals: zod.array(
+    zod.object({
+      id: zod.string(),
+      kind: zod.enum([
+        "CONTROL_PLAN",
+        "STATE_HYPOTHESIS",
+        "PARAMETER_HYPOTHESIS",
+        "RECOVERY_ACTION",
+        "OBJECTIVE_REFRAME",
+      ]),
+      confidence: zod.enum(["HIGH", "MEDIUM", "LOW", "UNKNOWN"]),
+      rationale: zod.string(),
+      assumptions: zod.array(zod.string()),
+      lawful: zod.boolean(),
+      planSketch: zod
+        .object({
+          controlSequence: zod.array(zod.array(zod.number())),
+          rationale: zod.string(),
+          assumptions: zod.array(zod.string()),
+        })
+        .nullish(),
+      provenance: zod.array(zod.string()),
+      notes: zod.array(zod.string()),
+    }),
+  ),
+  verification: zod.object({
+    feasibilityOk: zod.boolean(),
+    robustnessOk: zod.boolean(),
+    observabilityOk: zod.boolean(),
+    identifiabilityOk: zod.boolean(),
+    modelOk: zod.boolean(),
+    adaptationOk: zod.boolean(),
+    status: zod.enum(["LAWFUL", "DEGRADED", "INVALID"]),
+    reasons: zod.array(zod.string()),
+  }),
+  belief: zod.object({
+    xHat: zod.array(zod.number()),
+    epsilonX: zod.number(),
+    confidence: zod.string(),
+    identifiability: zod.string(),
+    staleByMs: zod.number(),
+    thetaMean: zod.record(zod.string(), zod.number()),
+    thetaVariance: zod.record(zod.string(), zod.number()).nullish(),
+    provenance: zod.array(zod.string()),
+    lower: zod.array(zod.number()).nullish(),
+    upper: zod.array(zod.number()).nullish(),
+  }),
+  model: zod.object({
+    activeModelId: zod.string(),
+    version: zod.string(),
+    delayAware: zod.boolean(),
+    confidenceScore: zod.number(),
+    degraded: zod.boolean(),
+    fallbackActive: zod.boolean(),
+  }),
+  decision: zod.object({
+    selectedPlanId: zod.string(),
+    rankedCandidateCount: zod.number(),
+    rejectedCandidateCount: zod.number(),
+    robustnessEpsilon: zod.number(),
+    topRejectionReason: zod.string().nullish(),
+  }),
+  audit: zod.object({
+    recordId: zod.string(),
+    timestamp: zod.number(),
+    outcome: zod.enum(["APPLIED", "DEGRADED_ACTION_APPLIED", "REFUSED"]),
+    verificationStatus: zod.enum(["LAWFUL", "DEGRADED", "INVALID"]),
+    appliedControl: zod.array(zod.number()),
+    notes: zod.array(zod.string()),
+  }),
 });
