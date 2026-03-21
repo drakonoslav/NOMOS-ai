@@ -5,10 +5,11 @@
  *
  * Constitutional role:
  * - Defines the typed contract between each pipeline stage.
- * - CandidateStatus is the only categorical output — LAWFUL, DEGRADED, or INVALID.
+ * - CandidateStatus is the categorical output — LAWFUL, DEGRADED, or INVALID.
  * - marginScore is a continuous [0, 1] measure of distance from constraint failure.
  * - marginLabel is a presentation-safe bucket derived from marginScore.
  * - Confidence describes matcher certainty, not constitutional authority.
+ * - bestCandidateId and weakestAdmissibleMarginScore are LAWFUL-only aggregates.
  */
 
 export type CandidateStatus = "LAWFUL" | "DEGRADED" | "INVALID";
@@ -62,7 +63,7 @@ export interface EvaluationResult {
   candidateEvaluations: CandidateEvaluation[];
   decisiveVariable: string;
   notes: string[];
-  bestCandidateId: string | null;
-  strongestMarginScore: number;
-  weakestAdmissibleMarginScore: number | null;
+  bestCandidateId?: string;
+  strongestMarginScore?: number;
+  weakestAdmissibleMarginScore?: number;
 }

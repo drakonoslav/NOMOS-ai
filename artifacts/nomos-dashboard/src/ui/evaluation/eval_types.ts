@@ -26,7 +26,7 @@ export interface EvaluationResult {
   candidateEvaluations: CandidateEvaluation[];
   decisiveVariable: string;
   notes: string[];
-  bestCandidateId: string | null;
-  strongestMarginScore: number;
-  weakestAdmissibleMarginScore: number | null;
+  bestCandidateId?: string;
+  strongestMarginScore?: number;
+  weakestAdmissibleMarginScore?: number;
 }

@@ -5,7 +5,16 @@ export interface CandidateEvaluationCardProps {
   card: CandidateEvaluationCardViewModel;
 }
 
+const MARGIN_BAND_CLASS: Record<string, string> = {
+  HIGH:     "margin-high",
+  MODERATE: "margin-moderate",
+  LOW:      "margin-low",
+  FAILED:   "margin-failed",
+};
+
 export function CandidateEvaluationCard({ card }: CandidateEvaluationCardProps) {
+  const marginBand = MARGIN_BAND_CLASS[card.marginLabel] ?? "margin-moderate";
+
   return (
     <div className={`panel candidate-evaluation-card ${card.toneClassName}`}>
       <div className="candidate-evaluation-card__header">
@@ -25,13 +34,13 @@ export function CandidateEvaluationCard({ card }: CandidateEvaluationCardProps) 
       )}
 
       <div className="candidate-evaluation-card__margin">
-        <div className="candidate-evaluation-card__label">Margin Score</div>
+        <div className="candidate-evaluation-card__label">Margin</div>
         <div className="candidate-evaluation-card__margin-row">
-          <span className={`candidate-evaluation-card__score margin-label--${card.marginLabelDisplay.toLowerCase()}`}>
-            {card.marginScoreDisplay}
+          <span className={`candidate-evaluation-card__margin-score ${marginBand}`}>
+            {card.marginScore}
           </span>
-          <span className={`candidate-evaluation-card__margin-label margin-label--${card.marginLabelDisplay.toLowerCase()}`}>
-            {card.marginLabelDisplay}
+          <span className={`candidate-evaluation-card__margin-band ${marginBand}`}>
+            {card.marginLabel}
           </span>
         </div>
       </div>

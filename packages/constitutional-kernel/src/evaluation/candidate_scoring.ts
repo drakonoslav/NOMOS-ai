@@ -12,14 +12,15 @@
  *   → computeMarginScore         (margin_scorer) — additive scoring layer
  *   → resolveOverallStatus
  *   → resolveGlobalDecisiveVariable
- *   → resolveSummaryFields
+ *   → resolveBestCandidate / resolveStrongestMarginScore / resolveWeakestAdmissibleMarginScore
  *   → EvaluationResult
  *
  * Constitutional role:
  * - Produces the authoritative EvaluationResult for a NomosQuery.
  * - Worst-status aggregation across multiple constraints.
- * - Margin scores are minimum across multiple constraints (most conservative).
- * - Does not modify input; does not fabricate constraints.
+ * - Margin scores use the minimum across multiple constraints (most conservative).
+ * - bestCandidateId and weakestAdmissibleMarginScore filter to LAWFUL candidates only.
+ * - strongestMarginScore is the global maximum across all candidates.
  */
 
 import { NomosQuery } from "../query/query_types.js";
@@ -27,8 +28,13 @@ import { normalizeConstraint } from "./constraint_normalizer.js";
 import { normalizeCandidate } from "./candidate_normalizer.js";
 import { evaluateDeterministically } from "./deterministic_matcher.js";
 import { evaluateSemantically } from "./llm_semantic_evaluator.js";
-import { computeMarginScore } from "./margin_scorer.js";
-import { CandidateEvaluation, CandidateEvaluationDraft, CandidateStatus, EvaluationResult } from "./eval_types.js";
+import { computeMarginScore, marginLabelFromScore } from "./margin_scorer.js";
+import {
+  CandidateEvaluation,
+  CandidateEvaluationDraft,
+  CandidateStatus,
+  EvaluationResult,
+} from "./eval_types.js";
 
 export async function evaluateQueryCandidates(
   query: NomosQuery
@@ -52,7 +58,7 @@ export async function evaluateQueryCandidates(
       candidateEvaluations: unconstrained,
       decisiveVariable: "none",
       notes: ["No constraints declared."],
-      bestCandidateId: unconstrained[0]?.id ?? null,
+      bestCandidateId: unconstrained[0]?.id,
       strongestMarginScore: 1.00,
       weakestAdmissibleMarginScore: 1.00,
     };
@@ -95,17 +101,19 @@ export async function evaluateQueryCandidates(
     .filter((e) => e.status === "LAWFUL")
     .map((e) => e.id);
 
-  const overallStatus        = resolveOverallStatus(evaluations);
-  const decisiveVariable     = resolveGlobalDecisiveVariable(evaluations);
-  const bestCandidateId      = resolveBestCandidateId(evaluations);
-  const strongestMarginScore = resolveStrongestMargin(evaluations);
-  const weakestAdmissibleMarginScore = resolveWeakestAdmissibleMargin(evaluations);
+  const overallStatus              = resolveOverallStatus(evaluations);
+  const decisiveVariable           = resolveGlobalDecisiveVariable(evaluations);
+  const bestCandidateId            = resolveBestCandidate(evaluations);
+  const strongestMarginScore       = resolveStrongestMarginScore(evaluations);
+  const weakestAdmissibleMarginScore = resolveWeakestAdmissibleMarginScore(evaluations);
 
   const notes: string[] = [
     `${constraints.length} constraint(s) evaluated against ${query.candidates.length} candidate(s).`,
     `Evaluation method: deterministic${constraints.some((c) => normalizeConstraint(c).kind === "UNKNOWN") ? " + LLM semantic" : ""}.`,
-    `Strongest margin: ${strongestMarginScore.toFixed(2)} (${evaluations.find((e) => e.id === bestCandidateId)?.marginLabel ?? "—"}).`,
-  ];
+    strongestMarginScore !== undefined
+      ? `Strongest margin: ${strongestMarginScore.toFixed(2)}.`
+      : "",
+  ].filter(Boolean);
 
   return {
     overallStatus,
@@ -138,13 +146,7 @@ function mergeEvaluations(
     reason: [a.reason, b.reason].filter(Boolean).join(" Additionally: "),
     adjustments: [...(a.adjustments ?? []), ...(b.adjustments ?? [])],
     marginScore: worstMarginScore,
-    marginLabel: worstMarginScore === 0.00
-      ? "FAILED"
-      : worstMarginScore >= 0.75
-      ? "HIGH"
-      : worstMarginScore >= 0.50
-      ? "MODERATE"
-      : "LOW",
+    marginLabel: marginLabelFromScore(worstMarginScore),
   };
 }
 
@@ -181,21 +183,23 @@ function resolveGlobalDecisiveVariable(evals: CandidateEvaluation[]): string {
 }
 
 /* =========================================================
-   Margin summary fields
+   Margin summary — LAWFUL-only for best and weakest admissible
    ========================================================= */
 
-function resolveBestCandidateId(evals: CandidateEvaluation[]): string | null {
-  if (evals.length === 0) return null;
-  return [...evals].sort((a, b) => b.marginScore - a.marginScore)[0].id;
+function resolveBestCandidate(evals: CandidateEvaluation[]): string | undefined {
+  const admissible = evals.filter((e) => e.status === "LAWFUL");
+  if (admissible.length === 0) return undefined;
+  admissible.sort((a, b) => b.marginScore - a.marginScore);
+  return admissible[0].id;
 }
 
-function resolveStrongestMargin(evals: CandidateEvaluation[]): number {
-  if (evals.length === 0) return 0.00;
+function resolveStrongestMarginScore(evals: CandidateEvaluation[]): number | undefined {
+  if (evals.length === 0) return undefined;
   return Math.max(...evals.map((e) => e.marginScore));
 }
 
-function resolveWeakestAdmissibleMargin(evals: CandidateEvaluation[]): number | null {
-  const admissible = evals.filter((e) => e.status !== "INVALID");
-  if (admissible.length === 0) return null;
+function resolveWeakestAdmissibleMarginScore(evals: CandidateEvaluation[]): number | undefined {
+  const admissible = evals.filter((e) => e.status === "LAWFUL");
+  if (admissible.length === 0) return undefined;
   return Math.min(...admissible.map((e) => e.marginScore));
 }

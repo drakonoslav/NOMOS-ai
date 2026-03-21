@@ -29,29 +29,37 @@ export function EvaluationResultPanel({ result }: EvaluationResultPanelProps) {
           <div className="evaluation-result-panel__summary-value">{vm.lawfulSetLabel}</div>
         </div>
 
-        <div className="evaluation-result-panel__summary-item">
-          <div className="evaluation-result-panel__summary-label">Strongest Margin</div>
-          <div className="evaluation-result-panel__summary-value evaluation-result-panel__summary-value--mono">
-            {vm.strongestMarginDisplay}
-            {vm.bestCandidateId && (
-              <span className="evaluation-result-panel__summary-sub">
-                {" "}— Candidate {vm.bestCandidateId}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="evaluation-result-panel__summary-item">
-          <div className="evaluation-result-panel__summary-label">Weakest Admissible Margin</div>
-          <div className="evaluation-result-panel__summary-value evaluation-result-panel__summary-value--mono">
-            {vm.weakestAdmissibleMarginDisplay ?? "—"}
-          </div>
-        </div>
-
         {vm.decisiveVariable && (
           <div className="evaluation-result-panel__summary-item evaluation-result-panel__summary-item--full">
             <div className="evaluation-result-panel__summary-label">Decisive Variable</div>
             <div className="evaluation-result-panel__summary-value">{vm.decisiveVariable}</div>
+          </div>
+        )}
+
+        {vm.bestCandidateId && (
+          <div className="evaluation-result-panel__summary-item">
+            <div className="evaluation-result-panel__summary-label">Best Candidate</div>
+            <div className="evaluation-result-panel__summary-value evaluation-result-panel__summary-value--mono">
+              {vm.bestCandidateId}
+            </div>
+          </div>
+        )}
+
+        {vm.strongestMarginScore && (
+          <div className="evaluation-result-panel__summary-item">
+            <div className="evaluation-result-panel__summary-label">Strongest Margin</div>
+            <div className="evaluation-result-panel__summary-value evaluation-result-panel__summary-value--mono">
+              {vm.strongestMarginScore}
+            </div>
+          </div>
+        )}
+
+        {vm.weakestAdmissibleMarginScore && (
+          <div className="evaluation-result-panel__summary-item evaluation-result-panel__summary-item--full">
+            <div className="evaluation-result-panel__summary-label">Weakest Admissible Margin</div>
+            <div className="evaluation-result-panel__summary-value evaluation-result-panel__summary-value--mono">
+              {vm.weakestAdmissibleMarginScore}
+            </div>
           </div>
         )}
       </div>

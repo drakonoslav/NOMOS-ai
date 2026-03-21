@@ -847,7 +847,7 @@ textarea {
   gap: var(--nm-space-3);
 }
 
-.candidate-evaluation-card__score {
+.candidate-evaluation-card__margin-score {
   font-family: var(--nm-font-mono);
   font-size: 1.45rem;
   font-weight: 700;
@@ -855,7 +855,7 @@ textarea {
   line-height: 1;
 }
 
-.candidate-evaluation-card__margin-label {
+.candidate-evaluation-card__margin-band {
   font-family: var(--nm-font-mono);
   font-size: var(--nm-text-xs);
   font-weight: 700;
@@ -863,11 +863,11 @@ textarea {
   text-transform: uppercase;
 }
 
-/* Margin label color tokens */
-.margin-label--high     { color: #4ade80; }
-.margin-label--moderate { color: #facc15; }
-.margin-label--low      { color: #fb923c; }
-.margin-label--failed   { color: #f87171; }
+/* Margin band color tokens */
+.margin-high     { color: #4ade80; }
+.margin-moderate { color: #a3b8a3; }
+.margin-low      { color: #fb923c; }
+.margin-failed   { color: #f87171; }
 
 /* Summary panel sub-label */
 .evaluation-result-panel__summary-value--mono {
