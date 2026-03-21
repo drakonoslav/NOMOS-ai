@@ -1,0 +1,20 @@
+{
+  "_comment": "PredictionPolicySnapshot — current active and candidate state.",
+  "_note": "The active policy is what evaluation currently runs against. The candidate is under bench evaluation.",
+  "domain": "training",
+  "activeVersionId": "pol-aabbccdd",
+  "activePolicy": {
+    "id": "pol-aabbccdd",
+    "rpeLimit": 8.0,
+    "loadCeiling": 0.90,
+    "escalationThreshold": 0.3
+  },
+  "candidateVersionId": "pol-11223344",
+  "candidatePolicy": {
+    "id": "pol-11223344",
+    "rpeLimit": 7.5,
+    "loadCeiling": 0.85,
+    "escalationThreshold": 0.25
+  },
+  "snapshotTimestamp": "2026-01-28T10:00:00.000Z"
+}

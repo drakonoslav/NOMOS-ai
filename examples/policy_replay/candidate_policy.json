@@ -1,0 +1,20 @@
+{
+  "_comment": "PolicyVersion — candidate policy snapshot. Frozen at the time of proposal.",
+  "id": "pol-11223344",
+  "domain": "training",
+  "createdAt": "2026-01-28T10:00:00.000Z",
+  "parameters": {
+    "confidenceBias": 0.05,
+    "escalationThreshold": 0.25,
+    "uncertaintyBias": 0.08,
+    "calibrationWindow": 10,
+    "rpeLimit": 7.5,
+    "loadCeiling": 0.85
+  },
+  "_changes_from_baseline": {
+    "rpeLimit": "8.0 → 7.5 (tightened)",
+    "loadCeiling": "0.90 → 0.85 (tightened)",
+    "escalationThreshold": "0.30 → 0.25 (tightened)",
+    "confidenceBias": "0.0 → 0.05 (slight upward bias)"
+  }
+}

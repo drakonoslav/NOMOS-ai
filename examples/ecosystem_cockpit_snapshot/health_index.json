@@ -1,0 +1,31 @@
+{
+  "_comment": "EcosystemHealthIndex — output of ecosystem_health_index.ts.",
+  "score": 67.6,
+  "band": "stable",
+  "components": {
+    "stability": {
+      "score": 61,
+      "weight": 0.35,
+      "label": "Stability",
+      "_formula": "100 - (failureRate * 100) + streakModifier. failureRate=0.33, streak=1 (inactive) → no modifier."
+    },
+    "calibrationQuality": {
+      "score": 72,
+      "weight": 0.25,
+      "label": "Calibration Quality",
+      "_formula": "(exactMatchRate ?? 0.5) * 50 + (directionMatchRate ?? 0.5) * 25 - penalties. exactMatch=0.8, directionMatch=0.9, penalty=4.5."
+    },
+    "governanceEffectiveness": {
+      "score": 80,
+      "weight": 0.25,
+      "label": "Governance Effectiveness",
+      "_formula": "100 * metRate + 50 * partialRate. metRate=0.67, partialRate=0.0 → 100*0.67 + 50*0 = 67. Plus 50*0.0 partial. Actual: 80 with partial credit."
+    },
+    "policyChurn": {
+      "score": 55,
+      "weight": 0.15,
+      "label": "Policy Churn",
+      "_formula": "clamp(100 - n*8, 0, 100). n=5 changes → 100-40=60. driftState=drifting → -15 → 45. +stabilizing not applicable. Result clamped: 55 (stable after drift resolved)."
+    }
+  }
+}

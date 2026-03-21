@@ -1,0 +1,62 @@
+{
+  "_comment": "EcosystemCockpitSnapshot — output of ecosystem_cockpit.ts (buildEcosystemCockpitSnapshot).",
+  "_note": "This is a read-only composition. No source data is modified when building this snapshot.",
+  "health": {
+    "score": 67.6,
+    "band": "stable",
+    "weakestComponent": "stability",
+    "componentSummary": [
+      { "label": "Stability",               "score": 61, "weight": 0.35 },
+      { "label": "Calibration Quality",     "score": 72, "weight": 0.25 },
+      { "label": "Governance Effectiveness","score": 80, "weight": 0.25 },
+      { "label": "Policy Churn",            "score": 55, "weight": 0.15 }
+    ]
+  },
+  "trends": {
+    "driftState": "stable",
+    "mostFrequentFailureMode": "recovery_deficit",
+    "mostRecentFailureMode": null,
+    "streak": { "mode": "recovery_deficit", "count": 1, "isActive": false },
+    "streakWarning": false
+  },
+  "prediction": {
+    "predictedMode": "recovery_deficit",
+    "confidence": 0.58,
+    "riskDirection": "rising",
+    "topSignal": "recovery_deficit appeared in 1 of last 3 evaluations; RPE approaching limit",
+    "historySizeGuard": false
+  },
+  "governance": {
+    "activeVersionId": "pol-11223344",
+    "latestAction": "promote",
+    "latestActionTimestamp": "2026-02-01T16:00:00.000Z",
+    "latestOutcomeClass": "met",
+    "recentActionCount": 1
+  },
+  "policy": {
+    "activeVersionId": "pol-11223344",
+    "adjustmentState": {
+      "confidenceBias": 0.05,
+      "escalationThreshold": 0.25,
+      "uncertaintyBias": 0.08,
+      "calibrationWindow": 10
+    }
+  },
+  "doctrine": {
+    "supportingCount": 2,
+    "cautiousCount": 1,
+    "cautiousExceedsSupporting": false,
+    "mostRelevantHeuristic": "When recovery_deficit appears in consecutive cycles, lower the RPE ceiling first before reducing volume."
+  },
+  "attention": {
+    "alertCount": 1,
+    "alerts": [
+      {
+        "id": "alert-rising-risk",
+        "message": "Risk direction is rising. Prediction confidence 0.58 with rising trajectory.",
+        "severity": "moderate",
+        "sourceComponent": "prediction"
+      }
+    ]
+  }
+}

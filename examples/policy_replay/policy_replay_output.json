@@ -1,0 +1,20 @@
+{
+  "_comment": "Policy replay output — which policy was active at audit record aud-002-example.",
+  "_note": "Policy replay reconstructs historical policy state from frozen version chain. Used by the counterfactual bench.",
+  "auditRecordId": "aud-002-example",
+  "auditRecordTimestamp": "2026-01-17T09:00:00.000Z",
+  "activeAtThatTime": {
+    "versionId": "pol-aabbccdd",
+    "domain": "training",
+    "rpeLimit": 8.0,
+    "loadCeiling": 0.90
+  },
+  "counterfactualUnderCandidate": {
+    "versionId": "pol-11223344",
+    "rpeLimit": 7.5,
+    "loadCeiling": 0.85,
+    "counterfactualVerdict": "LAWFUL",
+    "counterfactualMarginScore": 0.61,
+    "_explanation": "Under candidate policy, the session_rpe constraint (7.5) would have been satisfied at the recorded RPE level, whereas under baseline (8.0) the constraint was violated at RPE 8.1."
+  }
+}

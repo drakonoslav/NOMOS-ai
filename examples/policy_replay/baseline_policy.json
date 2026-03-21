@@ -1,0 +1,15 @@
+{
+  "_comment": "PolicyVersion — frozen baseline policy snapshot. Immutable after creation.",
+  "id": "pol-aabbccdd",
+  "domain": "training",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "parameters": {
+    "confidenceBias": 0.0,
+    "escalationThreshold": 0.3,
+    "uncertaintyBias": 0.1,
+    "calibrationWindow": 10,
+    "rpeLimit": 8.0,
+    "loadCeiling": 0.90
+  },
+  "_immutability_note": "This object is frozen. It is never modified after creation. Any parameter change produces a new PolicyVersion with a new id."
+}

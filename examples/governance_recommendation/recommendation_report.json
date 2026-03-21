@@ -1,0 +1,24 @@
+{
+  "_comment": "PolicyRecommendationReport — output of policy_recommendation.ts. ADVISORY ONLY.",
+  "_note": "This is a recommendation, not a promotion. No policy is changed by producing this report.",
+  "recommendedVersionId": "pol-11223344",
+  "strength": "moderate",
+  "confidence": 0.71,
+  "domain": "training",
+  "expectedGains": [
+    "Reduction in recovery_deficit failure mode occurrences",
+    "Improved LAWFUL verdict rate (estimated +18% vs baseline)",
+    "Lower average session_rpe with maintained progression"
+  ],
+  "summaryLines": [
+    "Candidate policy pol-11223344 shows improved constraint satisfaction rate across historical bench.",
+    "Recovery_deficit failure mode reduced from 33% to 11% of evaluations on candidate policy.",
+    "Confidence is moderate — only 3 historical records available for bench. Caution advised."
+  ],
+  "candidatePolicyVersionIds": [
+    "pol-11223344",
+    "pol-aabbccdd"
+  ],
+  "baselineVersionId": "pol-aabbccdd",
+  "benchRecordCount": 3
+}

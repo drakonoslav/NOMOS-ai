@@ -1,0 +1,25 @@
+{
+  "_comment": "CockpitAttentionBlock — extracted from cockpit_snapshot.json for clarity.",
+  "_note": "All 7 attention alert rules are evaluated deterministically. Only triggered rules appear in alerts[].",
+  "alertRulesEvaluated": [
+    { "rule": "health_component_poor",        "threshold": "score < 25",     "triggered": false, "componentScores": { "stability": 61, "calibration": 72, "governance": 80, "churn": 55 } },
+    { "rule": "health_component_fragile",     "threshold": "score < 50",     "triggered": false },
+    { "rule": "low_prediction_confidence",    "threshold": "confidence < 0.5","triggered": false, "confidence": 0.58 },
+    { "rule": "rising_risk_direction",        "threshold": "riskDirection = rising", "triggered": true, "riskDirection": "rising" },
+    { "rule": "recurring_violation_streak",   "threshold": "streak >= 3",    "triggered": false, "streakCount": 1 },
+    { "rule": "governance_overcorrection",    "threshold": "driftState = overcorrecting", "triggered": false, "driftState": "stable" },
+    { "rule": "cautions_exceed_supporting",   "threshold": "cautiousCount > supportingCount", "triggered": false, "cautiousCount": 1, "supportingCount": 2 },
+    { "rule": "high_unresolved_prediction_rate", "threshold": "unresolvedRate > 0.30", "triggered": false, "unresolvedRate": 0.0 }
+  ],
+  "triggeredAlerts": [
+    {
+      "id": "alert-rising-risk",
+      "message": "Risk direction is rising. Prediction confidence 0.58 with rising trajectory.",
+      "severity": "moderate",
+      "sourceComponent": "prediction",
+      "rule": "rising_risk_direction"
+    }
+  ],
+  "alertCount": 1,
+  "_operatorGuidance": "One attention alert active. Risk direction is rising. Recommended operator action: inspect prediction panel, then inspect attention alerts, then review active policy if needed (Operator workflow steps 2-4)."
+}

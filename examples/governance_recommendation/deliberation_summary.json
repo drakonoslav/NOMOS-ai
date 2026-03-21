@@ -1,0 +1,18 @@
+{
+  "_comment": "GovernanceDeliberationSummary — output of governance_deliberation_summary.ts. ADVISORY ONLY.",
+  "id": "dls-a1b2c3d4",
+  "domain": "training",
+  "recommendedVersionId": "pol-11223344",
+  "deliberationLines": [
+    "The candidate policy reduces the maximum allowed session RPE from 8.0 to 7.5.",
+    "Historical bench shows this change would have prevented the week-2 constraint violation.",
+    "The reduction in load ceiling (90% → 85% 1RM) introduces a tradeoff: slower progression ceiling.",
+    "Three records represent a shallow bench. The recommendation confidence is appropriately moderate."
+  ],
+  "counterarguments": [
+    "If the week-2 degradation was a temporary anomaly rather than a systemic pattern, the candidate policy may over-constrain unnecessarily.",
+    "The 85% 1RM ceiling may limit peak performance for athletes with high recovery capacity."
+  ],
+  "finalRationale": "On balance, the candidate policy addresses the identified recovery_deficit failure mode with a modest tradeoff in load ceiling. Given the shallow bench history, a promote decision is defensible but should be revisited after 3–5 additional audit cycles.",
+  "timestamp": "2026-02-01T14:30:00.000Z"
+}

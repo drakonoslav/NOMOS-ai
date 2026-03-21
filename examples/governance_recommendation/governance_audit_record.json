@@ -1,0 +1,13 @@
+{
+  "_comment": "GovernanceAuditRecord — output of governance_audit_trail.ts after HUMAN DECISION.",
+  "_note": "This record is immutable. It is written only after a human explicitly takes a governance action.",
+  "id": "aud-deadbeef",
+  "domain": "training",
+  "action": "promote",
+  "policyVersionId": "pol-11223344",
+  "previousVersionId": "pol-aabbccdd",
+  "rationale": "Deliberation reviewed. Supporting heuristics outweigh the cautioning one. Recovery_deficit failure mode is recurrent, not anomalous. Promoting candidate policy with intention to review after 5 additional audit cycles.",
+  "deliberationSummaryId": "dls-a1b2c3d4",
+  "timestamp": "2026-02-01T16:00:00.000Z",
+  "_immutability_note": "This record is never overwritten. If the decision is later revised, a new GovernanceAuditRecord is created with action=rollback and a new policyVersionId."
+}

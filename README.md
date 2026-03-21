@@ -1,166 +1,213 @@
-# NOMOS — Constitutional AI Reasoning Engine
+# NOMOS — Constitutional AI Reasoning Ecosystem
 
-NOMOS is a deterministic, constraint-based reasoning engine built in TypeScript. It converts messy, unstructured user input into constrained, evaluable declarations — and enforces constitutional rules before any evaluation is permitted.
+NOMOS is a deterministic, constraint-based reasoning engine built in TypeScript.
+It converts unstructured user input into constrained, evaluable declarations and enforces four constitutional laws before any evaluation is permitted.
 
-It is not a chatbot. It is not a planner. It is a structured decision system that enforces laws before it permits action.
+It is not a chatbot. It is not a planner.
+It is a structured reasoning system that enforces constitutional rules, preserves an immutable audit chain, and routes governance decisions through an explicit evidence-and-deliberation pipeline before any human action is taken.
 
 ---
 
 ## What NOMOS Is
 
-NOMOS is a **Constitutional AI Kernel** — a reasoning engine that:
+NOMOS is a **Constitutional AI Kernel** — a reasoning ecosystem that:
 
 - extracts structured facts from raw, unformatted input
 - detects gaps between what is declared and what is required for evaluation
 - allows surgical field-by-field repair of incomplete declarations
-- serializes confirmed declarations into a canonical, stable artifact
-- evaluates only confirmed, complete structured drafts
-- persists a version-linked audit history of every confirmed decision
+- serialises confirmed declarations into canonical, stable, version-linked artifacts
+- evaluates only confirmed complete structured drafts against typed constraints
+- persists an immutable audit history of every confirmed decision and its trace
+- tracks decisive variable trends and generates failure predictions with calibration feedback
+- produces policy recommendations, governance deliberation summaries, and decision-to-outcome linkages
+- computes an ecosystem health index with full traceability to source records
+- presents all of this through a role-aware cockpit with guided workflows and session-level audit trail
 
-The system operates under four constitutional laws that gate every evaluation. No candidate is permitted to act until all laws are satisfied.
+The system operates under four constitutional laws that gate every evaluation.
+No candidate is permitted to act until all laws are satisfied.
 
 ---
 
-## Pipeline
+## Four Constitutional Laws
+
+| Law | Invariant |
+|-----|-----------|
+| **I** | NOMOS never evaluates raw input |
+| **II** | Only a confirmed `canonicalDeclaration` may be submitted for evaluation |
+| **III** | Governance is advisory until explicit human action |
+| **IV** | Historical records, frozen policy snapshots, and audit records are immutable |
+
+---
+
+## End-to-End Pipeline
 
 ```
-raw input
+Raw Input (natural language)
     │
-    ▼
-Intent Detection          (keyword-scoring classifier → domain template selection)
-    │
-    ▼
-Field Extraction          (deterministic extraction of meals, macros, labels, constraints)
-    │
-    ▼
-Gap Detection             (compare extracted fields against domain template requirements)
-    │
-    ▼
-Structured Draft          (state / constraints / uncertainties / candidates / objective)
-    │
-    ▼
-Field Patching            (field-aware editors repair missing fields surgically)
-    │
-    ▼
-Canonical Serialization   (deterministic text block — single source of truth)
-    │
-    ▼
-Evaluation                (constraint-based scoring, margin evaluation, lawfulness verdict)
-    │
-    ▼
-Audit History             (versioned persistence of canonical declaration + result)
-```
-
----
-
-## Core Design Principles
-
-| Principle | Meaning |
-|---|---|
-| **Deterministic over probabilistic** | Every pipeline stage produces the same output for the same input. No stochastic behavior. |
-| **Constraints before evaluation** | A declaration cannot be evaluated until all required fields are present and confirmed. |
-| **Label-grounded truth** | For nutrition domains, food-label data overrides estimated values. |
-| **Minimal correction over redesign** | The system corrects the smallest possible change. It does not redesign. |
-| **Canonical declaration as source of truth** | Evaluation runs against the serialized canonical block, not raw input. |
-| **Field-local repair** | Missing fields are fixed one at a time. Unrelated sections are not touched. |
-
----
-
-## Key Modules
-
-### Compiler (`src/compiler/`)
-
-| File | Responsibility |
-|---|---|
-| `domain_templates.ts` | Defines 4 domain templates (Nutrition Audit, Training Audit, Schedule Audit, Generic). Each template declares required fields, optional fields, and missing-field hints. |
-| `intent_types.ts` | Re-exports `IntentType` as a union of domain template keys. |
-| `intent_detector.ts` | Deterministic keyword-scoring classifier. Scores raw input against each domain and returns the highest-confidence match. |
-| `field_extractor.ts` | Extracts meal systems, macro targets, food labels, constraints, candidates, and objective from raw text using pattern matching. |
-| `gap_detector.ts` | Compares extracted fields against the selected template. Returns `missingRequiredFields`, `missingOptionalFields`, warnings, notes, and `isEvaluable`. |
-| `auto_compiler.ts` | Orchestrates detection → extraction → gap detection → `StructuredDraft`. |
-| `draft_patcher.ts` | `patchDraftField(draft, fieldKey, value)` applies a surgical field patch. `revalidateDraft` recomputes `isEvaluable`. |
-| `draft_serializer.ts` | `serializeDraft(draft)` emits a canonical text block. `buildSerializedDraftRecord` returns the storable artifact. |
-
-### Audit (`src/audit/`)
-
-| File | Responsibility |
-|---|---|
-| `audit_types.ts` | `AuditRecord` — full schema for a persisted decision, including versionId, parentVersionId, canonicalDeclaration, compileResult, patchedDraft, and evaluationResult. |
-| `audit_versioning.ts` | `buildAuditId()` and `buildVersionId()` — timestamp + random suffix identifiers. |
-| `audit_store.ts` | `saveAuditRecord`, `listAuditRecords`, `getAuditRecord`, `deleteAuditRecord`, `clearAuditRecords` — localStorage-backed persistence under key `nomos_audit_history_v1`. |
-
-### Nutrition (`src/nutrition/`)
-
-| File | Responsibility |
-|---|---|
-| `food_primitive.ts` | `FoodPrimitive` registry — deterministic nutrient database for declared foods. |
-| `meal_types.ts` | `MealBlock`, `MealSystem` types and builders. |
-| `macro_engine.ts` | `computeMealMacros`, `computeSystemMacros` — deterministic macro summation. |
-| `correction_engine.ts` | `correction_rules`, `correct_meal`, `audit_meal` — constraint-driven correction logic. |
-
-### UI (`src/ui/`)
-
-| Path | Responsibility |
-|---|---|
-| `components/compiler/CompiledDraftPanel.tsx` | Renders compiled draft sections with Fix buttons on missing fields. |
-| `components/compiler/FieldPatchPanel.tsx` | Hosts the active field editor. |
-| `components/compiler/FieldAwareEditor.tsx` | Routes field keys to dedicated editors or generic textarea fallback. |
-| `components/compiler/editors/` | TargetMacrosEditor, CorrectionModeEditor, FoodSourceTruthEditor, LockedPlacementsEditor. |
-| `components/audit/AuditHistoryPanel.tsx` | Lists persisted records with load, delete, and clear actions. |
-| `pages/query/QueryBuilderPage.tsx` | Full auto-compile pipeline: compile → patch → confirm → serialize → evaluate → audit. |
-
----
-
-## Domain Templates
-
-NOMOS ships with four built-in domain templates:
-
-| Intent | Description |
-|---|---|
-| `NUTRITION_AUDIT` | Constrained macro audit with food-label truth, meal system, and correction mode. |
-| `TRAINING_AUDIT` | Training load and progression constraint evaluation. |
-| `SCHEDULE_AUDIT` | Time-block and anchor constraint evaluation. |
-| `GENERIC_CONSTRAINT_TASK` | General constraint satisfaction and candidate evaluation. |
-
----
-
-## Tech Stack
-
-- **Language:** TypeScript
-- **UI:** React + Vite
-- **Styling:** CSS custom properties, NOMOS design token system
-- **Persistence:** localStorage (audit history), in-memory (draft state)
-- **Evaluation backend:** Node.js / Express API server
-
----
-
-## Repository Structure
-
-```
-artifacts/
-  nomos-dashboard/
-    src/
-      compiler/         # Intent detection, field extraction, gap detection, patching, serialization
-      audit/            # Audit types, versioning, localStorage persistence
-      nutrition/        # Food primitives, meal types, macro engine, correction engine
-      ui/
-        components/
-          compiler/     # CompiledDraftPanel, FieldPatchPanel, FieldAwareEditor, editors/
-          audit/        # AuditHistoryPanel
-        pages/
-          query/        # QueryBuilderPage — full auto-compile pipeline
-        styles/         # nomos.css — NOMOS design token system
-  api-server/           # Express evaluation backend
+    ▼  Intent detection → domain template selection
+    ▼  Field extraction → ExtractedFields
+    ▼  Gap detection → missingRequired / isEvaluable
+    ▼  Structured draft assembly → StructuredDraft
+    ▼  User-confirmed field patching
+    ▼  Canonical declaration serialisation → canonicalDeclaration (frozen)
+    ▼  Constraint evaluation → EvaluationReport + ConstraintTrace
+    ▼  Audit record persistence → AuditRecord (immutable, version-linked)
+    ▼  Decisive variable trend tracking → DecisiveVariableTrendReport
+    ▼  Failure prediction → FailurePrediction + calibration + bounded adjustment
+    ▼  Policy bench → recommendation → regime comparison
+    ▼  Governance decision support → deliberation summary
+    ▼  Human governance action (promote / rollback / hold)
+    ▼  GovernanceAuditRecord (immutable)
+    ▼  Post-governance outcome review → GovernanceOutcomeReviewReport
+    ▼  Governance learning summary → playbook extraction → crosswalk
+    ▼  Decision → outcome linkage → DecisionOutcomeLinkageReport
+    ▼  Ecosystem loop summary → EcosystemLoopSummary
+    ▼  Ecosystem health index → EcosystemHealthIndex (4-component weighted score)
+    ▼  Health index traceability → EcosystemHealthTrace (formula + source IDs)
+    ▼  Ecosystem cockpit → EcosystemCockpitSnapshot (7 blocks)
+    ▼  Role-aware cockpit UI (builder / auditor / governor / operator)
+    ▼  Session worklog → SessionWorklog (immutable human operational trace)
+    ▼  Session replay → SessionNarrative (deterministic reconstruction)
 ```
 
 ---
 
-## Running Locally
+## Major Subsystems
+
+| Subsystem | Location | Responsibility |
+|-----------|----------|----------------|
+| **Compiler** | `src/compiler/` | Raw input → canonical declaration |
+| **Evaluation core** | `src/audit/audit_types.ts` | EvaluationReport, ConstraintTrace, verdict |
+| **Audit persistence** | `src/audit/audit_store.ts`, `audit_versioning.ts` | Immutable versioned audit record storage |
+| **Diff / trace** | `src/audit/trace_diff.ts` | Cross-run constraint trace comparison |
+| **Trend tracking** | `src/audit/decisive_variable_trends.ts` | Variable trajectory + streak detection |
+| **Prediction & calibration** | `src/audit/failure_prediction.ts`, `prediction_calibration.ts` | Failure mode prediction + calibration |
+| **Bounded adjustment** | `src/audit/bounded_rule_adjustment.ts` | Constrained policy parameter updates |
+| **Policy versioning** | `src/audit/policy_versioning.ts` | Frozen versioned policy snapshots |
+| **Policy governance** | `src/audit/policy_governance.ts` | Active/candidate policy state |
+| **Bench + recommendation** | `src/audit/counterfactual_policy_bench.ts`, `policy_recommendation.ts` | Candidate bench + recommendation |
+| **Regime comparison** | `src/audit/policy_regime_comparison.ts` | Baseline vs candidate comparison |
+| **Governance decision support** | `src/audit/governance_decision_support.ts` | Decision support (promote/rollback/hold) |
+| **Governance audit trail** | `src/audit/governance_audit_trail.ts` | Immutable governance action records |
+| **Deliberation summary** | `src/audit/governance_deliberation_summary.ts` | Narrative deliberation for governor |
+| **Post-governance review** | `src/audit/post_governance_outcome_review.ts` | Retrospective outcome classification |
+| **Learning summary** | `src/audit/governance_learning_summary.ts` | Cross-session governance pattern analysis |
+| **Playbook extraction** | `src/audit/governance_playbook_extraction.ts` | Distilled heuristics from history |
+| **Playbook crosswalk** | `src/audit/playbook_to_decision_crosswalk.ts` | Heuristic ↔ decision alignment |
+| **Decision → outcome** | `src/audit/decision_outcome_linkage.ts` | Causal linkage: decision → observed outcome |
+| **Ecosystem loop** | `src/audit/ecosystem_loop_summary.ts` | Full-loop summary across governance cycles |
+| **Ecosystem health index** | `src/audit/ecosystem_health_index.ts` | Weighted composite health score |
+| **Health traceability** | `src/audit/health_index_traceability.ts` | Per-component formula + source record trace |
+| **Cockpit** | `src/audit/ecosystem_cockpit.ts` | Aggregate cockpit snapshot (7 blocks) |
+| **Role views** | `src/ui/cockpit/role_view_config.ts` | Per-role card emphasis and ordering |
+| **Guided workflows** | `src/ui/cockpit/workflow_config.ts` | Deterministic per-role navigation sequences |
+| **Session worklog** | `src/worklog/session_worklog.ts` | Immutable human operational trace |
+| **Session replay** | `src/worklog/session_replay.ts` | Narrative reconstruction from worklog |
+
+---
+
+## Health Index
+
+Four weighted components, all deterministic:
+
+| Component | Weight | Scoring summary |
+|-----------|--------|-----------------|
+| Stability | 35% | Failure rate + streak modifiers |
+| Calibration quality | 25% | (exactMatch × 50) + (directionMatch × 25) − penalties |
+| Governance effectiveness | 25% | 100×metRate + 50×partialRate (50/40 neutral baselines) |
+| Policy churn | 15% | clamp(100 − n×8, 0, 100) ± drift state modifier |
+
+Bands: `poor` (0–24) · `fragile` (25–49) · `stable` (50–74) · `strong` (75–100)
+
+---
+
+## How to Run
 
 ```bash
+# Install dependencies
 pnpm install
-pnpm --filter @workspace/nomos-dashboard run dev   # Dashboard on port 24280
-pnpm --filter @workspace/api-server run dev        # API server on port 8080
+
+# Run the dashboard (port set by PORT env var)
+pnpm --filter @workspace/nomos-dashboard run dev
+
+# Run the API server
+pnpm --filter @workspace/api-server run dev
+
+# Run all tests (1549 tests, 38 files)
+pnpm --filter @workspace/nomos-dashboard run test
 ```
 
-Navigate to `/query` and select **Auto-Compile** mode to use the full pipeline.
+---
+
+## How to Inspect
+
+1. **[REVIEW_GUIDE.md](REVIEW_GUIDE.md)** — curated inspection path for external reviewers
+2. **[ARCHITECTURE.md](ARCHITECTURE.md)** — full pipeline with module linkage and data contracts
+3. **[MODULE_MAP.md](MODULE_MAP.md)** — fast layer-by-layer inspection table
+4. **[SYSTEM_RULES.md](SYSTEM_RULES.md)** — constitutional invariants (non-negotiable)
+5. **[TYPES_INDEX.md](TYPES_INDEX.md)** — canonical interface index by layer
+6. **[CHANGELOG_ARCHITECTURE.md](CHANGELOG_ARCHITECTURE.md)** — architectural progression log
+7. **[examples/](examples/)** — worked examples with full input → output chain
+
+---
+
+## If You Only Have 15 Minutes
+
+See **[REVIEW_GUIDE.md § 15-Minute Inspection](REVIEW_GUIDE.md#15-minute-inspection)**.
+
+---
+
+## Project Structure
+
+```
+artifacts/nomos-dashboard/src/
+├── compiler/          Raw input → canonical declaration (8 modules)
+├── audit/             All audit, governance, prediction, health, cockpit (40+ files)
+│   ├── audit_types.ts              Canonical evaluation + audit record types
+│   ├── governance_audit_trail.ts   Immutable governance records
+│   ├── ecosystem_health_index.ts   Weighted health composite
+│   └── ecosystem_cockpit.ts        Full cockpit snapshot composition
+├── worklog/           Session worklog and replay (4 files)
+├── ui/
+│   ├── cockpit/       Role view configs + workflow configs
+│   ├── components/    All UI card and panel components
+│   └── pages/         EcosystemCockpitPage (role-aware, 4 modes)
+└── tests/             1549 regression tests across 38 test files
+
+examples/
+├── nutrition_meal_audit/          Compiler + evaluation worked example
+├── governance_recommendation/     Governance pipeline worked example
+├── policy_replay/                 Policy versioning + replay worked example
+└── ecosystem_cockpit_snapshot/    Health index + cockpit snapshot example
+```
+
+---
+
+## Test Coverage
+
+**1549 tests across 38 test files.** All deterministic. No mocks, no LLM generation in tests.
+
+```bash
+pnpm --filter @workspace/nomos-dashboard run test
+```
+
+---
+
+## What NOMOS Is Not
+
+- Not a chatbot or language model
+- Not an auto-promotion engine (governance is always advisory until explicit human action)
+- Not a self-modifying system (evaluation functions are never rewritten at runtime)
+- Not a black box (every score is traceable to source record IDs and formula steps)
+- Not a wizard or automation system (guided workflows are navigation, not execution)
+
+---
+
+## Cross-Document Links
+
+- Architecture detail → [ARCHITECTURE.md](ARCHITECTURE.md)
+- Constitutional invariants → [SYSTEM_RULES.md](SYSTEM_RULES.md)
+- Layer-by-layer inspection → [MODULE_MAP.md](MODULE_MAP.md)
+- Type interfaces → [TYPES_INDEX.md](TYPES_INDEX.md)
+- External reviewer path → [REVIEW_GUIDE.md](REVIEW_GUIDE.md)
+- Worked examples → [examples/](examples/)

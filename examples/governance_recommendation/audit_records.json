@@ -1,0 +1,69 @@
+{
+  "_comment": "Historical AuditRecord[] used as input to the counterfactual policy bench.",
+  "_note": "All records are for domain: training. Policy version pol-aabbccdd was active for records 1-3. Candidate pol-11223344 is being evaluated.",
+  "records": [
+    {
+      "id": "aud-001-example",
+      "versionId": "ver-001a",
+      "parentVersionId": null,
+      "timestamp": "2026-01-10T09:00:00.000Z",
+      "intent": "TRAINING_AUDIT",
+      "title": "Training load audit — week 1",
+      "isEvaluable": true,
+      "isConfirmed": true,
+      "canonicalDeclaration": "STATE: load=HIGH, recovery=ADEQUATE, progression=STABLE\nCONSTRAINTS: weekly_load <= 90%_1RM, session_rpe <= 8\nOBJECTIVE: MAXIMIZE progression WITHIN constraints",
+      "evaluationResult": {
+        "verdict": "LAWFUL",
+        "marginScore": 0.82,
+        "decisiveVariable": "session_rpe",
+        "failureMode": null,
+        "constraintTrace": [
+          { "constraintId": "c1", "description": "weekly_load <= 90%_1RM", "satisfied": true, "margin": 0.12 },
+          { "constraintId": "c2", "description": "session_rpe <= 8", "satisfied": true, "margin": 0.22 }
+        ]
+      }
+    },
+    {
+      "id": "aud-002-example",
+      "versionId": "ver-002a",
+      "parentVersionId": "ver-001a",
+      "timestamp": "2026-01-17T09:00:00.000Z",
+      "intent": "TRAINING_AUDIT",
+      "title": "Training load audit — week 2",
+      "isEvaluable": true,
+      "isConfirmed": true,
+      "canonicalDeclaration": "STATE: load=HIGH, recovery=LOW, progression=PLATEAUED\nCONSTRAINTS: weekly_load <= 90%_1RM, session_rpe <= 8\nOBJECTIVE: MAXIMIZE progression WITHIN constraints",
+      "evaluationResult": {
+        "verdict": "DEGRADED",
+        "marginScore": 0.31,
+        "decisiveVariable": "recovery",
+        "failureMode": "recovery_deficit",
+        "constraintTrace": [
+          { "constraintId": "c1", "description": "weekly_load <= 90%_1RM", "satisfied": true, "margin": 0.08 },
+          { "constraintId": "c2", "description": "session_rpe <= 8", "satisfied": false, "margin": -0.1 }
+        ]
+      }
+    },
+    {
+      "id": "aud-003-example",
+      "versionId": "ver-003a",
+      "parentVersionId": "ver-002a",
+      "timestamp": "2026-01-24T09:00:00.000Z",
+      "intent": "TRAINING_AUDIT",
+      "title": "Training load audit — week 3",
+      "isEvaluable": true,
+      "isConfirmed": true,
+      "canonicalDeclaration": "STATE: load=MODERATE, recovery=ADEQUATE, progression=IMPROVING\nCONSTRAINTS: weekly_load <= 85%_1RM, session_rpe <= 7.5\nOBJECTIVE: MAXIMIZE progression WITHIN constraints",
+      "evaluationResult": {
+        "verdict": "LAWFUL",
+        "marginScore": 0.71,
+        "decisiveVariable": "weekly_load",
+        "failureMode": null,
+        "constraintTrace": [
+          { "constraintId": "c1", "description": "weekly_load <= 85%_1RM", "satisfied": true, "margin": 0.19 },
+          { "constraintId": "c2", "description": "session_rpe <= 7.5", "satisfied": true, "margin": 0.15 }
+        ]
+      }
+    }
+  ]
+}

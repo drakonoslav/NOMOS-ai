@@ -1,222 +1,56 @@
 # NOMOS Architecture
 
-This document describes the full pipeline flow, data contracts between modules, determinism boundaries, constraint enforcement, and evaluation gating.
+This document describes the full pipeline, data contracts between modules, determinism boundaries, constraint enforcement, evaluation gating, and governance chain.
+
+See also: [README.md](README.md) · [MODULE_MAP.md](MODULE_MAP.md) · [SYSTEM_RULES.md](SYSTEM_RULES.md) · [TYPES_INDEX.md](TYPES_INDEX.md)
 
 ---
 
-## Pipeline Flow
+## 1. Compiler Pipeline
 
 ```
-User Input (raw text)
-        │
-        ▼
-┌─────────────────────────────┐
-│     Intent Detector          │  intent_detector.ts
-│  keyword scoring → IntentType│
-└─────────────┬───────────────┘
-              │ IntentType
-              ▼
-┌─────────────────────────────┐
-│     Domain Template          │  domain_templates.ts
-│  requiredFields              │
-│  optionalFields              │
-│  missingFieldHints           │
-└─────────────┬───────────────┘
-              │ DomainTemplate
-              ▼
-┌─────────────────────────────┐
-│     Field Extractor          │  field_extractor.ts
-│  ExtractedFields             │
-│  meals, macros, labels,      │
-│  constraints, candidates,    │
-│  objective                   │
-└─────────────┬───────────────┘
-              │ ExtractedFields
-              ▼
-┌─────────────────────────────┐
-│     Gap Detector             │  gap_detector.ts
-│  GapDetectionResult          │
-│  missingRequiredFields[]     │
-│  missingOptionalFields[]     │
-│  warnings[], notes[]         │
-│  isEvaluable: boolean        │
-└─────────────┬───────────────┘
-              │ GapDetectionResult
-              ▼
-┌─────────────────────────────┐
-│     Auto Compiler            │  auto_compiler.ts
-│  StructuredDraft             │
-│  state[], constraints[],     │
-│  uncertainties[],            │
-│  candidates[], objective[]   │
-└─────────────┬───────────────┘
-              │ StructuredDraft
-              ▼
-┌─────────────────────────────┐
-│     Draft Patcher            │  draft_patcher.ts
-│  patchDraftField(draft,      │
-│    fieldKey, value)          │
-│  revalidateDraft(draft,      │
-│    intent)                   │
-│  → updated StructuredDraft   │
-└─────────────┬───────────────┘
-              │ StructuredDraft (patched)
-              ▼
-┌─────────────────────────────┐
-│     Draft Serializer         │  draft_serializer.ts
-│  serializeDraft(draft)       │
-│  → canonical text block      │
-│  buildSerializedDraftRecord  │
-│  → SerializedDraftRecord     │
-└─────────────┬───────────────┘
-              │ SerializedDraftRecord
-              ▼
-┌─────────────────────────────┐
-│     Evaluation Engine        │  API server / nomos-core
-│  (only runs when             │
-│   isEvaluable && isConfirmed)│
-│  → EvaluationResult          │
-└─────────────┬───────────────┘
-              │ EvaluationResult
-              ▼
-┌─────────────────────────────┐
-│     Audit Store              │  audit_store.ts
-│  saveAuditRecord(record)     │
-│  AuditRecord {               │
-│    canonicalDeclaration,     │
-│    compileResult,            │
-│    patchedDraft,             │
-│    evaluationResult,         │
-│    versionId,                │
-│    parentVersionId           │
-│  }                           │
-└─────────────────────────────┘
+Raw Input (natural language text)
+    │
+    ▼  intent_detector.ts
+    │  keyword scoring → IntentType (NUTRITION_AUDIT | TRAINING_AUDIT | SCHEDULE_AUDIT | GENERIC)
+    │
+    ▼  domain_templates.ts
+    │  IntentType → DomainTemplate (requiredFields, optionalFields, missingFieldHints)
+    │
+    ▼  field_extractor.ts
+    │  DomainTemplate + raw text → ExtractedFields
+    │  (meals, macros, food labels, constraints, candidates, objective)
+    │
+    ▼  gap_detector.ts
+    │  ExtractedFields + DomainTemplate → GapDetectionResult
+    │  (missingRequiredFields[], missingOptionalFields[], isEvaluable)
+    │
+    ▼  auto_compiler.ts
+    │  → StructuredDraft (state[], constraints[], uncertainties[], candidates[], objective[])
+    │
+    ▼  draft_patcher.ts                    [iterative, user-driven]
+    │  patchDraftField(draft, key, value)
+    │  → patched StructuredDraft
+    │  revalidateDraft(draft, intent) → updated isEvaluable
+    │
+    ▼  draft_serializer.ts
+    │  serializeDraft(draft) → canonicalText (frozen string — single source of truth)
+    │  buildSerializedDraftRecord() → SerializedDraftRecord
+    │
+    ▼  GATE: isEvaluable && isConfirmed && !isEvaluating
 ```
+
+**Key invariant:** The Evaluate button is disabled until all three gate conditions are met.
+Raw input is never sent to the evaluation engine.
 
 ---
 
-## Data Contracts
+## 2. Constraint Algebra
 
-### `ExtractedFields` (field_extractor.ts → gap_detector.ts)
+Three enforcement levels:
 
-```typescript
-interface ExtractedFields {
-  hasMealSystem: boolean;
-  hasTargets: boolean;
-  hasFoodLabels: boolean;
-  hasCorrectionMode: boolean;
-  hasLockedPlacements: boolean;
-  hasConstraints: boolean;
-  hasCandidates: boolean;
-  hasObjective: boolean;
-  hasSchedule: boolean;
-
-  mealSystem: string | null;
-  macroTargetString: string | null;
-  foodLabels: string[];
-  constraintLines: string[];
-  candidateLines: { id: string; text: string }[];
-  objectiveLine: string | null;
-}
-```
-
-### `GapDetectionResult` (gap_detector.ts → auto_compiler.ts)
-
-```typescript
-interface GapDetectionResult {
-  missingRequiredFields: string[];
-  missingOptionalFields: string[];
-  warnings: string[];
-  notes: string[];
-  isEvaluable: boolean;
-}
-```
-
-### `StructuredDraft` (auto_compiler.ts → everywhere)
-
-```typescript
-interface StructuredDraft {
-  intent: IntentType;
-  title: string;
-
-  state: string[];
-  constraints: string[];
-  uncertainties: string[];
-  candidates: CompiledCandidate[];
-  objective: string[];
-
-  missingRequiredFields: string[];
-  missingOptionalFields: string[];
-  warnings: string[];
-  notes: string[];
-
-  isEvaluable: boolean;
-}
-```
-
-### `SerializedDraftRecord` (draft_serializer.ts → audit_store.ts)
-
-```typescript
-interface SerializedDraftRecord {
-  intent: string;
-  title: string;
-  isEvaluable: boolean;
-  canonicalText: string;  // single source of truth for evaluation
-}
-```
-
-### `AuditRecord` (audit_store.ts)
-
-```typescript
-interface AuditRecord {
-  id: string;
-  versionId: string;
-  parentVersionId?: string | null;
-  timestamp: string;
-  intent: string;
-  title: string;
-  isEvaluable: boolean;
-  isConfirmed: boolean;
-  canonicalDeclaration: string;
-  compileResult: AutoCompileResult | null;
-  patchedDraft: StructuredDraft | null;
-  evaluationResult: AuditEvaluationResult | null;
-}
-```
-
----
-
-## Determinism Boundaries
-
-### Fully Deterministic
-
-| Module | Why |
-|---|---|
-| `intent_detector.ts` | Keyword scoring against fixed vocabulary — same input → same intent |
-| `field_extractor.ts` | Regex and string matching only — no probability |
-| `gap_detector.ts` | Set comparison between extracted fields and template requirements |
-| `draft_patcher.ts` | Fixed switch-case dispatch — no branching uncertainty |
-| `draft_serializer.ts` | Fixed section order, deduplication, whitespace normalization |
-| `audit_store.ts` | Pure read/write to localStorage |
-| `audit_versioning.ts` | Timestamp + Math.random — deterministic enough for version IDs |
-| All editors (TargetMacrosEditor, etc.) | User-provided values with no inference |
-
-### Flexible / Non-Deterministic
-
-| Module | Why |
-|---|---|
-| Evaluation API | Calls the NOMOS constitutional kernel, which may use LLM reasoning for edge cases |
-| `query_parser.ts` | HybridNomosQueryParser may use LLM fallback when parsing is ambiguous |
-
----
-
-## Constraint Enforcement
-
-Constraints are enforced at three levels:
-
-### 1. Field-Level (Gap Detector)
-
-Before a draft is evaluable, all required fields for the selected domain must be present. `gap_detector.ts` checks each required field against the extracted data and returns `isEvaluable: false` if any are missing.
+### 2a. Field-level (Gap Detector)
+All required fields for the active domain must be present before a draft is evaluable.
 
 ```
 NUTRITION_AUDIT required fields:
@@ -225,52 +59,365 @@ NUTRITION_AUDIT required fields:
   food_source_truth_or_labels
 ```
 
-### 2. Declaration-Level (Confirmation Gate)
+### 2b. Declaration-level (Confirmation Gate)
+User must explicitly confirm a complete draft. `isConfirmed` must be `true`.
 
-The user must explicitly confirm a complete draft before evaluation is permitted. The UI blocks the Evaluate button until both `isEvaluable === true` and `isConfirmed === true`.
+### 2c. Constitutional-level (Evaluation Engine)
+Four laws enforced against every candidate:
 
-### 3. Constitutional-Level (Evaluation Engine)
+| Law | Name | Meaning |
+|-----|------|---------|
+| I | Feasibility | The declared reality must be physically achievable |
+| II | Observability | The decisive variable must be identifiable |
+| III | Constraint Satisfaction | All declared constraints must be satisfied |
+| IV | Robustness | Candidate must maintain sufficient margin above constraint boundary |
 
-The evaluation backend enforces four constitutional laws against every candidate:
-
-- **Law I — Feasibility:** The declared reality must be physically achievable.
-- **Law II — Observability:** The system must be able to identify the decisive variable.
-- **Law III — Constraint Satisfaction:** All declared constraints must be satisfied.
-- **Law IV — Robustness:** The chosen candidate must maintain a sufficient margin above the constraint boundary.
-
-Any violation blocks the verdict. `LAWFUL` requires all four laws satisfied.
-
----
-
-## Evaluation Gating
-
-Evaluation is gated by a three-condition lock:
-
-```
-isEvaluable    = missingRequiredFields.length === 0
-isConfirmed    = user has clicked "Confirm Draft"
-not evaluating = no active evaluation request
-
-EVALUATE button enabled only when:
-  isEvaluable && isConfirmed && !isEvaluating
-```
-
-The serialized canonical declaration — not the raw input — is what the evaluation engine receives. This ensures evaluation always runs against a stable, normalized, human-confirmed artifact.
+Verdict classes: `LAWFUL` (all four satisfied) · `DEGRADED` (partial satisfaction) · `INVALID` (hard violation)
 
 ---
 
-## Audit Version Lineage
-
-Every save creates a new `versionId`. When a record is reloaded and re-confirmed, the new record stores `parentVersionId` pointing to its origin. This creates a chain:
+## 3. Evaluation + Audit Persistence
 
 ```
-audit_1234_abc  (initial compile + confirm)
-      │
-      └── ver_1234_def  (first version)
-              │
-              └── ver_5678_ghi  (after field patch + re-confirm, parent = ver_1234_def)
-                      │
-                      └── ver_9012_jkl  (after evaluation, parent = ver_5678_ghi)
+SerializedDraftRecord
+    │
+    ▼  Evaluation Engine (API server / constitutional kernel)
+    │  EvaluationReport {
+    │    verdict: LAWFUL | DEGRADED | INVALID
+    │    constraintTrace: ConstraintTrace[]
+    │    marginScore: number
+    │    decisiveVariable: string
+    │    failureMode: string | null
+    │  }
+    │
+    ▼  audit_store.ts
+    │  AuditRecord {
+    │    id, versionId, parentVersionId
+    │    canonicalDeclaration (frozen)
+    │    evaluationResult
+    │    timestamp, intent, title
+    │  }
+    │  Storage: localStorage key nomos_audit_history_v1
 ```
 
-This lineage supports future diff views comparing canonical declarations across versions.
+**Immutability:** AuditRecord fields are never overwritten. Reloading a record
+and re-evaluating produces a new record with `parentVersionId` linking to the origin.
+
+---
+
+## 4. Candidate-Local Trace Flow
+
+```
+EvaluationReport
+    │
+    ▼  trace_diff.ts
+    │  buildCandidateTrace(report) → CandidateTrace
+    │  diffCandidateTraces(baseline, candidate) → TraceDiff
+    │  (constraintChanges[], verdictChange, marginDelta, decisionVariableChange)
+    │
+    ▼  AuditDiffPanel.tsx (UI)
+    │  Renders TraceDiff — which constraints passed/failed in each run
+```
+
+Trace diff is used by the auditor workflow and the policy bench to compare candidate vs baseline.
+
+---
+
+## 5. Trend Tracking + Prediction + Calibration
+
+```
+AuditRecord[] (historical)
+    │
+    ▼  decisive_variable_trends.ts
+    │  buildDecisiveVariableTrendReport(records)
+    │  → DecisiveVariableTrendReport {
+    │    mostFrequentFailureMode, mostRecentFailureMode
+    │    streaks: { mode, count, isActive }[]
+    │    trendLines: { variable, direction }[]
+    │  }
+    │
+    ▼  failure_prediction.ts
+    │  buildFailurePrediction(trendReport, calibration?)
+    │  → FailurePrediction {
+    │    predictedFailureMode, confidence, riskDirection
+    │    topSignal, historySizeGuard
+    │  }
+    │
+    ▼  prediction_calibration.ts
+    │  buildPredictionCalibration(predictions, resolutions)
+    │  → PredictionCalibrationReport {
+    │    exactMatchRate, directionMatchRate
+    │    totalPredictions, resolvedPredictions
+    │  }
+    │
+    ▼  bounded_rule_adjustment.ts
+    │  buildBoundedRuleAdjustment(calibration, policy)
+    │  → RuleAdjustmentProposal {
+    │    confidenceBias, escalationThreshold, uncertaintyBias
+    │    calibrationWindow, adjustmentStrength
+    │  }
+    │  (advisory only — never auto-applied)
+```
+
+---
+
+## 6. Policy Versioning + Governance
+
+```
+RuleAdjustmentProposal (advisory)
+    │
+    ▼  policy_versioning.ts
+    │  freezePolicyVersion(policy) → PolicyVersion (immutable snapshot)
+    │  buildVersionedPolicyId() → "pol-XXXXXXXX"
+    │
+    ▼  policy_governance.ts
+    │  PredictionPolicySnapshot {
+    │    activeVersionId, candidateVersionId?
+    │    activePolicy, candidatePolicy?
+    │  }
+    │
+    ▼  counterfactual_policy_bench.ts
+    │  runPolicyBench(records, candidatePolicy, baselinePolicy)
+    │  → PolicyBenchReport { metricsByPolicy, gainsByPolicy }
+    │
+    ▼  policy_recommendation.ts
+    │  buildPolicyRecommendationReport(bench, snapshot)
+    │  → PolicyRecommendationReport {
+    │    recommendedVersionId, strength, confidence
+    │    expectedGains[], summaryLines[]
+    │    candidatePolicyVersionIds (ranked)
+    │  }
+    │
+    ▼  policy_regime_comparison.ts
+    │  buildPolicyRegimeComparison(bench, baseline, candidate)
+    │  → PolicyRegimeComparison {
+    │    baselineMetrics, candidateMetrics
+    │    gainLines[], riskLines[], tradeoffLines[]
+    │  }
+    │
+    ▼  governance_decision_support.ts
+    │  buildGovernanceDecisionSupportReport(recommendation, comparison, auditRecords)
+    │  → GovernanceDecisionSupportReport {
+    │    suggestedAction: promote | rollback | hold
+    │    confidence, rationale[], risks[], tradeoffs[]
+    │  }
+    │
+    ▼  governance_deliberation_summary.ts
+    │  buildGovernanceDeliberationSummary(decisionSupport, recommendation)
+    │  → GovernanceDeliberationSummary {
+    │    id: "dls-XXXXXXXX"
+    │    deliberationLines[], counterarguments[], finalRationale
+    │  }
+    │
+    ▼  HUMAN GOVERNANCE ACTION (promote / rollback / hold)
+    │  governance_audit_trail.ts
+    │  recordGovernanceAction(action) → GovernanceAuditRecord {
+    │    id: "aud-XXXXXXXX"
+    │    action, domain, policyVersionId
+    │    rationale, timestamp (immutable)
+    │  }
+```
+
+**Key invariant:** Policy recommendation is NOT policy promotion.
+No automatic promotion ever occurs.
+
+---
+
+## 7. Post-Governance Outcome Review
+
+```
+GovernanceAuditRecord + AuditRecord[] (post-action)
+    │
+    ▼  post_governance_outcome_review.ts
+    │  buildGovernanceOutcomeReviewReport(auditRecord, postRecords)
+    │  → GovernanceOutcomeReviewReport {
+    │    outcomeClass: met | partially_met | not_met | inconclusive
+    │    expectedGains[], observedChanges[], verdict
+    │  }
+    │
+    ▼  governance_learning_summary.ts
+    │  buildGovernanceLearningReport(reviews[])
+    │  → GovernanceLearningReport {
+    │    metRate, partialRate, notMetRate
+    │    patternLines[], lessonsLearned[]
+    │  }
+    │
+    ▼  governance_playbook_extraction.ts
+    │  extractPlaybookHeuristics(learningReport)
+    │  → PlaybookHeuristic[] {
+    │    id: "ph-XXXXXXXX"
+    │    heuristicText, supportingEvidence[]
+    │    classification: supporting | cautioning | neutral
+    │  }
+    │
+    ▼  playbook_to_decision_crosswalk.ts
+    │  buildPlaybookDecisionCrosswalk(heuristics, decisionReport)
+    │  → PlaybookDecisionCrosswalk {
+    │    alignedHeuristics[], conflictingHeuristics[]
+    │    crosswalkSummaryLines[]
+    │  }
+```
+
+---
+
+## 8. Decision → Outcome Linkage
+
+```
+GovernanceAuditRecord + PostGovernanceOutcomeReviewReport
+    │
+    ▼  decision_outcome_linkage.ts
+    │  buildDecisionOutcomeLinkageReport(auditRecord, outcomeReview)
+    │  → DecisionOutcomeLinkageReport {
+    │    decisionId: "dec-XXXXXXXX"
+    │    outcomeClass, causalChainLines[]
+    │    linkageStrength: strong | moderate | weak | inconclusive
+    │  }
+    │
+    ▼  ecosystem_loop_summary.ts
+    │  buildEcosystemLoopSummary(linkageReports[])
+    │  → EcosystemLoopSummary {
+    │    totalLoops, metCount, partialCount, notMetCount
+    │    driftState: stabilizing | drifting | overcorrecting | stable
+    │    recurringViolationStreak: number
+    │    summaryLines[]
+    │  }
+```
+
+---
+
+## 9. Ecosystem Health Index
+
+```
+EcosystemLoopSummary + AuditRecord[] + GovernanceLearningReport + PredictionCalibrationReport
+    │
+    ▼  ecosystem_health_index.ts
+    │  buildEcosystemHealthIndex(inputs) → EcosystemHealthIndex {
+    │    score: 0–100
+    │    band: poor | fragile | stable | strong
+    │    components: {
+    │      stability:             { score, weight: 0.35 }
+    │      calibrationQuality:    { score, weight: 0.25 }
+    │      governanceEffectiveness: { score, weight: 0.25 }
+    │      policyChurn:           { score, weight: 0.15 }
+    │    }
+    │  }
+    │
+    ▼  health_index_traceability.ts
+    │  buildEcosystemHealthTrace(healthIndex, sourceInputs)
+    │  → EcosystemHealthTrace {
+    │    components: {
+    │      stability:             ComponentTrace (formula, sourceRecordIds[])
+    │      calibrationQuality:    ComponentTrace
+    │      governanceEffectiveness: ComponentTrace
+    │      policyChurn:           ComponentTrace
+    │    }
+    │  }
+```
+
+Health index component scoring:
+
+| Component | Formula |
+|-----------|---------|
+| Stability | `100 − (failureRate × 100) + streakModifier` |
+| Calibration | `(exactMatchRate ?? 0.5) × 50 + (directionMatchRate ?? 0.5) × 25 − penalties` |
+| Gov. effectiveness | `100 × metRate + 50 × partialRate` (or 50 baseline, 40 if actions but no reviews) |
+| Policy churn | `clamp(100 − n×8, 0, 100) + 15 (stabilizing) − 25 (overcorrecting) − 15 (drifting)` |
+
+---
+
+## 10. Ecosystem Cockpit
+
+```
+All subsystems above
+    │
+    ▼  ecosystem_cockpit.ts
+    │  buildEcosystemCockpitSnapshot(all inputs)
+    │  → EcosystemCockpitSnapshot {
+    │    health:      { score, band, components }
+    │    trends:      { driftState, mostFrequent, mostRecent, streak, streakWarning }
+    │    prediction:  { predictedMode, confidence, riskDirection, topSignal }
+    │    governance:  { activeVersionId, latestAction, latestOutcomeClass }
+    │    policy:      { activeVersionId, adjustmentState }
+    │    doctrine:    { supportingCount, cautiousCount, mostRelevantHeuristic }
+    │    attention:   { alerts[], alertCount }
+    │  }
+```
+
+Attention alerts (7 deterministic rules): health component poor/fragile, low prediction confidence,
+rising risk direction, streak ≥ 3, governance overcorrection, cautions > supporting doctrine,
+unresolved prediction rate > 30%.
+
+---
+
+## 11. Role Views + Guided Workflows
+
+```
+EcosystemCockpitSnapshot (unchanged — same truth)
+    │
+    ▼  role_view_config.ts
+    │  getCockpitRoleViewConfig(mode: builder | auditor | governor | operator)
+    │  → CockpitRoleViewConfig {
+    │    visibleCards[], emphasizedCards[]
+    │    defaultExpandedCards[], summaryPriority[]
+    │  }
+    │
+    ▼  workflow_config.ts
+    │  getRoleWorkflow(mode)
+    │  → RoleWorkflow { title, summary, steps: WorkflowStep[] }
+    │  Each step: { id, title, description, targetCardId }
+    │
+    ▼  EcosystemCockpitPage.tsx
+    │  role mode state via useState()
+    │  RoleModeSwitcher (pill control)
+    │  RoleWorkflowPanel (collapsible guided steps)
+    │  7 cockpit card components (flex layout, emphasis by role)
+```
+
+Role modes change only presentation — not data, evaluation, or governance state.
+
+---
+
+## 12. Session Worklog + Session Replay
+
+```
+User actions in EcosystemCockpitPage
+    │
+    ▼  session_worklog.ts (pure immutable functions)
+    │  createSessionWorklog → SessionWorklog
+    │  recordWorkflowStart, recordPanelOpened, recordDecision, etc.
+    │  → new SessionWorklog (never mutates input)
+    │  Event IDs: "wev-XXXXXXXX" (djb2 hash)
+    │
+    ▼  session_replay.ts
+    │  sortSessionEvents(events) → sorted by timestamp
+    │  buildSessionReplaySteps(worklog) → SessionReplayStep[]
+    │  buildSessionNarrative(worklog) → SessionNarrative {
+    │    orderedSteps[], summaryLines[]
+    │    acceptedRationales[], rejectedRationales[]
+    │  }
+```
+
+The session worklog is the **human operational trace** layered on top of the machine trace.
+Together they provide a full accountability chain: machine computation + human reasoning path.
+
+---
+
+## Determinism Boundary Summary
+
+| Layer | Deterministic | Notes |
+|-------|:---:|-------|
+| Compiler (all modules) | **Y** | Regex, set ops, switch dispatch only |
+| Evaluation engine (deterministic path) | **Y** | No LLM calls in deterministic matcher |
+| Evaluation engine (LLM path) | N | Gated separately, edge cases only |
+| Audit persistence | **Y** | Pure read/write |
+| Trend tracking | **Y** | Aggregation over sorted records |
+| Prediction + calibration | **Y** | Deterministic formula |
+| Policy bench + recommendation | **Y** | Pure aggregation |
+| Governance audit trail | **Y** | djb2 ID, timestamp |
+| Health index + traceability | **Y** | Explicit formula with documented weights |
+| Cockpit snapshot | **Y** | Composition of deterministic subsystems |
+| Role view config | **Y** | Static lookup |
+| Guided workflows | **Y** | Static definition |
+| Session worklog | **Y** | Pure immutable functions |
+| Session replay | **Y** | Sort + map over recorded events |
+| UI components | N | React state, user interaction |

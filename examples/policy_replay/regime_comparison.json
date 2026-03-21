@@ -1,0 +1,33 @@
+{
+  "_comment": "PolicyRegimeComparison — output of policy_regime_comparison.ts.",
+  "baselineVersionId": "pol-aabbccdd",
+  "candidateVersionId": "pol-11223344",
+  "benchRecordCount": 3,
+  "baselineMetrics": {
+    "lawfulRate": 0.67,
+    "degradedRate": 0.33,
+    "invalidRate": 0.0,
+    "averageMarginScore": 0.61,
+    "recoveryDeficitRate": 0.33
+  },
+  "candidateMetrics": {
+    "lawfulRate": 0.89,
+    "degradedRate": 0.11,
+    "invalidRate": 0.0,
+    "averageMarginScore": 0.74,
+    "recoveryDeficitRate": 0.11
+  },
+  "gainLines": [
+    "LAWFUL verdict rate: +22 percentage points (67% → 89%)",
+    "Average margin score: +0.13 (0.61 → 0.74)",
+    "Recovery deficit failure mode: −22 percentage points (33% → 11%)"
+  ],
+  "riskLines": [
+    "Load ceiling reduction (90% → 85%) may constrain peak performance athletes",
+    "Simultaneous RPE and load tightening deviates from single-variable adjustment heuristic"
+  ],
+  "tradeoffLines": [
+    "Lower failure rate traded for reduced load ceiling",
+    "Higher consistency traded for lower peak performance ceiling"
+  ]
+}

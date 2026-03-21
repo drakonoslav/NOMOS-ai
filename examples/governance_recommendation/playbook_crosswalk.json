@@ -1,0 +1,32 @@
+{
+  "_comment": "PlaybookDecisionCrosswalk — output of playbook_to_decision_crosswalk.ts.",
+  "_note": "Aligns existing playbook heuristics against the current governance decision.",
+  "recommendedVersionId": "pol-11223344",
+  "alignedHeuristics": [
+    {
+      "id": "ph-ff001122",
+      "heuristicText": "When recovery_deficit appears in consecutive cycles, lower the RPE ceiling first before reducing volume.",
+      "classification": "supporting",
+      "relevanceNote": "Candidate policy lowers RPE ceiling — consistent with this heuristic."
+    },
+    {
+      "id": "ph-ff003344",
+      "heuristicText": "Constraint tightening is most effective when applied to the decisive variable of the most recent failure mode.",
+      "classification": "supporting",
+      "relevanceNote": "session_rpe was the decisive variable in week-2 degradation. Candidate policy tightens session_rpe constraint."
+    }
+  ],
+  "conflictingHeuristics": [
+    {
+      "id": "ph-ff005566",
+      "heuristicText": "Avoid simultaneous tightening of both RPE ceiling and load ceiling — address one variable at a time.",
+      "classification": "cautioning",
+      "relevanceNote": "Candidate policy tightens both session_rpe (8.0 → 7.5) and weekly_load ceiling (90% → 85%). This heuristic cautions against simultaneous adjustment."
+    }
+  ],
+  "crosswalkSummaryLines": [
+    "2 supporting heuristics aligned with the promote decision.",
+    "1 cautioning heuristic identified: simultaneous dual-variable tightening.",
+    "Governor should weigh the cautioning heuristic before confirming a promote decision."
+  ]
+}

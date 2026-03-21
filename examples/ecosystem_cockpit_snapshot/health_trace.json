@@ -1,0 +1,73 @@
+{
+  "_comment": "EcosystemHealthTrace — output of health_index_traceability.ts. Per-component formula + source record IDs.",
+  "components": {
+    "stability": {
+      "formula": "100 - (failureRate * 100) + streakModifier",
+      "weight": 0.35,
+      "score": 61,
+      "inputs": {
+        "failureRate": 0.33,
+        "streakModifier": 0,
+        "streakCount": 1,
+        "streakActive": false
+      },
+      "sourceRecordIds": [
+        "aud-001-example",
+        "aud-002-example",
+        "aud-003-example"
+      ]
+    },
+    "calibrationQuality": {
+      "formula": "(exactMatchRate ?? 0.5) * 50 + (directionMatchRate ?? 0.5) * 25 - penalties",
+      "weight": 0.25,
+      "score": 72,
+      "inputs": {
+        "exactMatchRate": 0.80,
+        "directionMatchRate": 0.90,
+        "totalPredictions": 5,
+        "resolvedPredictions": 5,
+        "penalties": 4.5
+      },
+      "sourceRecordIds": [
+        "pred-001-example",
+        "pred-002-example",
+        "pred-003-example",
+        "pred-004-example",
+        "pred-005-example"
+      ]
+    },
+    "governanceEffectiveness": {
+      "formula": "100 * metRate + 50 * partialRate",
+      "weight": 0.25,
+      "score": 80,
+      "inputs": {
+        "totalReviews": 3,
+        "metCount": 2,
+        "partialCount": 1,
+        "notMetCount": 0,
+        "metRate": 0.67,
+        "partialRate": 0.33
+      },
+      "sourceRecordIds": [
+        "aud-deadbeef",
+        "review-001-example",
+        "review-002-example",
+        "review-003-example"
+      ]
+    },
+    "policyChurn": {
+      "formula": "clamp(100 - n*8, 0, 100) + driftModifier",
+      "weight": 0.15,
+      "score": 55,
+      "inputs": {
+        "policyChangeCount": 5,
+        "driftState": "stable",
+        "driftModifier": 0
+      },
+      "sourceRecordIds": [
+        "pol-aabbccdd",
+        "pol-11223344"
+      ]
+    }
+  }
+}
