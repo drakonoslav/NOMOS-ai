@@ -15,29 +15,27 @@ export function CandidateEvaluationCard({ card }: CandidateEvaluationCardProps) 
         </div>
       </div>
 
-      <div className="candidate-evaluation-card__body">
-        <div className="candidate-evaluation-card__reason">{card.reason}</div>
-
-        {card.decisiveVariable && (
-          <div className="candidate-evaluation-card__decisive">
-            <span className="candidate-evaluation-card__label">Decisive factor</span>
-            <span className="candidate-evaluation-card__value">
-              {card.decisiveVariable}
-            </span>
+      {card.decisiveVariable && (
+        <div className="candidate-evaluation-card__decisive">
+          <div className="candidate-evaluation-card__label">Decisive Factor</div>
+          <div className="candidate-evaluation-card__value">
+            {card.decisiveVariable}
           </div>
-        )}
+        </div>
+      )}
 
-        {card.adjustments.length > 0 && (
-          <div className="candidate-evaluation-card__adjustments">
-            <div className="candidate-evaluation-card__label">Adjustments</div>
-            <ul className="candidate-evaluation-card__list">
-              {card.adjustments.map((adjustment, i) => (
-                <li key={i}>{adjustment}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      <div className="candidate-evaluation-card__reason">{card.reason}</div>
+
+      {card.adjustments.length > 0 && (
+        <div className="candidate-evaluation-card__adjustments">
+          <div className="candidate-evaluation-card__label">Adjustments</div>
+          <ul className="candidate-evaluation-card__list">
+            {card.adjustments.map((adjustment, i) => (
+              <li key={i}>{adjustment}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

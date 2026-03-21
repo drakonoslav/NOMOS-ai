@@ -9,7 +9,8 @@
  *   definitive result without LLM involvement.
  * - Returns null for UNKNOWN constraint kinds — those are forwarded to the
  *   LLM semantic evaluator.
- * - Reasons are precise, action-specific, and constraint-referenced.
+ * - Reasons follow the compressed two-clause pattern:
+ *   [decisive event]. [constraint result].
  */
 
 import {
@@ -56,7 +57,7 @@ function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluation {
     return {
       id: candidate.id,
       status: "INVALID",
-      reason: "Constraint violated: control is released during transport.",
+      reason: "Control released. Constraint violated.",
       decisiveVariable: "drop risk",
       confidence: "high",
       adjustments: ["Use continuous controlled transport."],
@@ -67,7 +68,7 @@ function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluation {
     return {
       id: candidate.id,
       status: "DEGRADED",
-      reason: "Constraint preserved with reduced control margin.",
+      reason: "Constraint preserved. Control margin reduced.",
       decisiveVariable: "control margin",
       confidence: "high",
       adjustments: ["Increase transport stability."],
@@ -77,7 +78,7 @@ function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluation {
   return {
     id: candidate.id,
     status: "LAWFUL",
-    reason: "Constraint satisfied under controlled transport.",
+    reason: "Controlled transport. Constraint satisfied.",
     decisiveVariable: "control continuity",
     confidence: "high",
   };
@@ -92,10 +93,10 @@ function evalNoRelease(candidate: NormalizedCandidate): CandidateEvaluation {
     return {
       id: candidate.id,
       status: "INVALID",
-      reason: "Constraint violated: release of control detected.",
+      reason: "Control released. Constraint violated.",
       decisiveVariable: "control continuity",
       confidence: "high",
-      adjustments: ["Maintain continuous grip or containment throughout."],
+      adjustments: ["Maintain grip or containment throughout."],
     };
   }
 
@@ -103,17 +104,17 @@ function evalNoRelease(candidate: NormalizedCandidate): CandidateEvaluation {
     return {
       id: candidate.id,
       status: "DEGRADED",
-      reason: "Constraint preserved with reduced control margin.",
+      reason: "Constraint preserved. Control margin reduced.",
       decisiveVariable: "control continuity",
       confidence: "high",
-      adjustments: ["Ensure full control is maintained throughout."],
+      adjustments: ["Maintain full control throughout."],
     };
   }
 
   return {
     id: candidate.id,
     status: "LAWFUL",
-    reason: "Constraint satisfied.",
+    reason: "Control maintained. Constraint satisfied.",
     decisiveVariable: "control continuity",
     confidence: "high",
   };
@@ -128,10 +129,10 @@ function evalNoTurnover(candidate: NormalizedCandidate): CandidateEvaluation {
     return {
       id: candidate.id,
       status: "INVALID",
-      reason: "Constraint violated: soil turnover or tilling detected.",
+      reason: "Soil turnover detected. Constraint violated.",
       decisiveVariable: "soil disturbance",
       confidence: "high",
-      adjustments: ["Remove tilling or turnover from the sequence."],
+      adjustments: ["Remove tilling and turnover."],
     };
   }
 
@@ -140,17 +141,17 @@ function evalNoTurnover(candidate: NormalizedCandidate): CandidateEvaluation {
     return {
       id: candidate.id,
       status: "DEGRADED",
-      reason: "Constraint preserved, but soil profile is altered by intervention.",
+      reason: "Constraint preserved. Soil profile altered by intervention.",
       decisiveVariable: "nutrient intervention",
       confidence: "moderate",
-      adjustments: ["Reduce external intervention intensity."],
+      adjustments: ["Reduce intervention intensity."],
     };
   }
 
   return {
     id: candidate.id,
     status: "LAWFUL",
-    reason: "Constraint satisfied with low disturbance.",
+    reason: "Low disturbance. Constraint satisfied.",
     decisiveVariable: "soil disturbance",
     confidence: "high",
   };
@@ -165,7 +166,7 @@ function evalPreserveStructure(candidate: NormalizedCandidate): CandidateEvaluat
     return {
       id: candidate.id,
       status: "INVALID",
-      reason: "Constraint violated: structural alteration detected.",
+      reason: "Structural alteration detected. Constraint violated.",
       decisiveVariable: "structural integrity",
       confidence: "high",
       adjustments: ["Remove actions that alter the structure."],
@@ -176,17 +177,17 @@ function evalPreserveStructure(candidate: NormalizedCandidate): CandidateEvaluat
     return {
       id: candidate.id,
       status: "DEGRADED",
-      reason: "Constraint preserved but transport method introduces structural risk.",
+      reason: "Constraint preserved. Structural risk introduced.",
       decisiveVariable: "structural integrity",
       confidence: "moderate",
-      adjustments: ["Use cushioned or secured transport to protect structure."],
+      adjustments: ["Use secured transport to protect structure."],
     };
   }
 
   return {
     id: candidate.id,
     status: "LAWFUL",
-    reason: "Constraint satisfied with no structural risk.",
+    reason: "No structural risk. Constraint satisfied.",
     decisiveVariable: "structural integrity",
     confidence: "high",
   };
@@ -206,10 +207,10 @@ function evalBoundedTime(
     return {
       id: candidate.id,
       status: "INVALID",
-      reason: `Constraint violated: candidate introduces delay against the time bound${constraint.threshold ? ` (${constraint.threshold})` : ""}.`,
+      reason: `Delay introduced. Constraint violated${constraint.threshold ? ` (bound: ${constraint.threshold})` : ""}.`,
       decisiveVariable: "time bound",
       confidence: "high",
-      adjustments: ["Remove delay-inducing steps; complete within the declared time bound."],
+      adjustments: ["Remove delay-inducing steps."],
     };
   }
 
@@ -217,17 +218,17 @@ function evalBoundedTime(
     return {
       id: candidate.id,
       status: "DEGRADED",
-      reason: "Candidate uses a phased approach which may approach the time limit.",
+      reason: "Phased approach. Time bound at risk.",
       decisiveVariable: "time bound",
       confidence: "moderate",
-      adjustments: ["Confirm total duration remains within the declared bound."],
+      adjustments: ["Confirm duration is within bound."],
     };
   }
 
   return {
     id: candidate.id,
     status: "LAWFUL",
-    reason: "Candidate satisfies the time constraint.",
+    reason: "No delay detected. Constraint satisfied.",
     decisiveVariable: "time bound",
     confidence: "moderate",
   };
@@ -245,10 +246,10 @@ function evalBoundedResource(
     return {
       id: candidate.id,
       status: "INVALID",
-      reason: `Constraint violated: candidate increases resource use beyond the declared bound${constraint.threshold ? ` (${constraint.threshold})` : ""}.`,
+      reason: `Resource bound exceeded. Constraint violated${constraint.threshold ? ` (bound: ${constraint.threshold})` : ""}.`,
       decisiveVariable: "resource bound",
       confidence: "high",
-      adjustments: ["Reduce resource consumption to remain within the bound."],
+      adjustments: ["Reduce resource consumption."],
     };
   }
 
@@ -257,17 +258,17 @@ function evalBoundedResource(
     return {
       id: candidate.id,
       status: "DEGRADED",
-      reason: "Candidate may increase resource usage; verify it remains within the bound.",
+      reason: "Resource increase possible. Bound unconfirmed.",
       decisiveVariable: "resource bound",
       confidence: "moderate",
-      adjustments: ["Quantify resource delta to confirm bound compliance."],
+      adjustments: ["Quantify resource delta."],
     };
   }
 
   return {
     id: candidate.id,
     status: "LAWFUL",
-    reason: "Candidate does not appear to exceed the resource constraint.",
+    reason: "No excess detected. Constraint satisfied.",
     decisiveVariable: "resource bound",
     confidence: "moderate",
   };

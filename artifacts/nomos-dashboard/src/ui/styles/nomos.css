@@ -785,20 +785,22 @@ textarea {
   color: var(--nm-text-primary);
 }
 
-.candidate-evaluation-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--nm-space-3);
-}
-
 .candidate-evaluation-card__reason {
   color: var(--nm-text-secondary);
   font-size: var(--nm-text-sm);
   line-height: var(--nm-line-loose);
+  margin-top: var(--nm-space-3);
 }
 
-.candidate-evaluation-card__decisive,
+.candidate-evaluation-card__decisive {
+  margin-top: var(--nm-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
 .candidate-evaluation-card__adjustments {
+  margin-top: var(--nm-space-4);
   display: flex;
   flex-direction: column;
   gap: var(--nm-space-2);
@@ -809,14 +811,15 @@ textarea {
   font-family: var(--nm-font-mono);
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
 }
 
 .candidate-evaluation-card__value {
-  color: var(--nm-text-primary);
+  color: #e2e8f0;
   font-family: var(--nm-font-mono);
-  font-size: var(--nm-text-sm);
-  font-weight: 600;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .candidate-evaluation-card__list {

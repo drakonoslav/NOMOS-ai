@@ -1,0 +1,56 @@
+Refine the current working NOMOS evaluation UI and language without changing the underlying evaluation logic.
+
+Goals:
+1. Make decisive variable visually more dominant.
+2. Compress evaluation wording so it is shorter, denser, and more law-like.
+3. Tighten INVALID phrasing especially.
+
+Required changes:
+
+1. Reorder candidate cards visually to:
+   - status badge
+   - decisive variable
+   - reason
+   - adjustments
+
+2. Increase visual emphasis for decisive variable:
+   - larger font than body text
+   - stronger weight
+   - slightly brighter contrast
+   - keep subtle and architectural, not flashy
+
+3. Add semantic compression to evaluation output strings.
+
+Replace current phrases with these tighter versions:
+
+LAWFUL:
+- "Constraint satisfied under controlled transport." -> "Controlled transport. Constraint satisfied."
+- "Constraint satisfied under low disturbance." -> "Low disturbance. Constraint satisfied."
+
+DEGRADED:
+- "Constraint preserved with reduced control margin." -> "Constraint preserved. Control margin reduced."
+- "Constraint preserved, but soil profile is altered by intervention." -> "Constraint preserved. Soil profile altered by intervention."
+
+INVALID:
+- "Constraint violated: control is released during transport." -> "Control released. Constraint violated."
+- "Constraint violated: soil turnover or tilling detected." -> "Soil turnover detected. Constraint violated."
+
+4. Apply the same compression rule generally:
+   - prefer two short clauses over one long sentence
+   - pattern:
+     [decisive event]. [constraint result].
+   - avoid conversational wording
+   - avoid passive, padded phrasing
+
+5. In candidate cards, display decisive variable directly under the status badge with label:
+   - "DECISIVE FACTOR"
+
+6. Keep adjustments last and only show if present.
+
+7. Do not change the parser.
+8. Do not change the actual candidate classifications.
+9. Do not change the deterministic evaluation logic yet.
+10. This is presentation refinement only.
+
+Desired effect:
+The system should feel sharper, denser, and more authoritative now that evaluation is working.
