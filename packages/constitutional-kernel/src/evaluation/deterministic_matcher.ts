@@ -11,6 +11,12 @@
  *   LLM semantic evaluator.
  * - Reasons follow the compressed two-clause pattern:
  *   [decisive event]. [constraint result].
+ *
+ * Nutrition domain additions:
+ * - NUTRITION_STRUCTURAL_LOCK  — detect meal structure violations in candidate text
+ * - NUTRITION_ALLOWED_ACTION   — detect out-of-scope food substitutions
+ * - NUTRITION_TARGET_TOLERANCE — always LAWFUL (guidance); moderate margin
+ * - NUTRITION_SOURCE_TRUTH     — always LAWFUL (data override); high confidence
  */
 
 import {
@@ -45,6 +51,18 @@ export function evaluateDeterministically(
 
     case "SLEEP_MIN_DURATION_AND_CONTINUITY":
       return evaluateSleepCandidate(candidate, constraint);
+
+    case "NUTRITION_STRUCTURAL_LOCK":
+      return evalNutritionStructuralLock(candidate, constraint);
+
+    case "NUTRITION_ALLOWED_ACTION":
+      return evalNutritionAllowedAction(candidate, constraint);
+
+    case "NUTRITION_TARGET_TOLERANCE":
+      return evalNutritionTargetTolerance(candidate, constraint);
+
+    case "NUTRITION_SOURCE_TRUTH":
+      return evalNutritionSourceTruth(candidate, constraint);
 
     case "UNKNOWN":
     default:
@@ -275,5 +293,307 @@ function evalBoundedResource(
     reason: "No excess detected. Constraint satisfied.",
     decisiveVariable: "resource bound",
     confidence: "moderate",
+  };
+}
+
+/* =========================================================
+   NUTRITION_STRUCTURAL_LOCK
+   Violations: moving protein, reordering meals, removing meals, changing dispersal.
+   Evaluation is text-signal based on the candidate description.
+   ========================================================= */
+
+function evalNutritionStructuralLock(
+  candidate: NormalizedCandidate,
+  constraint: NormalizedConstraint
+): CandidateEvaluationDraft {
+  const lower = candidate.raw.toLowerCase();
+  const key = constraint.key ?? "preserve_protein_placement";
+
+  switch (key) {
+    case "preserve_protein_placement": {
+      const violates =
+        lower.includes("move protein") ||
+        lower.includes("relocate protein") ||
+        lower.includes("rearrange protein") ||
+        lower.includes("redistribute protein") ||
+        lower.includes("shift protein") ||
+        lower.includes("transfer protein");
+
+      if (violates) {
+        return {
+          id: candidate.id,
+          status: "INVALID",
+          reason: "Protein placement moved between meals. Structural lock violated.",
+          decisiveVariable: "protein placement violation",
+          confidence: "high",
+          adjustments: ["Preserve existing protein placement across all meals."],
+        };
+      }
+
+      return {
+        id: candidate.id,
+        status: "LAWFUL",
+        reason: "Protein placement unchanged. Structural lock satisfied.",
+        decisiveVariable: "protein placement",
+        confidence: "high",
+      };
+    }
+
+    case "preserve_meal_order": {
+      const violates =
+        lower.includes("reorder meal") ||
+        lower.includes("change meal order") ||
+        lower.includes("rearrange meal") ||
+        lower.includes("swap meal") ||
+        lower.includes("reverse meal");
+
+      if (violates) {
+        return {
+          id: candidate.id,
+          status: "INVALID",
+          reason: "Meal order altered. Structural lock violated.",
+          decisiveVariable: "meal order violation",
+          confidence: "high",
+          adjustments: ["Preserve the declared meal sequence."],
+        };
+      }
+
+      return {
+        id: candidate.id,
+        status: "LAWFUL",
+        reason: "Meal order unchanged. Structural lock satisfied.",
+        decisiveVariable: "meal order",
+        confidence: "high",
+      };
+    }
+
+    case "preserve_meal_count": {
+      const violates =
+        lower.includes("remove meal") ||
+        lower.includes("skip meal") ||
+        lower.includes("drop meal") ||
+        lower.includes("eliminate meal") ||
+        lower.includes("delete meal");
+
+      if (violates) {
+        return {
+          id: candidate.id,
+          status: "INVALID",
+          reason: "Meal removed from plan. Structural lock violated.",
+          decisiveVariable: "meal count violation",
+          confidence: "high",
+          adjustments: ["Retain all meals in the declared plan."],
+        };
+      }
+
+      return {
+        id: candidate.id,
+        status: "LAWFUL",
+        reason: "Meal count preserved. Structural lock satisfied.",
+        decisiveVariable: "meal count",
+        confidence: "high",
+      };
+    }
+
+    case "preserve_meal_dispersal": {
+      const violates =
+        lower.includes("consolidate meal") ||
+        lower.includes("merge meal") ||
+        lower.includes("combine meal") ||
+        lower.includes("change timing") ||
+        lower.includes("shift timing");
+
+      const degraded =
+        lower.includes("adjust timing") ||
+        lower.includes("slightly earlier") ||
+        lower.includes("slightly later");
+
+      if (violates) {
+        return {
+          id: candidate.id,
+          status: "INVALID",
+          reason: "Meal timeblock pattern altered. Dispersal lock violated.",
+          decisiveVariable: "meal dispersal violation",
+          confidence: "high",
+          adjustments: ["Preserve the declared meal timing structure."],
+        };
+      }
+
+      if (degraded) {
+        return {
+          id: candidate.id,
+          status: "DEGRADED",
+          reason: "Timing adjustment detected. Dispersal margin reduced.",
+          decisiveVariable: "meal dispersal",
+          confidence: "moderate",
+          adjustments: ["Confirm timing changes do not alter dispersal pattern."],
+        };
+      }
+
+      return {
+        id: candidate.id,
+        status: "LAWFUL",
+        reason: "Dispersal pattern unchanged. Structural lock satisfied.",
+        decisiveVariable: "meal dispersal",
+        confidence: "high",
+      };
+    }
+
+    default: {
+      return {
+        id: candidate.id,
+        status: "LAWFUL",
+        reason: "Structural lock checked. No violation detected.",
+        decisiveVariable: constraint.decisiveVariable ?? "structural lock",
+        confidence: "moderate",
+      };
+    }
+  }
+}
+
+/* =========================================================
+   NUTRITION_ALLOWED_ACTION
+   Scope: only gram amounts or unit counts of already-present foods may be adjusted.
+   Violations: adding new foods, substituting, replacing, or removing food items.
+   ========================================================= */
+
+function evalNutritionAllowedAction(
+  candidate: NormalizedCandidate,
+  constraint: NormalizedConstraint
+): CandidateEvaluationDraft {
+  const lower = candidate.raw.toLowerCase();
+
+  const outOfScope =
+    lower.includes("add new food") ||
+    lower.includes("add a food") ||
+    lower.includes("add food") ||
+    lower.includes("introduce food") ||
+    lower.includes("introduce new") ||
+    lower.includes("substitute food") ||
+    lower.includes("replace food") ||
+    lower.includes("swap food") ||
+    lower.includes("different food") ||
+    lower.includes("new food item") ||
+    lower.includes("swap ingredient") ||
+    lower.includes("replace ingredient");
+
+  const borderline =
+    lower.includes("alternative food") ||
+    lower.includes("food option") ||
+    lower.includes("optionally add");
+
+  if (outOfScope) {
+    return {
+      id: candidate.id,
+      status: "INVALID",
+      reason: "Candidate proposes modifying food set. Only gram-amount adjustments are allowed.",
+      decisiveVariable: "disallowed food adjustment",
+      confidence: "high",
+      adjustments: [
+        "Restrict changes to gram amounts or unit counts of already-present foods.",
+        "Do not introduce, substitute, or remove any food items.",
+      ],
+    };
+  }
+
+  if (borderline) {
+    return {
+      id: candidate.id,
+      status: "DEGRADED",
+      reason: "Food alteration risk detected. Scope constraint under reduced margin.",
+      decisiveVariable: "food adjustment scope",
+      confidence: "moderate",
+      adjustments: ["Confirm no new foods are introduced."],
+    };
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: "Adjustments within declared food set. Constraint satisfied.",
+    decisiveVariable: "food adjustment scope",
+    confidence: "high",
+  };
+}
+
+/* =========================================================
+   NUTRITION_TARGET_TOLERANCE
+   Guidance constraint — minimize calorie delta or total changeset.
+   Cannot produce INVALID from text alone; reduces margin when ignored.
+   ========================================================= */
+
+function evalNutritionTargetTolerance(
+  candidate: NormalizedCandidate,
+  constraint: NormalizedConstraint
+): CandidateEvaluationDraft {
+  const lower = candidate.raw.toLowerCase();
+  const key = constraint.key ?? "calorie_delta_minimize";
+  const decisiveVariable = constraint.decisiveVariable ?? "calorie delta";
+
+  const antiMinimal =
+    lower.includes("large adjustment") ||
+    lower.includes("major change") ||
+    lower.includes("significant change") ||
+    lower.includes("overhaul") ||
+    lower.includes("complete redesign");
+
+  if (antiMinimal) {
+    return {
+      id: candidate.id,
+      status: "DEGRADED",
+      reason: `Candidate implies large-scale changes. ${key === "calorie_delta_minimize" ? "Calorie delta" : "Changeset"} tolerance reduced.`,
+      decisiveVariable,
+      confidence: "moderate",
+      adjustments: [
+        key === "calorie_delta_minimize"
+          ? "Prefer smaller gram adjustments to stay within calorie tolerance."
+          : "Prefer the smallest set of structure-preserving changes.",
+      ],
+    };
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: `Minimization guidance acknowledged. ${key === "calorie_delta_minimize" ? "Calorie delta" : "Changeset"} within expected tolerance.`,
+    decisiveVariable,
+    confidence: "moderate",
+  };
+}
+
+/* =========================================================
+   NUTRITION_SOURCE_TRUTH
+   Data-override instruction — does not constrain candidate actions.
+   Always LAWFUL; high confidence because it is a lookup rule, not a prohibition.
+   ========================================================= */
+
+function evalNutritionSourceTruth(
+  candidate: NormalizedCandidate,
+  constraint: NormalizedConstraint
+): CandidateEvaluationDraft {
+  const decisiveVariable = constraint.decisiveVariable ?? "macro source";
+  const key = constraint.key ?? "declared_macros_override";
+
+  let label: string;
+  switch (key) {
+    case "declared_macros_override":
+      label = "Declared macro values applied as truth source.";
+      break;
+    case "estimated_defaults_allowed":
+      label = "Estimated defaults acknowledged for declared food items.";
+      break;
+    case "label_priority":
+      label = "Label truth applied with priority over generic assumptions.";
+      break;
+    default:
+      label = "Source truth directive acknowledged.";
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: `${label} Constraint satisfied.`,
+    decisiveVariable,
+    confidence: "high",
   };
 }

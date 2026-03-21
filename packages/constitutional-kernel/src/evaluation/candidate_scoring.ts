@@ -141,13 +141,40 @@ function mergeEvaluations(
   const worstMarginScore = Math.min(a.marginScore, b.marginScore);
   const merged = bRank > aRank ? { ...b } : { ...a };
 
+  // Deduplicate reasons — repeated identical sentences from fallback constraints
+  // must not appear once per candidate (common when multiple UNKNOWN constraints fire).
+  const rawReasons = [a.reason, b.reason].filter(Boolean);
+  const uniqueReasons = rawReasons.filter((r, i) => rawReasons.indexOf(r) === i);
+
+  // Collapse repeated interpretation-fallback phrases into one combined note
+  const FALLBACK_SIGNAL = "could not be deterministically classified";
+  const interpretationCount = uniqueReasons.filter((r) =>
+    r.toLowerCase().includes(FALLBACK_SIGNAL)
+  ).length;
+  const nonFallbackReasons = uniqueReasons.filter(
+    (r) => !r.toLowerCase().includes(FALLBACK_SIGNAL)
+  );
+  const dedupedReasons =
+    interpretationCount > 0
+      ? [
+          ...nonFallbackReasons,
+          interpretationCount > 1
+            ? `${interpretationCount} constraints require manual review (not deterministically classifiable).`
+            : uniqueReasons.find((r) => r.toLowerCase().includes(FALLBACK_SIGNAL))!,
+        ]
+      : nonFallbackReasons;
+
   return {
     ...merged,
-    reason: [a.reason, b.reason].filter(Boolean).join(" Additionally: "),
-    adjustments: [...(a.adjustments ?? []), ...(b.adjustments ?? [])],
+    reason: dedupedReasons.filter(Boolean).join(" Additionally: "),
+    adjustments: dedupeStrings([...(a.adjustments ?? []), ...(b.adjustments ?? [])]),
     marginScore: worstMarginScore,
     marginLabel: marginLabelFromScore(worstMarginScore),
   };
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return values.filter((v, i) => values.indexOf(v) === i);
 }
 
 function statusRank(s: CandidateStatus): number {

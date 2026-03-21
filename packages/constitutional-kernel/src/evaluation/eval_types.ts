@@ -25,10 +25,23 @@ export interface NormalizedConstraint {
     | "BOUNDED_TIME"
     | "BOUNDED_RESOURCE"
     | "SLEEP_MIN_DURATION_AND_CONTINUITY"
+    | "NUTRITION_STRUCTURAL_LOCK"
+    | "NUTRITION_ALLOWED_ACTION"
+    | "NUTRITION_TARGET_TOLERANCE"
+    | "NUTRITION_SOURCE_TRUTH"
     | "UNKNOWN";
   protectedObject?: string;
   threshold?: string;
   decisiveVariable?: string;
+  /**
+   * Sub-type key within a kind.
+   * Examples:
+   *   NUTRITION_STRUCTURAL_LOCK → "preserve_protein_placement" | "preserve_meal_order" | ...
+   *   NUTRITION_ALLOWED_ACTION  → "adjustment_scope"
+   *   NUTRITION_TARGET_TOLERANCE → "calorie_delta_minimize" | "minimize_change_magnitude"
+   *   NUTRITION_SOURCE_TRUTH    → "declared_macros_override" | "estimated_defaults_allowed" | "label_priority"
+   */
+  key?: string;
   /** Domain-specific numeric parameters (e.g. minTotalSleepMinutes for sleep domain). */
   params?: Record<string, number>;
 }

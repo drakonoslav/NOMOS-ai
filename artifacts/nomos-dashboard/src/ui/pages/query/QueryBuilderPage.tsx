@@ -18,6 +18,7 @@ import { FieldPatchPanel } from "../../components/compiler/FieldPatchPanel";
 
 import { autoCompile, StructuredDraft } from "../../../compiler/auto_compiler";
 import { IntentType } from "../../../compiler/domain_templates";
+import { compileConstraints, CompiledConstraint } from "../../../compiler/constraint_compiler";
 import { detectIntent } from "../../../compiler/intent_detector";
 import { patchDraftField, revalidateDraft } from "../../../compiler/draft_patcher";
 import { buildSerializedDraftRecord } from "../../../compiler/draft_serializer";
@@ -83,6 +84,8 @@ interface AutoCompileState {
   isEvaluating: boolean;
   evaluationResult?: EvaluationResult;
   evaluationError?: string;
+  /** Compiled constraint set from the effective draft — populated at evaluation time. */
+  compiledConstraints?: CompiledConstraint[];
 }
 
 function buildEmptyAutoState(): AutoCompileState {
@@ -504,11 +507,16 @@ export function QueryBuilderPage() {
       autoState.rawInput
     );
 
+    // Compile constraints before evaluation so decisive variables can be resolved
+    // against the typed constraint set rather than falling through to "constraint interpretation".
+    const compiledConstraints = compileConstraints(effectiveDraft.constraints);
+
     setAutoState((prev) => ({
       ...prev,
       isEvaluating: true,
       evaluationResult: undefined,
       evaluationError: undefined,
+      compiledConstraints,
     }));
 
     try {
@@ -717,7 +725,10 @@ export function QueryBuilderPage() {
           )}
 
           {autoState.evaluationResult && (
-            <EvaluationResultPanel result={autoState.evaluationResult} />
+            <EvaluationResultPanel
+              result={autoState.evaluationResult}
+              compiledConstraints={autoState.compiledConstraints}
+            />
           )}
 
           <AuditHistoryPanel

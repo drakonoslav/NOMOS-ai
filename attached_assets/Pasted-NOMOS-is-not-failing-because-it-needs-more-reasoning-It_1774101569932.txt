@@ -1,0 +1,118 @@
+NOMOS is not failing because it needs more reasoning.
+It is failing because constraint sentences are not being compiled into typed executable rules.
+
+Current failure pattern:
+- all candidates degrade to "constraint interpretation"
+- repeated fallback text appears for every candidate
+- semantic fallback is being overused
+- structurally obvious constraints are not being classified deterministically
+
+Fix this by adding a deterministic constraint compiler before evaluation.
+
+Build:
+- src/compiler/constraint_compiler.ts
+- src/compiler/constraint_normalizer.ts
+- src/compiler/constraint_dedupe.ts
+
+Requirements:
+
+1. Add typed constraint classes:
+- STRUCTURAL_LOCK
+- ALLOWED_ACTION
+- TARGET_TOLERANCE
+- SOURCE_TRUTH
+- INTERPRETATION_REQUIRED
+
+2. Compile these constraints deterministically:
+
+"Do not move protein placements between meals."
+-> STRUCTURAL_LOCK
+-> key: preserve_protein_placement
+-> operator: MUST_EQUAL
+-> lhs: protein_placement_map
+-> rhs: baseline_protein_placement_map
+
+"Do not change meal order."
+-> STRUCTURAL_LOCK
+-> key: preserve_meal_order
+-> operator: MUST_EQUAL
+-> lhs: meal_order
+-> rhs: baseline_meal_order
+
+"Do not remove meals."
+-> STRUCTURAL_LOCK
+-> key: preserve_meal_count
+-> operator: MUST_EQUAL
+-> lhs: meal_count
+-> rhs: baseline_meal_count
+
+"Do not botch meal plan dispersal."
+-> STRUCTURAL_LOCK
+-> key: preserve_meal_dispersal
+-> operator: MUST_EQUAL
+-> lhs: meal_timeblock_pattern
+-> rhs: baseline_timeblock_pattern
+
+"Keep calories on lockdown as tightly as possible."
+-> TARGET_TOLERANCE
+-> key: calorie_delta_minimize
+-> operator: MINIMIZE_ABS_DELTA
+-> lhs: actual_calories
+-> rhs: target_calories
+
+"Only adjust gram amounts or unit counts of already-present foods."
+-> ALLOWED_ACTION
+-> key: adjustment_scope
+-> operator: SUBSET_OF
+-> lhs: adjusted_food_ids
+-> rhs: baseline_food_ids
+
+"Use declared macro values as truth."
+-> SOURCE_TRUTH
+-> key: declared_macros_override
+-> operator: SOURCE_PRIORITY
+-> lhs: macro_source
+-> rhs: declared_food_registry
+
+"Treat banana and egg values as estimated defaults for this task."
+-> SOURCE_TRUTH
+-> key: estimated_defaults_allowed
+-> operator: ALLOW_ESTIMATED
+-> lhs: food_ids
+-> rhs: [banana, egg]
+
+"Prefer minimal structure-preserving changes."
+-> TARGET_TOLERANCE
+-> key: minimize_change_magnitude
+-> operator: MINIMIZE_CHANGESET
+-> lhs: proposed_changes
+-> rhs: minimal_changeset
+
+"Label truth overrides food assumptions where labels are provided."
+-> SOURCE_TRUTH
+-> key: label_priority
+-> operator: SOURCE_PRIORITY
+-> lhs: macro_source
+-> rhs: attached_labels
+
+3. Only use INTERPRETATION_REQUIRED if a constraint cannot be mapped to any known typed rule.
+
+4. Add dedupe:
+If multiple constraints fall into interpretation fallback, collapse them into one combined warning.
+Do not repeat the same message under every candidate.
+
+5. Candidate evaluation must check typed constraints first.
+Only unresolved constraints should reduce confidence or margin.
+
+6. UI mapping:
+- show "constraint interpretation" only if unresolved_constraints.length > 0
+- otherwise show actual decisive variable:
+  - calorie delta
+  - protein placement violation
+  - meal order violation
+  - disallowed food adjustment
+  - macro source conflict
+
+Success condition:
+The current nutrition audit should no longer degrade every candidate to "constraint interpretation."
+At least the structural and source-truth constraints should evaluate deterministically.

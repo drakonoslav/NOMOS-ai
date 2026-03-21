@@ -23,17 +23,41 @@ import {
   UiCandidateStatus,
   UiMarginLabel,
 } from "./evaluation_view_models";
+import {
+  CompiledConstraint,
+  resolveDisplayDecisiveVariable,
+  unresolvedConstraintCount,
+} from "../../compiler/constraint_compiler";
 
 export function mapEvaluationResultToViewModel(
-  result: EvaluationResult
+  result: EvaluationResult,
+  compiledConstraints?: CompiledConstraint[]
 ): EvaluationResultViewModel {
+  const unresolved = compiledConstraints
+    ? unresolvedConstraintCount(compiledConstraints)
+    : null;
+
+  const globalDecisive =
+    compiledConstraints && result.decisiveVariable === "constraint interpretation"
+      ? resolveDisplayDecisiveVariable(compiledConstraints, result.decisiveVariable)
+      : result.decisiveVariable;
+
+  const notes = [...(result.notes ?? [])];
+  if (unresolved !== null && unresolved === 0 && compiledConstraints!.length > 0) {
+    notes.push("All constraints evaluated deterministically. No interpretation fallback used.");
+  } else if (unresolved !== null && unresolved > 0) {
+    notes.push(
+      `${unresolved} constraint${unresolved > 1 ? "s" : ""} could not be classified deterministically and require manual review.`
+    );
+  }
+
   return {
     overallStatus: result.overallStatus,
     overallStatusLabel: result.overallStatus,
     overallToneClassName: toToneClassName(result.overallStatus),
     lawfulSetLabel:
       result.lawfulSet.length > 0 ? result.lawfulSet.join(", ") : "None",
-    decisiveVariable: cleanPhrase(result.decisiveVariable),
+    decisiveVariable: cleanPhrase(globalDecisive),
     bestCandidateId: result.bestCandidateId ?? undefined,
     strongestMarginScore:
       result.strongestMarginScore !== undefined
@@ -43,21 +67,29 @@ export function mapEvaluationResultToViewModel(
       result.weakestAdmissibleMarginScore !== undefined
         ? formatScore(result.weakestAdmissibleMarginScore)
         : undefined,
-    candidateCards: result.candidateEvaluations.map(mapCandidateEvaluation),
-    notes: result.notes ?? [],
+    candidateCards: result.candidateEvaluations.map((e) =>
+      mapCandidateEvaluation(e, compiledConstraints)
+    ),
+    notes,
   };
 }
 
 export function mapCandidateEvaluation(
-  evaluation: CandidateEvaluation
+  evaluation: CandidateEvaluation,
+  compiledConstraints?: CompiledConstraint[]
 ): CandidateEvaluationCardViewModel {
+  const decisiveVariable =
+    compiledConstraints && evaluation.decisiveVariable === "constraint interpretation"
+      ? resolveDisplayDecisiveVariable(compiledConstraints, evaluation.decisiveVariable)
+      : evaluation.decisiveVariable;
+
   return {
     id: evaluation.id,
     title: `Candidate ${evaluation.id}`,
     status: evaluation.status,
     statusLabel: evaluation.status,
     toneClassName: toToneClassName(evaluation.status),
-    decisiveVariable: cleanPhrase(evaluation.decisiveVariable),
+    decisiveVariable: cleanPhrase(decisiveVariable),
     marginScore: formatScore(evaluation.marginScore),
     marginLabel: evaluation.marginLabel as UiMarginLabel,
     reason: cleanPhrase(evaluation.reason) ?? "",

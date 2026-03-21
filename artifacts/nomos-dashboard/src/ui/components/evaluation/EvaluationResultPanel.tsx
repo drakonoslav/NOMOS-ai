@@ -2,15 +2,19 @@ import React from "react";
 import { EvaluationResult } from "../../evaluation/eval_types";
 import { mapEvaluationResultToViewModel } from "../../mappers/evaluation_mapper";
 import { CandidateEvaluationCard } from "./CandidateEvaluationCard";
+import { CompiledConstraint } from "../../../compiler/constraint_compiler";
 
 export interface EvaluationResultPanelProps {
   result?: EvaluationResult;
+  /** Optional compiled constraints — used to resolve decisive variables and
+   *  show the unresolved-constraint warning correctly. */
+  compiledConstraints?: CompiledConstraint[];
 }
 
-export function EvaluationResultPanel({ result }: EvaluationResultPanelProps) {
+export function EvaluationResultPanel({ result, compiledConstraints }: EvaluationResultPanelProps) {
   if (!result) return null;
 
-  const vm = mapEvaluationResultToViewModel(result);
+  const vm = mapEvaluationResultToViewModel(result, compiledConstraints);
 
   return (
     <div className="panel evaluation-result-panel">

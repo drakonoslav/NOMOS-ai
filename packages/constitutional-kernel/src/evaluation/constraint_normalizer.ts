@@ -11,6 +11,12 @@
  * - Does not evaluate candidates — only classifies what the constraint requires.
  * - Produces "UNKNOWN" for constraints that cannot be deterministically classified;
  *   those are forwarded to the LLM semantic evaluator.
+ *
+ * Nutrition domain additions (NUTRITION_*):
+ * - NUTRITION_STRUCTURAL_LOCK  — preserve protein placement, meal order, meal count, dispersal
+ * - NUTRITION_ALLOWED_ACTION   — only adjust gram amounts of already-present foods
+ * - NUTRITION_TARGET_TOLERANCE — minimize calorie delta or changeset (guidance, not prohibition)
+ * - NUTRITION_SOURCE_TRUTH     — declared macros override, estimated defaults, label priority
  */
 
 import { NormalizedConstraint } from "./eval_types.js";
@@ -37,6 +43,176 @@ export function normalizeConstraint(raw: string): NormalizedConstraint {
         minTotalSleepMinutes: parseMinSleepMinutes(text),
         maxWakeGapMinutes: parseMaxWakeGapMinutes(text),
       },
+    };
+  }
+
+  /* =========================================================
+     NUTRITION_STRUCTURAL_LOCK
+     — preserve protein placement, meal order, meal count, dispersal
+     ========================================================= */
+
+  if (
+    text.includes("protein placement") ||
+    text.includes("do not move protein") ||
+    text.includes("preserve protein placement") ||
+    (text.includes("protein") && text.includes("between meals"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_STRUCTURAL_LOCK",
+      key: "preserve_protein_placement",
+      decisiveVariable: "protein placement",
+    };
+  }
+
+  if (
+    text.includes("meal order") ||
+    text.includes("do not change meal order") ||
+    text.includes("preserve meal order") ||
+    text.includes("do not reorder meal")
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_STRUCTURAL_LOCK",
+      key: "preserve_meal_order",
+      decisiveVariable: "meal order",
+    };
+  }
+
+  if (
+    text.includes("do not remove meals") ||
+    text.includes("do not remove meal") ||
+    text.includes("preserve meal count") ||
+    text.includes("no meal removal") ||
+    (text.includes("remove") && text.includes("meal"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_STRUCTURAL_LOCK",
+      key: "preserve_meal_count",
+      decisiveVariable: "meal count",
+    };
+  }
+
+  if (
+    text.includes("dispersal") ||
+    text.includes("meal plan dispersal") ||
+    text.includes("botch") ||
+    (text.includes("timeblock") || text.includes("time block") || text.includes("time-block"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_STRUCTURAL_LOCK",
+      key: "preserve_meal_dispersal",
+      decisiveVariable: "meal dispersal",
+    };
+  }
+
+  /* =========================================================
+     NUTRITION_ALLOWED_ACTION
+     — only adjust gram amounts or unit counts of already-present foods
+     ========================================================= */
+
+  if (
+    text.includes("only adjust gram") ||
+    text.includes("already-present foods") ||
+    text.includes("already present foods") ||
+    text.includes("gram amounts of already") ||
+    text.includes("unit counts of already") ||
+    (text.includes("adjust") && text.includes("gram") && text.includes("present")) ||
+    (text.includes("only adjust") && text.includes("food"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_ALLOWED_ACTION",
+      key: "adjustment_scope",
+      decisiveVariable: "food adjustment scope",
+    };
+  }
+
+  /* =========================================================
+     NUTRITION_TARGET_TOLERANCE
+     — minimize calorie delta or total changeset
+     ========================================================= */
+
+  if (
+    text.includes("calorie") && (
+      text.includes("lockdown") ||
+      text.includes("lock down") ||
+      text.includes("tightly as possible") ||
+      text.includes("as tight") ||
+      text.includes("as close as possible")
+    )
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_TARGET_TOLERANCE",
+      key: "calorie_delta_minimize",
+      decisiveVariable: "calorie delta",
+    };
+  }
+
+  if (
+    (text.includes("prefer") || text.includes("minimize")) &&
+    (
+      text.includes("structure-preserving") ||
+      text.includes("minimal change") ||
+      text.includes("minimal structure") ||
+      text.includes("smallest change") ||
+      text.includes("fewest changes")
+    )
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_TARGET_TOLERANCE",
+      key: "minimize_change_magnitude",
+      decisiveVariable: "change magnitude",
+    };
+  }
+
+  /* =========================================================
+     NUTRITION_SOURCE_TRUTH
+     — declared macros as truth, estimated defaults, label priority
+     ========================================================= */
+
+  if (
+    (text.includes("declared") && text.includes("macro") && text.includes("truth")) ||
+    (text.includes("use declared") && text.includes("macro")) ||
+    (text.includes("macro values") && text.includes("truth")) ||
+    text.includes("declared macro values as truth")
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_SOURCE_TRUTH",
+      key: "declared_macros_override",
+      decisiveVariable: "macro source",
+    };
+  }
+
+  if (
+    text.includes("estimated default") ||
+    (text.includes("treat") && text.includes("estimated")) ||
+    (text.includes("as estimated") && text.includes("default"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_SOURCE_TRUTH",
+      key: "estimated_defaults_allowed",
+      decisiveVariable: "estimated defaults",
+    };
+  }
+
+  if (
+    text.includes("label truth") ||
+    text.includes("label priority") ||
+    (text.includes("label") && text.includes("override") && text.includes("food")) ||
+    (text.includes("labels") && text.includes("provided") && text.includes("override"))
+  ) {
+    return {
+      raw,
+      kind: "NUTRITION_SOURCE_TRUTH",
+      key: "label_priority",
+      decisiveVariable: "macro source conflict",
     };
   }
 
