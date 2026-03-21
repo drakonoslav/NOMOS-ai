@@ -71,23 +71,51 @@ packages/constitutional-kernel/
 
 ---
 
+## Workspace Structure
+
+This repository is a **pnpm workspace**. The NOMOS kernel lives at:
+
+```
+packages/constitutional-kernel/   ← nomos-core package (all kernel code lives here)
+```
+
+The root `package.json` is the **launcher/orchestrator**. It delegates to the kernel
+package via pnpm filters:
+
+```json
+"start": "pnpm --filter nomos-core run start",
+"check": "pnpm --filter nomos-core run check"
+```
+
+This means:
+- `npm run start` and `npm run check` are always run **from the repo root**
+- They transparently target `nomos-core` inside `packages/constitutional-kernel/`
+- All runtime dependencies (`openai`, `tsx`, `typescript`) live in the kernel's own `package.json`
+- The root workspace does not duplicate or manage kernel dependencies
+
+---
+
 ## Quick Start
 
 ```bash
-# From workspace root
+# Install all workspace dependencies (run once from the repo root)
 pnpm install
-pnpm --filter @nomos/core run start
-pnpm --filter @nomos/core run check
 
-# Or directly from the package directory
-pnpm start          # tsx src/main.ts
-pnpm check          # tsc --noEmit
-pnpm test           # tsc --noEmit && tsx src/main.ts (smoke test)
+# Run from the repo root — delegates to nomos-core via pnpm filter
+npm run start        # tsx src/main.ts inside packages/constitutional-kernel
+npm run check        # tsc --noEmit inside packages/constitutional-kernel
+
+# Or target the kernel directly with pnpm
+pnpm --filter nomos-core run start
+pnpm --filter nomos-core run check
+
+# Or run directly from the package directory
+cd packages/constitutional-kernel
+pnpm start           # tsx src/main.ts
+pnpm check           # tsc --noEmit
+pnpm test            # tsc --noEmit && tsx src/main.ts (smoke test)
+pnpm dev             # tsx watch src/main.ts
 ```
-
-> **Note:** This package uses pnpm `catalog:` dependency specifiers and must be run inside
-> the pnpm workspace. To extract as a standalone package, replace the `catalog:` specifiers
-> in `package.json` with concrete semver versions (`tsx@^4.x`, `@types/node@^22.x`).
 
 ---
 

@@ -48,7 +48,7 @@ export interface GenerateProposalJSONInput {
   operatorHints?: string[];
 }
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.4";
 
 let cachedClient: OpenAI | null = null;
 
