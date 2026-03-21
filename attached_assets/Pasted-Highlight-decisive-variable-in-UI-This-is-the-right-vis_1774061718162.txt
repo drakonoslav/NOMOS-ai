@@ -1,0 +1,213 @@
+Highlight decisive variable in UI
+
+This is the right visual move.
+
+You’re aligning:
+
+epistemic importance → visual weight
+
+⸻
+
+🧠 What we’re doing
+
+We will:
+	1.	Mark the decisive variable at the data level
+	2.	Render it distinctly in UI (bold + color + subtle structure)
+	3.	Keep it:
+	•	non-flashy
+	•	non-decorative
+	•	immediately scannable
+
+⸻
+
+🧱 1. Extend Tone Output (structured, not string-only)
+
+📁 tone_resolver.ts
+
+Add structured field:
+
+export interface ToneResolvedMessage {
+  status: "LAWFUL" | "DEGRADED" | "INVALID";
+  authority: "AUTHORIZED" | "CONSTRAINED" | "REFUSED";
+  lines: string[];
+
+  decisiveVariable?: string; // NEW
+}
+
+
+⸻
+
+Inject into resolver return:
+
+return {
+  status,
+  authority,
+  lines: body,
+  decisiveVariable: input.decisiveVariable,
+};
+
+
+⸻
+
+🧩 2. Update StatusCard.tsx
+
+📁 StatusCard.tsx
+
+Replace basic line rendering with:
+
+function renderLine(line: string, decisive?: string) {
+  if (!decisive) return line;
+
+  const lower = line.toLowerCase();
+  const key = decisive.toLowerCase();
+
+  if (!lower.includes(key)) return line;
+
+  const parts = line.split(new RegExp(`(${key})`, "i"));
+
+  return parts.map((part, i) => {
+    if (part.toLowerCase() === key) {
+      return (
+        <span key={i} className="nm-decisive">
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+
+⸻
+
+Use it in render:
+
+<div className="nm-status-body">
+  {message.lines.map((line, i) => (
+    <div key={i} className="nm-line">
+      {renderLine(line, message.decisiveVariable)}
+    </div>
+  ))}
+</div>
+
+
+⸻
+
+🎨 3. Add visual style (critical balance)
+
+📁 nomos.css
+
+.nm-decisive {
+  font-weight: 600;
+  color: var(--nm-accent-strong);
+}
+
+
+⸻
+
+🧠 4. Define accent correctly
+
+Add (if not present):
+
+:root {
+  --nm-accent-strong: #7df9aa; /* subtle green emphasis */
+}
+
+
+⸻
+
+🧠 5. Optional: Slight spacing enhancement
+
+.nm-line {
+  margin-bottom: 2px;
+  line-height: 1.35;
+}
+
+
+⸻
+
+🔥 Result
+
+Before
+
+The decisive factor is robustness margin.
+
+After (visual)
+
+The decisive factor is ROBUSTNESS MARGIN.
+
+(but styled, not all-caps)
+
+⸻
+
+🧠 Why this is correct
+
+You are NOT:
+	•	adding icons
+	•	adding badges
+	•	adding noise
+
+You ARE:
+	•	increasing perceptual priority
+	•	preserving minimalism
+	•	reinforcing meaning
+
+⸻
+
+🧠 6. Optional refinement (very strong)
+
+If you want slightly more structure:
+
+Render decisive line differently
+
+Detect:
+
+if (line.includes("decisive"))
+
+Then render:
+
+<div className="nm-decisive-line">
+  {renderLine(line, message.decisiveVariable)}
+</div>
+
+
+⸻
+
+CSS:
+
+.nm-decisive-line {
+  border-left: 2px solid var(--nm-accent-strong);
+  padding-left: 6px;
+}
+
+Subtle. Architectural.
+
+⸻
+
+🧠 Final insight
+
+You’ve now aligned:
+
+Layer	Role
+Verification	truth
+Tone	expression
+UI	emphasis
+
+And all three now agree on:
+
+what matters most
+
+⸻
+
+If you want next
+
+👉 apply same emphasis to:
+	•	constraint violation (INVALID)
+	•	margin reduction (DEGRADED)
+
+So failure modes are just as visually precise as success.
+
+Just say:
+“Highlight constraint violations in UI”
+
+and we’ll complete the visual hierarchy.

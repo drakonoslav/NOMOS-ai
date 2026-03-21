@@ -93,6 +93,10 @@ function resolveToneLevel(input: ToneResolverInput): ToneLevel {
 }
 
 function resolveToneMessage(input: ToneResolverInput): ToneMessage {
+  if (!input.decisiveVariable) {
+    input = { ...input, decisiveVariable: inferDecisiveVariable(input) };
+  }
+
   const tone = resolveToneLevel(input);
 
   switch (input.verificationStatus) {
@@ -123,6 +127,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
       summary: "Action authorized.",
       body: compactBody([
         "All constraints satisfied.",
+        decisiveVariableLine(input, "Outcome is governed by"),
         marginLine(input, true),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
@@ -140,8 +145,8 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
       summary: "Action authorized under current model assumptions.",
       body: compactBody([
         "Feasibility satisfied.",
-        marginLine(input, true),
         decisiveVariableLine(input, "Outcome is governed by"),
+        marginLine(input, true),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
       findings,
@@ -158,10 +163,10 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
       summary: "Action authorized with bounded uncertainty.",
       body: compactBody([
         "All constraints satisfied.",
+        decisiveVariableLine(input, "Outcome is governed by"),
         marginLine(input, true),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
         `Model confidence = ${fmt(input.modelConfidence)}.`,
-        decisiveVariableLine(input, "The decisive factor is"),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
       findings,
@@ -177,11 +182,11 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
     summary: "Action authorized, with legality established under the current declared state.",
     body: compactBody([
       "All constraints satisfied.",
+      decisiveVariableLine(input, "Outcome is governed by"),
       marginLine(input, true),
       `State tolerance εx = ${fmt(input.epsilonX)}.`,
       `Identifiability = ${input.identifiability}.`,
       `Model confidence = ${fmt(input.modelConfidence)}.`,
-      decisiveVariableLine(input, "Outcome is governed by"),
       admissible ? `Admissible candidates: ${admissible}.` : undefined,
     ]),
     findings,
@@ -203,6 +208,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       summary: "Constrained action applied.",
       body: compactBody([
         "Feasibility holds; margin reduced.",
+        decisiveVariableLine(input, "The decisive factor is"),
         degradedCauseLine(input),
         admissible ? `Admissible under constraint: ${admissible}.` : undefined,
       ]),
@@ -220,8 +226,8 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       summary: "Constrained action applied under reduced margin.",
       body: compactBody([
         "Feasibility holds.",
-        degradedCauseLine(input),
         decisiveVariableLine(input, "The decisive factor is"),
+        degradedCauseLine(input),
         admissible ? `Admissible under constraint: ${admissible}.` : undefined,
       ]),
       findings,
@@ -238,6 +244,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       summary: "Feasibility holds, but one or more operating margins are reduced.",
       body: compactBody([
         "Feasibility holds; robustness or model confidence is below preferred threshold.",
+        decisiveVariableLine(input, "The decisive factor is"),
         degradedCauseLine(input),
         marginLine(input, false),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
@@ -258,12 +265,12 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       "Reliable full-authority action is not supported by the current epistemic or robustness state.",
     body: compactBody([
       "Feasibility holds, but operation is constrained.",
+      decisiveVariableLine(input, "The decisive factor is"),
       degradedCauseLine(input),
       marginLine(input, false),
       `State tolerance εx = ${fmt(input.epsilonX)}.`,
       `Identifiability = ${input.identifiability}.`,
       `Model confidence = ${fmt(input.modelConfidence)}.`,
-      decisiveVariableLine(input, "The decisive factor is"),
       admissible ? `Admissible under constraint: ${admissible}.` : undefined,
     ]),
     findings,
@@ -286,6 +293,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       summary: "Action refused.",
       body: compactBody([
         invalidReason,
+        decisiveVariableLine(input, "Failure is governed by"),
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
       ]),
@@ -303,6 +311,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       summary: "No lawful action exists.",
       body: compactBody([
         invalidReason,
+        decisiveVariableLine(input, "Failure is governed by"),
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
       ]),
@@ -320,6 +329,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       summary: "The current state does not satisfy minimum legality conditions.",
       body: compactBody([
         invalidReason,
+        decisiveVariableLine(input, "Failure is governed by"),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
@@ -338,6 +348,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       "Action is refused because legality cannot be established under the current constraints, knowledge state, or model condition.",
     body: compactBody([
       invalidReason,
+      decisiveVariableLine(input, "Failure is governed by"),
       `State tolerance εx = ${fmt(input.epsilonX)}.`,
       `Identifiability = ${input.identifiability}.`,
       `Model confidence = ${fmt(input.modelConfidence)}.`,
@@ -412,12 +423,37 @@ function degradedCauseLine(input: ToneResolverInput): string | undefined {
   return "Operating margin reduced.";
 }
 
+/**
+ * Emit the decisive variable line with prefix-aware framing.
+ * Silently suppresses sentinel values ("none", "unknown").
+ */
 function decisiveVariableLine(
   input: ToneResolverInput,
-  prefix: "The decisive factor is" | "Outcome is governed by"
+  prefix: "The decisive factor is" | "Outcome is governed by" | "Failure is governed by"
 ): string | undefined {
   if (!input.decisiveVariable) return undefined;
-  return `${prefix} ${sanitizePhrase(input.decisiveVariable)}.`;
+
+  const clean = sanitizePhrase(input.decisiveVariable);
+
+  if (!clean || clean === "unknown" || clean === "none") {
+    return undefined;
+  }
+
+  return `${prefix} ${clean}.`;
+}
+
+/**
+ * Infer the decisive variable from the verification flags
+ * when none is explicitly provided by the runtime.
+ */
+function inferDecisiveVariable(input: ToneResolverInput): string {
+  if (input.feasibilityOk === false)    return "feasibility constraint";
+  if (input.robustnessOk === false)     return "robustness margin";
+  if (input.modelOk === false)          return "model confidence";
+  if (input.identifiabilityOk === false) return "identifiability";
+  if (input.observabilityOk === false)  return "observability";
+  if (input.adaptationOk === false)     return "adaptation integrity";
+  return "robustness margin";
 }
 
 function marginLine(
@@ -565,14 +601,19 @@ function reasonToFinding(reason: string): string {
 }
 
 function compactBody(lines: Array<string | undefined>): string[] {
-  return dedupe(
-    lines
-      .filter((line): line is string => Boolean(line))
-      .map((line) => {
-        const clean = sanitizePhrase(line);
-        return clean.endsWith(".") ? clean : `${clean}.`;
-      })
-  );
+  const seen = new Set<string>();
+
+  return lines
+    .filter((line): line is string => Boolean(line))
+    .map((line) => {
+      const clean = sanitizePhrase(line);
+      return clean.endsWith(".") ? clean : `${clean}.`;
+    })
+    .filter((line) => {
+      if (seen.has(line)) return false;
+      seen.add(line);
+      return true;
+    });
 }
 
 function dedupe(values: string[]): string[] {

@@ -1,0 +1,228 @@
+Add semantic compression layer
+
+This is the right move. Truncation limits size; compression improves signal density.
+
+You’ll make NOMOS do this:
+
+detect overlap → merge meaning → preserve hierarchy → output fewer, stronger lines
+
+⸻
+
+🧠 What this layer does
+
+Before:
+
+Feasibility holds.
+The decisive factor is robustness margin.
+Robustness margin reduced.
+
+After:
+
+Feasibility holds; robustness margin is reduced and decisive.
+
+No loss. Higher density.
+
+⸻
+
+🧱 1. Add compression stage
+
+📁 tone_resolver.ts
+
+Insert between raw generation and finalizeOutput:
+
+lines = semanticCompress(lines, status);
+
+
+⸻
+
+🧠 2. Core compression engine
+
+function semanticCompress(
+  lines: string[],
+  status: "LAWFUL" | "DEGRADED" | "INVALID"
+): string[] {
+  if (lines.length <= 1) return lines;
+
+  let result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const current = lines[i];
+    const next = lines[i + 1];
+
+    if (next && canMerge(current, next)) {
+      result.push(mergeLines(current, next));
+      i++; // skip next
+    } else {
+      result.push(current);
+    }
+  }
+
+  return result;
+}
+
+
+⸻
+
+🧠 3. Merge detection
+
+function canMerge(a: string, b: string): boolean {
+  const A = normalize(a);
+  const B = normalize(b);
+
+  // Same subject domain
+  if (shareKeyword(A, B, "robustness")) return true;
+  if (shareKeyword(A, B, "feasibility")) return true;
+  if (shareKeyword(A, B, "model")) return true;
+
+  // Decisive + condition pairing
+  if (A.includes("feasibility holds") && B.includes("decisive")) return true;
+
+  // Prediction pairing
+  if (A.includes("decisive") && B.includes("drift")) return true;
+
+  return false;
+}
+
+
+⸻
+
+🧠 4. Merge strategy (STRICT)
+
+function mergeLines(a: string, b: string): string {
+  const A = stripPeriod(a);
+  const B = stripPeriod(b);
+
+  // Special: feasibility + decisive
+  if (A.includes("Feasibility holds") && B.includes("decisive")) {
+    return `${A}; ${B.toLowerCase()}.`;
+  }
+
+  // Special: decisive + prediction
+  if (A.includes("decisive") && B.includes("Given current drift")) {
+    return `${A}; ${B.toLowerCase()}`;
+  }
+
+  // Default safe merge
+  return `${A}; ${lowerFirst(B)}.`;
+}
+
+
+⸻
+
+🧠 5. Helpers
+
+function normalize(s: string): string {
+  return s.toLowerCase();
+}
+
+function shareKeyword(a: string, b: string, k: string): boolean {
+  return a.includes(k) && b.includes(k);
+}
+
+function stripPeriod(s: string): string {
+  return s.replace(/\.$/, "");
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
+
+
+⸻
+
+🧠 6. Priority-safe compression
+
+We must never destroy structure.
+
+Add guard:
+
+if (status === "INVALID") {
+  // do not merge primary violation line
+  return lines;
+}
+
+
+⸻
+
+🧠 7. Apply before truncation
+
+Final pipeline:
+
+raw → sanitize → semanticCompress → enforceLineBudget → enforceWidth
+
+
+⸻
+
+🔥 Resulting outputs
+
+⸻
+
+DEGRADED (compressed)
+
+Before:
+
+Feasibility holds.
+The decisive factor is robustness margin.
+Given current drift, feasibility constraint is next.
+Constraint margin reduced.
+
+After:
+
+Feasibility holds; robustness margin is decisive.
+Given current drift, feasibility constraint is next.
+Constraint margin reduced.
+
+
+⸻
+
+LAWFUL (compressed)
+
+All constraints satisfied; robustness margin governs outcome.
+Robustness margin acceptable.
+
+
+⸻
+
+INVALID (unchanged, by design)
+
+Feasibility violation detected.
+Failure is governed by feasibility constraint.
+No admissible candidates remain.
+
+
+⸻
+
+🧠 Compression rules (important)
+
+✔ Merge only when meaning overlaps
+✔ Preserve causal chain
+✔ Never merge across different domains
+✔ Never remove decisive variable
+✔ Never alter refusal clarity
+
+⸻
+
+🧠 Final insight
+
+You now have:
+	•	structural limits (hard cap)
+	•	semantic optimization (soft intelligence)
+
+Together:
+
+NOMOS outputs are short because they are precise, not because they are cut.
+
+⸻
+
+If you want next
+
+👉 introduce hierarchical emphasis (bold decisive variable visually in UI)
+
+So the eye is drawn immediately to:
+
+what matters most
+
+Just say:
+“Highlight decisive variable in UI”
+
+and we’ll align visual hierarchy with epistemic hierarchy.

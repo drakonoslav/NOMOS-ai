@@ -1,0 +1,221 @@
+Good—this is exactly the moment to lock the system’s voice so it never degrades as features expand.
+
+You don’t need more features right now.
+You need constraints on expression.
+
+⸻
+
+🧠 What we’re doing now
+
+We will hard-bound NOMOS output so it:
+	•	never exceeds structural limits
+	•	never drifts into verbosity
+	•	never mixes layers (math / narration / philosophy)
+	•	always reads like a decision artifact, not a conversation
+
+⸻
+
+🔒 Core Rule
+
+Every NOMOS output must fit inside a fixed envelope
+
+⸻
+
+🧱 1. Define Output Contract
+
+📁 tone_resolver.ts
+
+Add this at the top:
+
+const MAX_LINES = {
+  LAWFUL: 3,
+  DEGRADED: 4,
+  INVALID: 3,
+};
+
+const MAX_CHARS_PER_LINE = 88;
+
+
+⸻
+
+🧠 2. Enforce Line Budget
+
+Replace your body builder with:
+
+function enforceLineBudget(
+  status: "LAWFUL" | "DEGRADED" | "INVALID",
+  lines: string[]
+): string[] {
+  const max = MAX_LINES[status];
+  return lines.slice(0, max);
+}
+
+
+⸻
+
+🧠 3. Enforce Character Width
+
+function enforceLineWidth(lines: string[]): string[] {
+  return lines.map((line) => {
+    if (line.length <= MAX_CHARS_PER_LINE) return line;
+
+    return line.slice(0, MAX_CHARS_PER_LINE - 3) + "...";
+  });
+}
+
+
+⸻
+
+🧠 4. Final Output Sanitizer (CRITICAL)
+
+function finalizeOutput(
+  status: "LAWFUL" | "DEGRADED" | "INVALID",
+  rawLines: string[]
+): string[] {
+  let lines = rawLines
+    .filter(Boolean)
+    .map((l) => sanitizePhrase(l));
+
+  lines = enforceLineBudget(status, lines);
+  lines = enforceLineWidth(lines);
+
+  return lines;
+}
+
+
+⸻
+
+🧠 5. Wire into resolver
+
+Replace all compactBody(...) calls with:
+
+Example (DEGRADED)
+
+const raw = [
+  "Feasibility holds.",
+  decisiveVariableLine(input, "The decisive factor is"),
+  predictionLine(input),
+  degradedCauseLine(input),
+  marginLine(input, false),
+];
+
+const body = finalizeOutput("DEGRADED", raw);
+
+
+⸻
+
+🧠 6. Priority Ordering (VERY IMPORTANT)
+
+Your lines must be ranked, because some will be dropped.
+
+Priority hierarchy:
+	1.	Primary condition
+	2.	Decisive variable
+	3.	Prediction (if valid)
+	4.	Constraint cause
+	5.	Margin detail
+
+⸻
+
+🧠 7. What this guarantees
+
+LAWFUL
+
+All constraints satisfied.
+Outcome is governed by robustness margin.
+Robustness margin acceptable.
+
+
+⸻
+
+DEGRADED
+
+Feasibility holds.
+The decisive factor is model confidence.
+Given current drift, robustness margin is next.
+Constraint margin reduced.
+
+
+⸻
+
+INVALID
+
+Feasibility violation detected.
+Failure is governed by feasibility constraint.
+No admissible candidates remain.
+
+
+⸻
+
+🧠 8. Add a HARD FAIL for violations
+
+If something tries to exceed structure:
+
+if (lines.length === 0) {
+  return ["Invalid output state."];
+}
+
+
+⸻
+
+🧠 9. Remove all narrative bleed
+
+Delete anything like:
+	•	“NOMOS can…”
+	•	“The system reflects…”
+	•	“This suggests…”
+	•	“It appears…”
+
+These are illegal under your architecture.
+
+⸻
+
+🧠 10. UI Alignment (quick tweak)
+
+Your UI should assume:
+	•	max 4 lines
+	•	no wrapping beyond 2 lines per entry
+	•	consistent vertical spacing
+
+⸻
+
+🔥 What just happened
+
+You’ve now enforced:
+
+output determinism
+
+No matter how complex your backend becomes:
+	•	output stays sharp
+	•	output stays consistent
+	•	output stays readable
+
+⸻
+
+🧠 Final insight
+
+Most systems fail here.
+
+They build:
+	•	complex reasoning
+	•	powerful models
+
+…and then destroy it with:
+	•	uncontrolled language
+
+You just prevented that permanently.
+
+⸻
+
+If you want next
+
+The next serious upgrade is:
+
+👉 enforce semantic compression (merge redundant lines intelligently)
+
+So NOMOS doesn’t just truncate—it optimizes expression
+
+Just say:
+“Add semantic compression layer”
+
+And we’ll make the output not just short, but perfectly dense.

@@ -1146,3 +1146,112 @@ textarea {
   font-size: var(--nm-text-sm);
   line-height: var(--nm-line-normal);
 }
+
+/* =========================================================
+   DecisiveTrendPanel
+   ========================================================= */
+
+.trend-panel {
+  max-height: 440px;
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-status-line {
+  display: flex;
+  align-items: center;
+  gap: var(--nm-space-2);
+  margin-bottom: var(--nm-space-3);
+  flex-wrap: wrap;
+}
+
+.trend-stable-label {
+  font-size: var(--nm-text-sm);
+  font-weight: 700;
+  color: var(--nm-lawful);
+}
+
+.trend-drift-label {
+  font-size: var(--nm-text-sm);
+  font-weight: 700;
+  color: var(--nm-degraded);
+}
+
+.trend-drift-degrading {
+  color: var(--nm-invalid);
+}
+
+.trend-drift-improving {
+  color: var(--nm-lawful);
+}
+
+.trend-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid var(--nm-border);
+  border-radius: var(--nm-radius-xs);
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+  background: var(--nm-surface-3);
+  font-family: var(--nm-font-mono);
+}
+
+.trend-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.trend-item {
+  display: grid;
+  grid-template-columns: 80px 1fr 90px;
+  gap: var(--nm-space-2);
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--nm-border);
+  border-radius: var(--nm-radius-xs);
+  background: var(--nm-surface-2);
+}
+
+.trend-time {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+}
+
+.trend-variable {
+  font-size: var(--nm-text-sm);
+  font-weight: 600;
+  color: var(--nm-text-primary);
+}
+
+.trend-status-pill {
+  text-align: center;
+  font-size: var(--nm-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--nm-radius-xs);
+}
+
+.trend-status-lawful {
+  color: #dff4ea;
+  background: color-mix(in srgb, var(--nm-lawful) 22%, transparent);
+  border: 1px solid var(--nm-lawful);
+}
+
+.trend-status-degraded {
+  color: #f5e7d0;
+  background: color-mix(in srgb, var(--nm-degraded) 22%, transparent);
+  border: 1px solid var(--nm-degraded);
+}
+
+.trend-status-invalid {
+  color: #f0d6d6;
+  background: color-mix(in srgb, var(--nm-invalid) 24%, transparent);
+  border: 1px solid var(--nm-invalid);
+}

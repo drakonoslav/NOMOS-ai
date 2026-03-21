@@ -92,6 +92,14 @@ export async function runNomosEvaluation(
 
   audit.record("evaluation_complete", evaluationPayload);
 
+  audit.record("run_summary", {
+    status: verificationStatus,
+    decisiveVariable: toneInput.decisiveVariable,
+    modelConfidence: toneInput.modelConfidence,
+    robustness: toneInput.robustnessEpsilon,
+    feasibility: toneInput.feasibilityOk,
+  });
+
   return {
     scenario: mapScenarioKey(verificationStatus),
     label: `Live Evaluation (${verificationStatus})`,
