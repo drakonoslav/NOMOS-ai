@@ -1,0 +1,103 @@
+Update the nutrition field extraction and template system to explicitly support a required field:
+
+meal_system_or_phase_plan
+
+Problem:
+The current system fails to recognize structured meal plans even when clearly provided, because it relies on loose parsing of natural language and emoji formatting.
+
+Goal:
+Allow NOMOS to detect and parse a computable meal system deterministically.
+
+---
+
+REQUIREMENTS:
+
+1. Add explicit field definition in nutrition template:
+
+meal_system_or_phase_plan:
+- required: true
+- type: structured
+- description: fully declared phase-based or meal-based system with targets and food entries
+
+---
+
+2. Update field_extractor.ts:
+
+Add detection rules:
+
+A meal system is detected if ANY of the following are present:
+
+- "PHASE PLANS:" block
+- "BASE:", "CARB_UP:", etc followed by structured targets + meals
+- "target:" block with calories/protein/carbs/fat
+- "meals:" array-like structure
+- repeated "meal:" + "foods:" pattern
+
+If detected:
+→ populate extracted.meal_system_or_phase_plan = true
+
+---
+
+3. Add fallback parser:
+
+If user input contains:
+- numbered meals (1️⃣, 2️⃣, etc)
+- bullet foods (• Oats: 95g)
+
+Convert into structured format:
+
+{
+  mealNumber: number,
+  foods: [
+    { foodId: string, amount: number, unit: "g" | "unit" }
+  ]
+}
+
+---
+
+4. Update gap_detector.ts:
+
+Change rule:
+
+IF:
+- foods detected
+- AND macro targets detected
+- AND repeated meal structure detected
+
+THEN:
+→ DO NOT mark meal_system_or_phase_plan as missing
+
+---
+
+5. Add debug output:
+
+In compiled draft, include:
+
+DETECTED_STRUCTURE:
+- phases_detected: true/false
+- meals_detected: true/false
+- targets_detected: true/false
+
+---
+
+6. Add strict-mode override:
+
+If prompt contains:
+
+"PHASE PLANS:"
+
+Then:
+→ bypass heuristic detection
+→ parse deterministically as structured input
+
+---
+
+SUCCESS CONDITION:
+
+Given the current user prompt, NOMOS should:
+- detect all 8 phases
+- detect all meal blocks
+- detect all targets
+- mark isEvaluable = true
+
+WITHOUT requiring user to rewrite the entire prompt into JSON-like format

@@ -1,5 +1,5 @@
 import { DomainTemplate, IntentType } from "./domain_templates";
-import { ExtractedFields } from "./field_extractor";
+import { ExtractedFields, detectRepeatedMealStructure } from "./field_extractor";
 
 export interface MissingField {
   key: string;
@@ -106,7 +106,10 @@ export function detectGaps(
 function isFieldSatisfied(field: string, extracted: ExtractedFields): boolean {
   switch (field) {
     case "meal_system_or_phase_plan":
-      return extracted.hasMealSystem;
+      return (
+        extracted.hasMealSystem ||
+        satisfiedByCompoundMealSignal(extracted)
+      );
 
     case "target_macros_or_goal":
       return extracted.hasTargets || extracted.hasObjective;
@@ -393,6 +396,25 @@ function containsDeadlineRule(extracted: ExtractedFields): boolean {
     text.includes("appointment") ||
     text.includes("fixed time")
   );
+}
+
+/**
+ * satisfiedByCompoundMealSignal — secondary satisfaction rule for
+ * meal_system_or_phase_plan. Activates when the raw input contains foods,
+ * macro targets, AND a repeated meal structure, even if detectMealSystem
+ * returned false on the first pass.
+ *
+ * This prevents the common case where a clearly declared meal plan fails
+ * detection only because it doesn't match a specific emoji or phase-name
+ * pattern, while still carrying all the information needed for audit.
+ */
+function satisfiedByCompoundMealSignal(extracted: ExtractedFields): boolean {
+  const hasFoods = extracted.detectedFoods.length >= 2;
+  const hasTargets = extracted.hasTargets;
+  const hasMealStructure =
+    extracted.detectedStructure.mealsDetected ||
+    detectRepeatedMealStructure(extracted.rawInput);
+  return hasFoods && hasTargets && hasMealStructure;
 }
 
 function uniqueStrings(values: string[]): string[] {

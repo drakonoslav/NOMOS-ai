@@ -73,6 +73,8 @@ export function buildStructuredDraft(
   const candidates = buildCandidates(template, extracted);
   const objective = buildObjective(template, extracted);
 
+  const detectedStructureNotes = buildDetectedStructureNotes(extracted);
+
   return {
     intent: template.intent,
     title: template.title,
@@ -86,7 +88,7 @@ export function buildStructuredDraft(
     missingRequiredFields: gaps.missingRequiredFields.map((f) => f.key),
     missingOptionalFields: gaps.missingOptionalFields.map((f) => f.key),
     warnings: gaps.warnings,
-    notes: gaps.notes,
+    notes: dedupe([...gaps.notes, ...detectedStructureNotes]),
 
     isEvaluable: gaps.isEvaluable,
   };
@@ -325,4 +327,22 @@ function dedupeCandidates(values: CompiledCandidate[]): CompiledCandidate[] {
   }
 
   return out;
+}
+
+/**
+ * buildDetectedStructureNotes — produces debug output lines that appear
+ * in the compiled draft's notes section. Reports what structural signals
+ * were detected by the extractor, allowing reviewers to verify detection
+ * without running the code.
+ *
+ * Format:
+ *   DETECTED_STRUCTURE: phases_detected: true | meals_detected: true | targets_detected: false
+ */
+function buildDetectedStructureNotes(extracted: ExtractedFields): string[] {
+  const { phasesDetected, mealsDetected, targetsDetected } =
+    extracted.detectedStructure;
+
+  return [
+    `DETECTED_STRUCTURE: phases_detected: ${phasesDetected} | meals_detected: ${mealsDetected} | targets_detected: ${targetsDetected}`,
+  ];
 }
