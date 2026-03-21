@@ -12,6 +12,7 @@ export type { RobustnessReport, RobustnessConfig, CandidatePlan as BaseCandidate
 export * from "./verification_kernel.js";
 
 export * from "./model_registry.js";
+export * from "./llm_proposer.js";
 export * from "./decision_engine.js";
 export * from "./constitution_guard.js";
 export * from "./audit_log.js";
