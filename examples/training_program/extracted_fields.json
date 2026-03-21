@@ -1,0 +1,51 @@
+{
+  "_note": "Output of field_extractor.ts for this raw input and TRAINING_AUDIT intent.",
+  "intent": "TRAINING_AUDIT",
+  "rawInput": "I'm following a 4-day training split for strength...",
+
+  "hasMealSystem": true,
+  "_mealSystemNote": "hasMealSystem maps to program structure in TRAINING_AUDIT domain.",
+  "mealSystemText": "4-day split: Day A Push (Bench/OHP/Incline/Tricep), Day B Pull (Row/Pull-up/Facepull/Curl), Day C Legs (Squat/RDL/LegPress/Nordic), Day D Full Body (Deadlift/WPU/DBPress/Core). Mon/Tue/Thu/Sat.",
+
+  "hasTargets": false,
+  "targets": [],
+  "_targetsNote": "No numeric training volume or load targets extracted. Progression logic mentioned but not in numeric target form.",
+
+  "hasLabels": false,
+  "labelsMentioned": [],
+
+  "hasConstraints": false,
+  "constraints": [],
+  "_constraintsNote": "No hard limits declared. User mentioned rest days and linear progression but no maximum fatigue, fixed day rules, or recovery minimums stated as constraints.",
+
+  "hasCandidates": false,
+  "candidates": [],
+
+  "hasObjective": true,
+  "objective": "structurally coherent program with sustainable linear progression, +2.5kg per main lift every 2 weeks",
+
+  "hasState": true,
+  "stateLines": [
+    "4-day strength split: Push / Pull / Legs / Full Body",
+    "Training days: Mon, Tue, Thu, Sat",
+    "Rest days: Wed, Fri, Sun",
+    "Goal: +2.5kg to main lifts every 2 weeks via linear progression"
+  ],
+
+  "hasUncertainties": true,
+  "uncertainties": [
+    "Recovery capacity not declared",
+    "No fatigue thresholds or HRV data provided",
+    "Progression failure condition not defined"
+  ],
+
+  "detectedFoods": [],
+  "detectedPhases": [],
+
+  "notes": [
+    "Training program detected from day-labelled exercise blocks.",
+    "Primary goal inferred from stated objective.",
+    "Hard constraints not found — field 'hard_constraints' will be flagged missing.",
+    "Consecutive training days (Mon/Tue) noted as a potential recovery consideration."
+  ]
+}

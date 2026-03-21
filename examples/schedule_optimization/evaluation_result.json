@@ -1,0 +1,64 @@
+{
+  "_note": "Mock evaluation result. Input was the canonical_declaration.txt above. Evaluated against all four constitutional laws.",
+
+  "overallStatus": "LAWFUL",
+
+  "lawfulSet": ["A", "B", "C"],
+
+  "bestCandidateId": "B",
+
+  "decisiveVariable": "evening_block_timing_drift",
+
+  "strongestMarginScore": 0.93,
+  "weakestAdmissibleMarginScore": 0.67,
+
+  "candidateEvaluations": [
+    {
+      "id": "A",
+      "status": "LAWFUL",
+      "reason": "Audit-only action is fully admissible. Feasibility law satisfied: the planned schedule is internally coherent from 5am to 10pm — total declared blocks sum to exactly 17 hours. Observability law satisfied: the deviation (11pm actual vs 10pm target) is explicitly declared. Constraint satisfaction law satisfied: audit action proposes no changes that could violate anchor blocks. Robustness law satisfied: high margin — audit introduces zero corrective risk.",
+      "decisiveVariable": "planned_vs_actual_coherence",
+      "adjustments": [],
+      "confidence": "high",
+      "marginScore": 0.93,
+      "marginLabel": "HIGH"
+    },
+    {
+      "id": "B",
+      "status": "LAWFUL",
+      "reason": "Audit-plus-minimal-correction is admissible. Feasibility law satisfied: the 60-minute slip can be recovered by compressing the reading/admin block (no declared commitment) from 60m to 0m, moving bedtime from 11pm to 10pm without touching any anchor block. Observability law satisfied: the fix is measurable and directly targets the declared deviation. Constraint satisfaction law satisfied: wake time, work hours, gym block, and sleep minimum are all preserved. Robustness law satisfied: compression of an uncommitted block is the smallest possible change.",
+      "decisiveVariable": "reading_block_compressibility",
+      "adjustments": [
+        "Compress or eliminate the 9pm reading/admin block (60m, no declared commitment).",
+        "Bedtime advances from 11pm to 10pm — sleep minimum of 7h is preserved (10pm to 5am).",
+        "All anchor blocks remain untouched: wake 5am, work 8am-5pm, gym 6pm-7:30pm."
+      ],
+      "confidence": "high",
+      "marginScore": 0.79,
+      "marginLabel": "MODERATE"
+    },
+    {
+      "id": "C",
+      "status": "LAWFUL",
+      "reason": "Rule derivation is admissible for this case because the deviation pattern is clearly declared and consistent. Feasibility law satisfied. Observability law satisfied: the deviation source (dinner/wind-down expansion into reading block) is described as a recurring pattern. Robustness law satisfied: the derived rule is grounded in declared behavior, not inferred from missing data. Derived rule: evening blocks after 7:30pm must be treated as compressible by default — do not schedule committed tasks after 8:30pm.",
+      "decisiveVariable": "evening_block_compression_rule",
+      "adjustments": [
+        "Derived rule: all post-7:30pm blocks are soft by default unless explicitly declared as committed.",
+        "Apply this rule: reading/admin after 9pm is compressible in all future schedule revisions.",
+        "Anchor all committed evening activity before 8:30pm to prevent cascading delay."
+      ],
+      "confidence": "moderate",
+      "marginScore": 0.67,
+      "marginLabel": "MODERATE"
+    }
+  ],
+
+  "notes": [
+    "All three candidates are LAWFUL — schedule problem is well-specified and deterministic.",
+    "Best candidate is B: eliminates the 60-minute slip by compressing the reading block, which has no declared commitment.",
+    "Candidate C produces a reusable rule (post-7:30pm blocks are soft) that would apply to future schedule versions.",
+    "Sleep minimum (7h, 10pm–5am) is satisfied under Candidate B correction.",
+    "The dinner/wind-down overrun is the root cause but is not directly compressible without touching an anchor block — the reading block absorbs the drift instead.",
+    "Evaluation ran against the confirmed canonical declaration, not raw input."
+  ]
+}

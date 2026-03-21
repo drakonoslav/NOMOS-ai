@@ -1,0 +1,9 @@
+{
+  "_note": "No patch was required for this example. All three required fields were detected from the raw input. This file is present to satisfy the pipeline trace convention but records a null patch operation.",
+
+  "_patch": null,
+  "_patchReason": "gap_detection.isEvaluable was already true after compilation. The FieldPatchPanel was rendered but no required fields were missing. The Evaluate button was enabled immediately after draft confirmation.",
+
+  "_referenceFile": "structured_draft.json",
+  "_instruction": "Use structured_draft.json as the effective draft for this example. It is already EVALUABLE and was confirmed as-is before evaluation."
+}

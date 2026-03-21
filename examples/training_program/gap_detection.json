@@ -1,0 +1,48 @@
+{
+  "_note": "Output of gap_detector.ts comparing ExtractedFields against TRAINING_AUDIT template.",
+  "_template": "TRAINING_AUDIT",
+  "_requiredFields": [
+    "training_program",
+    "primary_goal",
+    "hard_constraints"
+  ],
+  "_optionalFields": [
+    "recovery_data",
+    "progression_logic",
+    "locked_exercises_or_days",
+    "fatigue_thresholds"
+  ],
+
+  "missingRequiredFields": [
+    "hard_constraints"
+  ],
+
+  "missingOptionalFields": [
+    "recovery_data",
+    "fatigue_thresholds"
+  ],
+
+  "warnings": [
+    "Consecutive training days (Mon/Tue) detected. Without a declared recovery minimum, admissibility of this pairing cannot be evaluated.",
+    "Progression failure condition not declared — evaluation cannot determine when progression should be deloaded or paused."
+  ],
+
+  "notes": [
+    "Training program detected: 4-day Push/Pull/Legs/Full-body split.",
+    "Primary goal detected: strength with +2.5kg/2wk linear progression.",
+    "Hard constraints not declared — no maximum fatigue, fixed day rules, or recovery minimums found.",
+    "Progression logic detected as linear but not formally declared — treated as present."
+  ],
+
+  "isEvaluable": false,
+
+  "_fieldStatus": {
+    "training_program": "PRESENT — 4-day structure with explicit exercise selection and frequency detected",
+    "primary_goal": "PRESENT — strength, linear progression, +2.5kg per 2 weeks",
+    "hard_constraints": "MISSING — no hard limits on fatigue, recovery, or maximum weekly volume declared",
+    "recovery_data": "MISSING (optional) — no sleep, HRV, or soreness data provided",
+    "progression_logic": "INFERRED — linear progression detected from raw input, treated as present",
+    "locked_exercises_or_days": "INFERRED — Mon/Tue/Thu/Sat declared; treated as fixed",
+    "fatigue_thresholds": "MISSING (optional) — no maximum tolerable soreness or workload limits declared"
+  }
+}

@@ -1,0 +1,12 @@
+I'm following a 4-day training split for strength. The structure is:
+
+Day A — Push: Bench press 5x5, Overhead press 4x6, Incline dumbbell press 3x8, Tricep pushdown 3x10
+Day B — Pull: Barbell row 5x5, Pull-ups 4x6, Face pulls 3x12, Barbell curl 3x10
+Day C — Legs: Squat 5x5, Romanian deadlift 4x8, Leg press 3x10, Nordic curl 3x8
+Day D — Full body: Deadlift 3x3, Weighted pull-up 3x5, Dumbbell press 3x8, Core circuit
+
+Training days are Monday, Tuesday, Thursday, Saturday. Wednesday, Friday, and Sunday are rest.
+
+My goal is to add 2.5kg to my main lifts every 2 weeks, using linear progression.
+
+I want to know if this program is structurally coherent and whether the progression logic is sustainable.

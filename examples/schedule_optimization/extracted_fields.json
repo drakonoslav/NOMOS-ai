@@ -1,0 +1,53 @@
+{
+  "_note": "Output of field_extractor.ts for this raw input and SCHEDULE_AUDIT intent.",
+  "intent": "SCHEDULE_AUDIT",
+  "rawInput": "Here is my typical weekday: 5:00am — Wake up...",
+
+  "hasMealSystem": true,
+  "_mealSystemNote": "hasMealSystem maps to schedule/plan structure in SCHEDULE_AUDIT domain.",
+  "mealSystemText": "5am wake; 5:30am deep work (90m); 7am breakfast/commute (60m); 8am-5pm work (9h); 5pm commute home (45m); 5:45pm transition (15m); 6pm gym (90m); 7:30pm dinner/wind-down (90m); 9pm reading/admin (60m); 10pm bedtime target",
+
+  "hasTargets": false,
+  "targets": [],
+
+  "hasLabels": false,
+  "labelsMentioned": [],
+
+  "hasConstraints": true,
+  "constraints": [
+    "sleep non-negotiable, minimum 7 hours",
+    "work 8am-5pm fixed",
+    "wake time 5am fixed",
+    "bedtime target 10pm"
+  ],
+
+  "hasCandidates": false,
+  "candidates": [],
+
+  "hasObjective": true,
+  "objective": "smallest fix to get bedtime back to 10pm consistently",
+
+  "hasState": true,
+  "stateLines": [
+    "Weekday schedule declared with hourly time blocks from 5am to 10pm",
+    "Actual bedtime is slipping to 11pm due to dinner/wind-down overrun",
+    "Sleep minimum of 7 hours declared as non-negotiable"
+  ],
+
+  "hasUncertainties": true,
+  "uncertainties": [
+    "Dinner overrun is described as typical — exact duration variance not declared",
+    "Reading block duration not tied to any commitment"
+  ],
+
+  "detectedFoods": [],
+  "detectedPhases": [],
+
+  "notes": [
+    "Full time-block schedule detected from 5am to 10pm.",
+    "Sleep constraint explicit: minimum 7 hours, non-negotiable.",
+    "Anchor blocks detected: wake 5am, work 8am-5pm, gym 6pm-7:30pm, bedtime 10pm target.",
+    "Objective detected: restore bedtime to 10pm with the smallest structural change.",
+    "All three required fields appear present — no patch required."
+  ]
+}

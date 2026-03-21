@@ -1,0 +1,46 @@
+{
+  "_note": "Output of gap_detector.ts comparing ExtractedFields against SCHEDULE_AUDIT template.",
+  "_template": "SCHEDULE_AUDIT",
+  "_requiredFields": [
+    "planned_schedule",
+    "anchor_constraints",
+    "objective_or_success_condition"
+  ],
+  "_optionalFields": [
+    "actual_schedule",
+    "minimum_sleep_rule",
+    "buffer_rules",
+    "fixed_deadlines"
+  ],
+
+  "missingRequiredFields": [],
+
+  "missingOptionalFields": [
+    "buffer_rules",
+    "fixed_deadlines"
+  ],
+
+  "warnings": [
+    "Actual durations for dinner and wind-down differ from planned — variance is qualitatively described but not quantified.",
+    "Reading/admin block has no declared commitment — it is the most compressible block in the schedule."
+  ],
+
+  "notes": [
+    "Full planned schedule detected: 5am to 10pm, 17 hours of declared blocks.",
+    "Anchor constraints detected: 7h sleep minimum, 5am wake, 8am-5pm work, 6pm gym.",
+    "Objective detected: restore bedtime to 10pm via smallest change.",
+    "All required fields present — draft is evaluable immediately. No patch required."
+  ],
+
+  "isEvaluable": true,
+
+  "_fieldStatus": {
+    "planned_schedule": "PRESENT — full time-block schedule from 5am to 10pm detected",
+    "anchor_constraints": "PRESENT — sleep minimum 7h, wake 5am, work 8am-5pm, gym 6pm declared as fixed",
+    "objective_or_success_condition": "PRESENT — smallest fix to restore 10pm bedtime",
+    "actual_schedule": "PARTIALLY PRESENT — deviation (11pm bed) described qualitatively",
+    "minimum_sleep_rule": "PRESENT — 7 hours declared explicitly as non-negotiable",
+    "buffer_rules": "MISSING (optional) — no transition or commute buffer rules declared beyond stated durations",
+    "fixed_deadlines": "MISSING (optional) — no hard external deadlines declared"
+  }
+}

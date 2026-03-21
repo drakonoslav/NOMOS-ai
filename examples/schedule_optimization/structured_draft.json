@@ -1,0 +1,79 @@
+{
+  "_note": "Output of auto_compiler.ts. Draft is EVALUABLE immediately — all required fields present. No patch step required.",
+
+  "intent": "SCHEDULE_AUDIT",
+  "title": "Schedule Audit",
+
+  "state": [
+    "User is requesting an audit or correction of a schedule system.",
+    "Planned blocks declared: 5am wake, 5:30am deep work (90m), 7am breakfast/commute (60m), 8am-5pm work, 5pm commute home (45m), 5:45pm transition (15m), 6pm gym (90m), 7:30pm dinner/wind-down (90m), 9pm reading/admin (60m), 10pm bedtime.",
+    "Actual bedtime is slipping to 11pm — dinner/wind-down overruns by approximately 60 minutes.",
+    "Sleep minimum of 7 hours declared as non-negotiable.",
+    "The system may include planned versus actual timing and deviation handling.",
+    "Feasibility depends on declared time blocks and hard limits."
+  ],
+
+  "constraints": [
+    "Preserve declared anchor blocks unless explicitly allowed otherwise.",
+    "Do not fabricate time that has not been declared.",
+    "Respect sleep minimums, work-hour requirements, and fixed appointments where provided.",
+    "Do not infer feasibility from missing durations.",
+    "If correction is requested, prefer the smallest structure-preserving adjustment.",
+    "sleep non-negotiable, minimum 7 hours",
+    "work 8am-5pm fixed",
+    "wake time 5am fixed",
+    "bedtime target 10pm"
+  ],
+
+  "uncertainties": [
+    "Planned schedule may not yet be attached.",
+    "Actual durations may be missing.",
+    "Commute or task variability may be unresolved.",
+    "Sleep minimums or deadline constraints may not yet be declared.",
+    "Dinner overrun is described as typical — exact duration variance not declared.",
+    "Reading block duration not tied to any commitment."
+  ],
+
+  "candidates": [
+    {
+      "id": "A",
+      "text": "Audit only. Determine whether the declared schedule is feasible and internally coherent."
+    },
+    {
+      "id": "B",
+      "text": "Audit plus minimal correction. Preserve anchor blocks while correcting timing drift or infeasibility."
+    },
+    {
+      "id": "C",
+      "text": "Audit plus derive reusable rule. Identify recurring deviation sources and express them as a scheduling rule."
+    }
+  ],
+
+  "objective": [
+    "Determine whether the schedule system is feasible under the declared time constraints.",
+    "Identify conflicts, impossible packing, or unstable buffers.",
+    "If correction is requested, produce the smallest structure-preserving timing adjustment pattern.",
+    "smallest fix to get bedtime back to 10pm consistently"
+  ],
+
+  "missingRequiredFields": [],
+
+  "missingOptionalFields": [
+    "buffer_rules",
+    "fixed_deadlines"
+  ],
+
+  "warnings": [
+    "Actual durations for dinner and wind-down differ from planned — variance is qualitatively described but not quantified.",
+    "Reading/admin block has no declared commitment — it is the most compressible block in the schedule."
+  ],
+
+  "notes": [
+    "Full planned schedule detected: 5am to 10pm, 17 hours of declared blocks.",
+    "Anchor constraints detected: 7h sleep minimum, 5am wake, 8am-5pm work, 6pm gym.",
+    "Objective detected: restore bedtime to 10pm via smallest change.",
+    "All required fields present — draft is evaluable immediately."
+  ],
+
+  "isEvaluable": true
+}

@@ -1,0 +1,47 @@
+{
+  "_note": "Output of gap_detector.ts comparing ExtractedFields against NUTRITION_AUDIT template.",
+  "_template": "NUTRITION_AUDIT",
+  "_requiredFields": [
+    "meal_system_or_phase_plan",
+    "target_macros_or_goal",
+    "food_source_truth_or_labels"
+  ],
+  "_optionalFields": [
+    "estimated_food_rules",
+    "fiber_handling_rule",
+    "correction_mode",
+    "locked_food_placements"
+  ],
+
+  "missingRequiredFields": [
+    "food_source_truth_or_labels"
+  ],
+
+  "missingOptionalFields": [
+    "estimated_food_rules",
+    "fiber_handling_rule"
+  ],
+
+  "warnings": [
+    "Food labels for whey, oat, flax, dextrin, and yogurt were not explicitly declared. Source truth for these foods is unverified."
+  ],
+
+  "notes": [
+    "Meal system detected: 5-meal structure with timed blocks.",
+    "Macro targets detected: 2695 / 174p / 331c / 54f.",
+    "Food source truth not declared. Field 'food_source_truth_or_labels' is required for this domain.",
+    "Banana and egg values are estimated — uncertainty retained."
+  ],
+
+  "isEvaluable": false,
+
+  "_fieldStatus": {
+    "meal_system_or_phase_plan": "PRESENT — 5-meal timed structure detected",
+    "target_macros_or_goal": "PRESENT — 2695 / 174p / 331c / 54f detected",
+    "food_source_truth_or_labels": "MISSING — no explicit label declaration found",
+    "estimated_food_rules": "MISSING (optional) — banana and eggs noted as estimated but no formal rule declared",
+    "fiber_handling_rule": "MISSING (optional) — total vs net carb handling not specified",
+    "correction_mode": "INFERRED — 'minimal correction only' detected, treated as present",
+    "locked_food_placements": "INFERRED — 'don't move meals / don't change protein placement' detected, treated as present"
+  }
+}

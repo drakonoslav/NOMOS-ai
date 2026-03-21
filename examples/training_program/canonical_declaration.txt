@@ -1,0 +1,36 @@
+STATE:
+- User is requesting an audit or correction of a training system.
+- Program structure may already exist but must be declared explicitly.
+- 4-day strength split detected: Push / Pull / Legs / Full Body.
+- Training days: Monday, Tuesday, Thursday, Saturday.
+- Goal: +2.5kg to main lifts every 2 weeks using linear progression.
+- Training days, exercise selection, volume, frequency, and progression logic may be relevant.
+- Recovery context such as sleep, soreness, HRV, or fatigue may affect admissibility.
+
+CONSTRAINTS:
+- Preserve declared training structure unless explicitly allowed otherwise.
+- Do not remove training days unless explicitly allowed.
+- Do not change exercise placement unless explicitly allowed.
+- Respect declared recovery limits and progression constraints.
+- Do not infer readiness or overload from missing data.
+- If correction is requested, prefer the smallest structure-preserving change.
+- No more than 2 consecutive training days.
+- Minimum 1 rest day between Tuesday and Thursday (already satisfied by Wednesday rest).
+- Deload if any main lift fails to progress for 3 consecutive sessions.
+- No training if sleep was under 6 hours the prior night.
+
+UNCERTAINTIES:
+- Recovery data may be incomplete or missing.
+- No fatigue thresholds or HRV data provided.
+- Progression failure condition now declared — deload trigger is 3 consecutive failed sessions.
+
+CANDIDATES:
+A: Audit only. Determine whether the program is coherent and faithful to the declared constraints.
+B: Audit plus minimal correction. Preserve training structure while correcting overload, recovery mismatch, or progression drift.
+C: Audit plus derive reusable rule. Identify recurring structural weaknesses and express them as a repeatable training rule.
+
+OBJECTIVE:
+- Determine whether the training system is structurally coherent and compatible with the declared constraints.
+- Identify progression drift, recovery mismatch, or structural contradictions.
+- If correction is requested, produce the smallest change that restores admissibility.
+- structurally coherent program with sustainable linear progression, +2.5kg per main lift every 2 weeks

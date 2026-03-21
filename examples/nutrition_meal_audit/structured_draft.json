@@ -1,0 +1,78 @@
+{
+  "_note": "Output of auto_compiler.ts. Draft is INCOMPLETE — food_source_truth_or_labels is missing. Cannot evaluate yet.",
+
+  "intent": "NUTRITION_AUDIT",
+  "title": "Nutrition Audit",
+
+  "state": [
+    "User is requesting a nutrition system audit or correction.",
+    "A declared multi-meal or multi-phase nutrition system is present.",
+    "Target macro blocks were detected: 2695 / 174p / 331c / 54f.",
+    "Meal structure may already exist but must be declared explicitly.",
+    "The task is not freeform nutrition advice; it is verification and correction against declared targets."
+  ],
+
+  "constraints": [
+    "Preserve meal order unless explicitly allowed otherwise.",
+    "Preserve meal count unless explicitly allowed otherwise.",
+    "Preserve protein placement by meal unless explicitly allowed otherwise.",
+    "Use attached food labels as source truth where provided.",
+    "Do not infer food behavior that is not supported by declared labels or source data.",
+    "If correction is requested, prefer the smallest structure-preserving change.",
+    "don't move meals",
+    "don't change protein placement",
+    "minimal correction only"
+  ],
+
+  "uncertainties": [
+    "Meal plan may not yet be attached.",
+    "Food-label truth may not yet be attached.",
+    "Estimated foods may be present without explicit source labels.",
+    "Banana and egg values are estimated — no label provided.",
+    "Fiber handling versus net-carb handling may not yet be specified."
+  ],
+
+  "candidates": [
+    {
+      "id": "A",
+      "text": "Audit only. Determine whether the nutrition system is faithful to the declared food data."
+    },
+    {
+      "id": "B",
+      "text": "Audit plus minimal correction. Preserve meal structure and protein placement while correcting drift."
+    },
+    {
+      "id": "C",
+      "text": "Audit plus derive reusable system rule. Identify recurring drift and express it as a correction rule."
+    }
+  ],
+
+  "objective": [
+    "Determine whether the nutrition system is accurate against the declared source truth.",
+    "Identify macro drift, structural drift, or unsupported reasoning.",
+    "If correction is requested, produce the smallest structure-preserving adjustment pattern.",
+    "audit whether this system is actually hitting macro targets"
+  ],
+
+  "missingRequiredFields": [
+    "food_source_truth_or_labels"
+  ],
+
+  "missingOptionalFields": [
+    "estimated_food_rules",
+    "fiber_handling_rule"
+  ],
+
+  "warnings": [
+    "Food labels for whey, oat, flax, dextrin, and yogurt were not explicitly declared. Source truth for these foods is unverified."
+  ],
+
+  "notes": [
+    "Meal system detected: 5-meal structure with timed blocks.",
+    "Macro targets detected: 2695 / 174p / 331c / 54f.",
+    "Food source truth not declared. Field 'food_source_truth_or_labels' is required for this domain.",
+    "Banana and egg values are estimated — uncertainty retained."
+  ],
+
+  "isEvaluable": false
+}

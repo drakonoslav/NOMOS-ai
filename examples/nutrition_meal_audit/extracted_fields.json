@@ -1,0 +1,56 @@
+{
+  "_note": "Output of field_extractor.ts for this raw input and NUTRITION_AUDIT intent.",
+  "intent": "NUTRITION_AUDIT",
+  "rawInput": "I'm running a 5-meal daily system targeting 2695 calories, 174g protein, 331g carbs, and 54g fat...",
+
+  "hasMealSystem": true,
+  "mealSystemText": "5-meal daily system: Meal 1 (6:30am) Oats/Whey/Flax, Meal 2 (9:30am) Yogurt/Dextrin, Meal 3 (12:30pm) Chicken/Rice/Broccoli, Meal 4 (3:30pm) Whey/Banana/Oats, Meal 5 (7:00pm) Eggs/Oats/Flax",
+
+  "hasTargets": true,
+  "targets": [
+    {
+      "calories": 2695,
+      "protein": 174,
+      "carbs": 331,
+      "fat": 54,
+      "raw": "2695 calories, 174g protein, 331g carbs, and 54g fat"
+    }
+  ],
+
+  "hasLabels": false,
+  "labelsMentioned": [],
+  "_labelsNote": "Foods are mentioned but no explicit 'label attached' declaration was found. hasLabels=false.",
+
+  "hasConstraints": true,
+  "constraints": [
+    "don't move meals",
+    "don't change protein placement",
+    "minimal correction only"
+  ],
+
+  "hasCandidates": false,
+  "candidates": [],
+
+  "hasObjective": true,
+  "objective": "audit whether this system is actually hitting macro targets",
+
+  "hasState": true,
+  "stateLines": [
+    "5-meal daily system targeting 2695 / 174p / 331c / 54f"
+  ],
+
+  "hasUncertainties": true,
+  "uncertainties": [
+    "banana is estimated (~120g, no label)",
+    "eggs are estimated (no label, standard nutrition table used)"
+  ],
+
+  "detectedFoods": ["whey", "oat", "flax", "dextrin", "yogurt", "banana", "egg"],
+  "detectedPhases": [],
+
+  "notes": [
+    "Meal system detected from numbered meal blocks.",
+    "Macro targets extracted from explicit numeric declaration.",
+    "No food label attachment found — food_source_truth_or_labels will be flagged missing."
+  ]
+}

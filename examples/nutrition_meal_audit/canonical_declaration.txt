@@ -1,0 +1,36 @@
+STATE:
+- User is requesting a nutrition system audit or correction.
+- A declared multi-meal or multi-phase nutrition system is present.
+- Target macro blocks were detected: 2695 / 174p / 331c / 54f.
+- Meal structure may already exist but must be declared explicitly.
+- The task is not freeform nutrition advice; it is verification and correction against declared targets.
+- Food-label or source-truth references were detected.
+
+CONSTRAINTS:
+- Preserve meal order unless explicitly allowed otherwise.
+- Preserve meal count unless explicitly allowed otherwise.
+- Preserve protein placement by meal unless explicitly allowed otherwise.
+- Use attached food labels as source truth where provided.
+- Do not infer food behavior that is not supported by declared labels or source data.
+- If correction is requested, prefer the smallest structure-preserving change.
+- don't move meals
+- don't change protein placement
+- minimal correction only
+- Label truth overrides food assumptions where labels are provided.
+
+UNCERTAINTIES:
+- Meal plan may not yet be attached.
+- Estimated foods may be present without explicit source labels.
+- Fiber handling versus net-carb handling may not yet be specified.
+- Banana and egg values may remain estimated unless separately grounded.
+
+CANDIDATES:
+A: Audit only. Determine whether the nutrition system is faithful to the declared food data.
+B: Audit plus minimal correction. Preserve meal structure and protein placement while correcting drift.
+C: Audit plus derive reusable system rule. Identify recurring drift and express it as a correction rule.
+
+OBJECTIVE:
+- Determine whether the nutrition system is accurate against the declared source truth.
+- Identify macro drift, structural drift, or unsupported reasoning.
+- If correction is requested, produce the smallest structure-preserving adjustment pattern.
+- audit whether this system is actually hitting macro targets

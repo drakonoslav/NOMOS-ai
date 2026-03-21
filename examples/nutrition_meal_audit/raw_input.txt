@@ -1,0 +1,12 @@
+I'm running a 5-meal daily system targeting 2695 calories, 174g protein, 331g carbs, and 54g fat.
+
+Meal 1 (6:30am): Oats 100g, whey protein 37g, flaxseed 15g
+Meal 2 (9:30am): Greek yogurt 200g, waxy maize dextrin 40g
+Meal 3 (12:30pm): Chicken breast 180g, basmati rice 150g, broccoli 100g
+Meal 4 (3:30pm): Whey protein 37g, banana 1 medium (~120g), oats 50g
+Meal 5 (7:00pm): Whole eggs 3, oats 80g, flaxseed 10g
+
+I want to audit whether this system is actually hitting my macro targets. The chicken,
+rice, and broccoli are from standard nutrition tables. The banana and eggs are estimated.
+
+If there is drift, minimal correction only — don't move meals, don't change protein placement.

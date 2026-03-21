@@ -1,0 +1,59 @@
+{
+  "_note": "Mock evaluation result. Input was the canonical_declaration.txt above. Evaluated against all four constitutional laws.",
+
+  "overallStatus": "LAWFUL",
+
+  "lawfulSet": ["A", "B"],
+
+  "bestCandidateId": "A",
+
+  "decisiveVariable": "structural_coherence_under_hard_constraints",
+
+  "strongestMarginScore": 0.88,
+  "weakestAdmissibleMarginScore": 0.61,
+
+  "candidateEvaluations": [
+    {
+      "id": "A",
+      "status": "LAWFUL",
+      "reason": "Audit-only action is fully admissible. Feasibility law satisfied: 4-day structure is internally coherent and the Mon/Tue consecutive pair is within the declared 2-day maximum. Observability law satisfied: progression target and deload trigger are explicit. Constraint satisfaction law satisfied: no proposed change violates declared limits. Robustness law satisfied: audit action introduces no corrective risk.",
+      "decisiveVariable": "consecutive_day_admissibility",
+      "adjustments": [],
+      "confidence": "high",
+      "marginScore": 0.88,
+      "marginLabel": "HIGH"
+    },
+    {
+      "id": "B",
+      "status": "LAWFUL",
+      "reason": "Audit-plus-correction is admissible with moderate margin. Feasibility law satisfied: structure is correctable without violating hard constraints. Observability law satisfied: deload trigger and sleep floor are explicit and measurable. Constraint satisfaction law satisfied: any correction must preserve declared training days and exercise placement. Robustness law marginally satisfied: minimal correction adds low but non-zero overreach risk.",
+      "decisiveVariable": "correction_scope_under_structure_preservation",
+      "adjustments": [
+        "Flag Mon/Tue consecutive pair as a watch item — admissible but near boundary.",
+        "Confirm deload protocol in writing before first failed progression event.",
+        "Sleep-floor constraint (6h) should be tracked daily, not assumed."
+      ],
+      "confidence": "moderate",
+      "marginScore": 0.61,
+      "marginLabel": "MODERATE"
+    },
+    {
+      "id": "C",
+      "status": "DEGRADED",
+      "reason": "Rule derivation requires longitudinal evidence of recurring structural weakness. A single program snapshot is insufficient to establish a reliable pattern. Feasibility law satisfied. Observability law partially satisfied — declared structure is visible but rule generalization requires observed failure data. Robustness law failed — rule derived from single-cycle audit has low stability and risks over-specification.",
+      "decisiveVariable": "longitudinal_pattern_evidence",
+      "adjustments": [],
+      "confidence": "low",
+      "marginScore": 0.28,
+      "marginLabel": "LOW"
+    }
+  ],
+
+  "notes": [
+    "Candidates A and B are both LAWFUL. A is preferred for a first-pass audit — no correction action has been triggered by declared data.",
+    "Mon/Tue consecutive pair is within the declared 2-day hard constraint. Admissible but near the declared boundary.",
+    "Deload trigger (3 failed sessions) and sleep floor (6h) are now explicit — evaluation can track these in future cycles.",
+    "Candidate C is DEGRADED — rule derivation requires observed failure data not present in this submission.",
+    "Evaluation ran against the confirmed canonical declaration, not raw input."
+  ]
+}

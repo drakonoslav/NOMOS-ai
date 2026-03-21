@@ -1,0 +1,59 @@
+{
+  "_note": "Mock evaluation result. Input was the canonical_declaration.txt above. Evaluated against all four constitutional laws.",
+
+  "overallStatus": "LAWFUL",
+
+  "lawfulSet": ["A", "B"],
+
+  "bestCandidateId": "B",
+
+  "decisiveVariable": "macro_drift_under_label_truth",
+
+  "strongestMarginScore": 0.91,
+  "weakestAdmissibleMarginScore": 0.74,
+
+  "candidateEvaluations": [
+    {
+      "id": "A",
+      "status": "LAWFUL",
+      "reason": "Audit-only action satisfies all four constitutional laws. Feasibility confirmed: declared system is internally coherent. Observability confirmed: macro targets are explicit and label-grounded foods are declared. Constraint satisfaction confirmed: no structural changes required by audit-only action. Robustness confirmed: margin is stable — audit produces no corrective risk.",
+      "decisiveVariable": "audit_completeness",
+      "adjustments": [],
+      "confidence": "high",
+      "marginScore": 0.91,
+      "marginLabel": "HIGH"
+    },
+    {
+      "id": "B",
+      "status": "LAWFUL",
+      "reason": "Audit-plus-minimal-correction satisfies all four laws. Feasibility confirmed: declared system is correctable without violating structure. Observability confirmed: macro drift is identifiable from label data. Constraint satisfaction confirmed: protein placement and meal order preserved. Robustness confirmed: margin is acceptable — minimal correction does not introduce overreach.",
+      "decisiveVariable": "structure_preservation_margin",
+      "adjustments": [
+        "Correct macro drift using label-grounded whey, oat, flax, dextrin, yogurt values.",
+        "Leave banana and egg as estimated — flag as residual uncertainty.",
+        "Do not move any meal block or change protein placement."
+      ],
+      "confidence": "high",
+      "marginScore": 0.74,
+      "marginLabel": "MODERATE"
+    },
+    {
+      "id": "C",
+      "status": "DEGRADED",
+      "reason": "Deriving a reusable system rule requires more than one audit cycle of observations. A single snapshot is insufficient to establish a stable correction pattern. Feasibility law marginally satisfied. Observability law partially satisfied — single data point does not ground a rule. Robustness law failed — rule derivation from a single run has low generalization margin.",
+      "decisiveVariable": "rule_generalization_confidence",
+      "adjustments": [],
+      "confidence": "low",
+      "marginScore": 0.31,
+      "marginLabel": "LOW"
+    }
+  ],
+
+  "notes": [
+    "Candidates A and B are both LAWFUL. B is preferred for this task due to declared drift-correction intent.",
+    "Candidate C is DEGRADED — rule derivation requires longitudinal data not present in this submission.",
+    "Banana and egg macro values carry residual uncertainty and should be noted in any correction output.",
+    "Label truth (whey, oat, flax, dextrin, yogurt) governs all audit calculations for those foods.",
+    "Evaluation ran against the confirmed canonical declaration, not raw input."
+  ]
+}
