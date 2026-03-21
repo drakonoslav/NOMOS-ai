@@ -103,10 +103,10 @@ describe("NUTRITION_AUDIT template constraints — all deterministic", () => {
   it("compiles to the expected kinds", () => {
     const compiled = compileConstraints(NUTRITION_AUDIT_TEMPLATE_CONSTRAINTS);
     const kinds = compiled.map((c) => c.kind);
-    expect(kinds).toContain("STRUCTURAL_LOCK");
-    expect(kinds).toContain("SOURCE_TRUTH");
-    expect(kinds).toContain("TARGET_TOLERANCE");
-    expect(kinds).toContain("ALLOWED_ACTION");
+    expect(kinds).toContain("NUTRITION_STRUCTURAL_LOCK");
+    expect(kinds).toContain("NUTRITION_SOURCE_TRUTH");
+    expect(kinds).toContain("NUTRITION_TARGET_TOLERANCE");
+    expect(kinds).toContain("NUTRITION_ALLOWED_ACTION");
     expect(kinds).not.toContain("INTERPRETATION_REQUIRED");
   });
 
@@ -114,7 +114,7 @@ describe("NUTRITION_AUDIT template constraints — all deterministic", () => {
     const compiled = compileConstraints([
       "Preserve protein placement by meal unless explicitly allowed otherwise.",
     ]);
-    expect(compiled[0]!.kind).toBe("STRUCTURAL_LOCK");
+    expect(compiled[0]!.kind).toBe("NUTRITION_STRUCTURAL_LOCK");
     expect(compiled[0]!.key).toBe("preserve_protein_placement");
     expect(compiled[0]!.decisiveVariable).toBe("protein placement");
   });
@@ -123,7 +123,7 @@ describe("NUTRITION_AUDIT template constraints — all deterministic", () => {
     const compiled = compileConstraints([
       "Use attached food labels as source truth where provided.",
     ]);
-    expect(compiled[0]!.kind).toBe("SOURCE_TRUTH");
+    expect(compiled[0]!.kind).toBe("NUTRITION_SOURCE_TRUTH");
     expect(compiled[0]!.key).toBe("label_priority");
     expect(compiled[0]!.operator).not.toBeNull();
   });
@@ -132,7 +132,7 @@ describe("NUTRITION_AUDIT template constraints — all deterministic", () => {
     const compiled = compileConstraints([
       "Do not infer food behavior that is not supported by declared labels or source data.",
     ]);
-    expect(compiled[0]!.kind).toBe("ALLOWED_ACTION");
+    expect(compiled[0]!.kind).toBe("NUTRITION_ALLOWED_ACTION");
     expect(compiled[0]!.key).toBe("inference_scope");
     expect(compiled[0]!.decisiveVariable).toBe("disallowed food inference");
     expect(compiled[0]!.operator).not.toBeNull();
@@ -142,7 +142,7 @@ describe("NUTRITION_AUDIT template constraints — all deterministic", () => {
     const compiled = compileConstraints([
       "If correction is requested, prefer the smallest structure-preserving change.",
     ]);
-    expect(compiled[0]!.kind).toBe("TARGET_TOLERANCE");
+    expect(compiled[0]!.kind).toBe("NUTRITION_TARGET_TOLERANCE");
     expect(compiled[0]!.key).toBe("minimize_change_magnitude");
   });
 });

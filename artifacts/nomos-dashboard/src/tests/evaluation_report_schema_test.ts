@@ -152,7 +152,7 @@ describe("buildOverallEvaluationReport — field correctness", () => {
       (r) => r.satisfactionStatus === "violated"
     );
     expect(violated.length).toBeGreaterThan(0);
-    expect(violated[0]!.constraintKind).toBe("STRUCTURAL_LOCK");
+    expect(violated[0]!.constraintKind).toBe("NUTRITION_STRUCTURAL_LOCK");
   });
 
   it("candidate A has no violated ConstraintEvaluationRecords", () => {
@@ -658,7 +658,7 @@ describe("variableName/violationLabel separation — field law", () => {
 
   it("all compiled STRUCTURAL_LOCK constraints have clean decisiveVariable (no 'violation' suffix)", () => {
     const all = compileConstraints(NUTRITION_CONSTRAINTS);
-    const structural = all.filter((c) => c.kind === "STRUCTURAL_LOCK");
+    const structural = all.filter((c) => c.kind === "NUTRITION_STRUCTURAL_LOCK");
     for (const c of structural) {
       expect(c.decisiveVariable ?? "").not.toMatch(/violation/i);
     }

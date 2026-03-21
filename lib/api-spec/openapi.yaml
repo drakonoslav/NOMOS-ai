@@ -253,6 +253,22 @@ components:
 
     # ── Evaluation types (mirrors packages/constitutional-kernel/src/evaluation/eval_types.ts) ──
 
+    ConstraintKind:
+      type: string
+      description: >
+        Canonical constraint kind. String values match the kernel's
+        constraint_normalizer.ts classification taxonomy. This enum is the
+        single source of truth — do not define a parallel kind type in the
+        dashboard. INTERPRETATION_REQUIRED is the fallback used when no
+        deterministic kernel pattern matches. New kinds must be added here
+        first; the dashboard imports from this generated type.
+      enum:
+        - NUTRITION_STRUCTURAL_LOCK
+        - NUTRITION_ALLOWED_ACTION
+        - NUTRITION_TARGET_TOLERANCE
+        - NUTRITION_SOURCE_TRUTH
+        - INTERPRETATION_REQUIRED
+
     CandidateStatus:
       type: string
       enum: [LAWFUL, DEGRADED, INVALID]

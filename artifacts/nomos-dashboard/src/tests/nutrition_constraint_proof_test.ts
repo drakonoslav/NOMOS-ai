@@ -24,7 +24,7 @@ import { normalizeConstraintText } from "../compiler/text_normalizer";
 import {
   compileConstraint,
   CompiledConstraint,
-  CompiledConstraintKind,
+  ConstraintKind,
 } from "../compiler/constraint_compiler";
 
 /* =========================================================
@@ -37,7 +37,7 @@ interface ProofRow {
   /** Raw constraint text as it would appear in a user draft. */
   raw: string;
   /** Expected compiled kind. */
-  expectedKind: CompiledConstraintKind;
+  expectedKind: ConstraintKind;
   /** Expected sub-key within the kind. */
   expectedKey: string;
   /** Expected decisive variable shown in the UI. */
@@ -48,70 +48,70 @@ const PROOF_TABLE: ProofRow[] = [
   {
     label: "protein placement",
     raw: "Preserve protein placement. Do not move protein between meals.",
-    expectedKind: "STRUCTURAL_LOCK",
+    expectedKind: "NUTRITION_STRUCTURAL_LOCK",
     expectedKey: "preserve_protein_placement",
     expectedDecisiveVariable: "protein placement",
   },
   {
     label: "meal order",
     raw: "Do not change meal order.",
-    expectedKind: "STRUCTURAL_LOCK",
+    expectedKind: "NUTRITION_STRUCTURAL_LOCK",
     expectedKey: "preserve_meal_order",
     expectedDecisiveVariable: "meal order",
   },
   {
     label: "meal count",
     raw: "Do not remove meals from the plan.",
-    expectedKind: "STRUCTURAL_LOCK",
+    expectedKind: "NUTRITION_STRUCTURAL_LOCK",
     expectedKey: "preserve_meal_count",
     expectedDecisiveVariable: "meal count",
   },
   {
     label: "meal dispersal",
     raw: "Preserve meal plan dispersal and timeblock pattern.",
-    expectedKind: "STRUCTURAL_LOCK",
+    expectedKind: "NUTRITION_STRUCTURAL_LOCK",
     expectedKey: "preserve_meal_dispersal",
     expectedDecisiveVariable: "meal dispersal",
   },
   {
     label: "calorie lockdown",
     raw: "Calorie lockdown — keep as tightly as possible to target.",
-    expectedKind: "TARGET_TOLERANCE",
+    expectedKind: "NUTRITION_TARGET_TOLERANCE",
     expectedKey: "calorie_delta_minimize",
     expectedDecisiveVariable: "calorie delta",
   },
   {
     label: "already-present foods only",
     raw: "Only adjust gram amounts of already-present foods.",
-    expectedKind: "ALLOWED_ACTION",
+    expectedKind: "NUTRITION_ALLOWED_ACTION",
     expectedKey: "adjustment_scope",
     expectedDecisiveVariable: "disallowed food adjustment",
   },
   {
     label: "declared macro truth",
     raw: "Use declared macro values as truth.",
-    expectedKind: "SOURCE_TRUTH",
+    expectedKind: "NUTRITION_SOURCE_TRUTH",
     expectedKey: "declared_macros_override",
     expectedDecisiveVariable: "macro source",
   },
   {
     label: "estimated banana/egg defaults",
     raw: "Treat banana and eggs as estimated defaults from known nutritional tables.",
-    expectedKind: "SOURCE_TRUTH",
+    expectedKind: "NUTRITION_SOURCE_TRUTH",
     expectedKey: "estimated_defaults_allowed",
     expectedDecisiveVariable: "estimated defaults",
   },
   {
     label: "minimal structure-preserving changes",
     raw: "Prefer the smallest set of structure-preserving changes.",
-    expectedKind: "TARGET_TOLERANCE",
+    expectedKind: "NUTRITION_TARGET_TOLERANCE",
     expectedKey: "minimize_change_magnitude",
     expectedDecisiveVariable: "change magnitude",
   },
   {
     label: "label priority",
     raw: "Label truth takes priority. Labels provided override generic assumptions.",
-    expectedKind: "SOURCE_TRUTH",
+    expectedKind: "NUTRITION_SOURCE_TRUTH",
     expectedKey: "label_priority",
     expectedDecisiveVariable: "macro source conflict",
   },

@@ -3,6 +3,9 @@
  *
  * Canonical evaluation report schema for NOMOS.
  *
+ * ConstraintKind is imported from the generated API contract — do not redefine
+ * it here. Single source of truth: lib/api-spec/openapi.yaml → codegen.
+ *
  * Three concepts that must NEVER be conflated:
  *
  *   1. ConstraintClassificationStatus — HOW was the constraint evaluated?
@@ -23,6 +26,9 @@
  * These are three independent axes. The UI must derive its text from
  * these fields — never infer them from prose reason strings.
  */
+
+import type { ConstraintKind } from "@workspace/api-client-react";
+export type { ConstraintKind };
 
 export type EvaluationMethod = "deterministic" | "semantic" | "hybrid";
 
@@ -86,13 +92,6 @@ export type ConstraintSatisfactionStatus =
 
 export type CandidateVerdict = "lawful" | "degraded" | "invalid";
 
-export type ConstraintKindLabel =
-  | "STRUCTURAL_LOCK"
-  | "ALLOWED_ACTION"
-  | "TARGET_TOLERANCE"
-  | "SOURCE_TRUTH"
-  | "INTERPRETATION_REQUIRED";
-
 /**
  * Per-constraint evaluation record for a single candidate.
  *
@@ -120,7 +119,7 @@ export interface ConstraintEvaluationRecord {
   classificationStatus: ConstraintClassificationStatus;
   satisfactionStatus: ConstraintSatisfactionStatus;
 
-  constraintKind: ConstraintKindLabel;
+  constraintKind: ConstraintKind;
   key: string | null;
   operator: string | null;
 

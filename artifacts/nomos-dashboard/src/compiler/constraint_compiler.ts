@@ -25,24 +25,20 @@
  *   runtime values come from the candidate description.
  * - UI DISPLAY CLASSIFIER ONLY. The authoritative constraint classification
  *   is performed by the kernel (packages/constitutional-kernel/src/evaluation/
- *   constraint_normalizer.ts) during API evaluation. This table must track
- *   the kernel's classification to keep displayed kinds consistent with
- *   evaluated kinds. If the kernel adds a new constraint kind, update this
- *   mapping table to match.
+ *   constraint_normalizer.ts) during API evaluation.
+ * - Kind strings are imported from the generated API contract (lib/api-spec/openapi.yaml
+ *   → lib/api-client-react). Adding a new kernel kind requires updating the spec first.
+ *   This table is then updated to emit the new kind string — no parallel type to maintain.
  */
 
 import { normalizeConstraintText } from "./text_normalizer";
+import type { ConstraintKind } from "@workspace/api-client-react";
+
+export type { ConstraintKind };
 
 /* =========================================================
    Types
    ========================================================= */
-
-export type CompiledConstraintKind =
-  | "STRUCTURAL_LOCK"
-  | "ALLOWED_ACTION"
-  | "TARGET_TOLERANCE"
-  | "SOURCE_TRUTH"
-  | "INTERPRETATION_REQUIRED";
 
 export type CompiledConstraintOperator =
   | "MUST_EQUAL"
@@ -55,8 +51,8 @@ export type CompiledConstraintOperator =
 export interface CompiledConstraint {
   /** Original unmodified constraint text. */
   raw: string;
-  /** Constraint type after deterministic classification. */
-  kind: CompiledConstraintKind;
+  /** Constraint type after deterministic classification. Canonical strings from the API spec. */
+  kind: ConstraintKind;
   /** Stable key within its kind. */
   key: string;
   /** Evaluation operator — null for INTERPRETATION_REQUIRED. */
@@ -89,7 +85,7 @@ const RULES: CompilerRule[] = [
       (t.includes("protein") && t.includes("between meals")),
     produce: (raw) => ({
       raw,
-      kind: "STRUCTURAL_LOCK",
+      kind: "NUTRITION_STRUCTURAL_LOCK",
       key: "preserve_protein_placement",
       operator: "MUST_EQUAL",
       lhs: "protein_placement_map",
@@ -107,7 +103,7 @@ const RULES: CompilerRule[] = [
       t.includes("do not reorder meal"),
     produce: (raw) => ({
       raw,
-      kind: "STRUCTURAL_LOCK",
+      kind: "NUTRITION_STRUCTURAL_LOCK",
       key: "preserve_meal_order",
       operator: "MUST_EQUAL",
       lhs: "meal_order",
@@ -126,7 +122,7 @@ const RULES: CompilerRule[] = [
       (t.includes("remove") && t.includes("meal")),
     produce: (raw) => ({
       raw,
-      kind: "STRUCTURAL_LOCK",
+      kind: "NUTRITION_STRUCTURAL_LOCK",
       key: "preserve_meal_count",
       operator: "MUST_EQUAL",
       lhs: "meal_count",
@@ -146,7 +142,7 @@ const RULES: CompilerRule[] = [
       t.includes("time-block"),
     produce: (raw) => ({
       raw,
-      kind: "STRUCTURAL_LOCK",
+      kind: "NUTRITION_STRUCTURAL_LOCK",
       key: "preserve_meal_dispersal",
       operator: "MUST_EQUAL",
       lhs: "meal_timeblock_pattern",
@@ -167,7 +163,7 @@ const RULES: CompilerRule[] = [
       (t.includes("only adjust") && t.includes("food")),
     produce: (raw) => ({
       raw,
-      kind: "ALLOWED_ACTION",
+      kind: "NUTRITION_ALLOWED_ACTION",
       key: "adjustment_scope",
       operator: "SUBSET_OF",
       lhs: "adjusted_food_ids",
@@ -187,7 +183,7 @@ const RULES: CompilerRule[] = [
         t.includes("as close as possible")),
     produce: (raw) => ({
       raw,
-      kind: "TARGET_TOLERANCE",
+      kind: "NUTRITION_TARGET_TOLERANCE",
       key: "calorie_delta_minimize",
       operator: "MINIMIZE_ABS_DELTA",
       lhs: "actual_calories",
@@ -207,7 +203,7 @@ const RULES: CompilerRule[] = [
         t.includes("fewest changes")),
     produce: (raw) => ({
       raw,
-      kind: "TARGET_TOLERANCE",
+      kind: "NUTRITION_TARGET_TOLERANCE",
       key: "minimize_change_magnitude",
       operator: "MINIMIZE_CHANGESET",
       lhs: "proposed_changes",
@@ -225,7 +221,7 @@ const RULES: CompilerRule[] = [
       t.includes("declared macro values as truth"),
     produce: (raw) => ({
       raw,
-      kind: "SOURCE_TRUTH",
+      kind: "NUTRITION_SOURCE_TRUTH",
       key: "declared_macros_override",
       operator: "SOURCE_PRIORITY",
       lhs: "macro_source",
@@ -242,7 +238,7 @@ const RULES: CompilerRule[] = [
       (t.includes("as estimated") && t.includes("default")),
     produce: (raw) => ({
       raw,
-      kind: "SOURCE_TRUTH",
+      kind: "NUTRITION_SOURCE_TRUTH",
       key: "estimated_defaults_allowed",
       operator: "ALLOW_ESTIMATED",
       lhs: "food_ids",
@@ -265,7 +261,7 @@ const RULES: CompilerRule[] = [
       (t.includes("attached") && t.includes("label") && t.includes("source truth")),
     produce: (raw) => ({
       raw,
-      kind: "SOURCE_TRUTH",
+      kind: "NUTRITION_SOURCE_TRUTH",
       key: "label_priority",
       operator: "SOURCE_PRIORITY",
       lhs: "macro_source",
@@ -285,7 +281,7 @@ const RULES: CompilerRule[] = [
       (t.includes("infer") && t.includes("declared labels")),
     produce: (raw) => ({
       raw,
-      kind: "ALLOWED_ACTION",
+      kind: "NUTRITION_ALLOWED_ACTION",
       key: "inference_scope",
       operator: "SUBSET_OF",
       lhs: "inference_basis",
@@ -357,11 +353,11 @@ export function resolveDisplayDecisiveVariable(
     return apiDecisiveVariable;
   }
 
-  const priority: CompiledConstraintKind[] = [
-    "STRUCTURAL_LOCK",
-    "ALLOWED_ACTION",
-    "TARGET_TOLERANCE",
-    "SOURCE_TRUTH",
+  const priority: ConstraintKind[] = [
+    "NUTRITION_STRUCTURAL_LOCK",
+    "NUTRITION_ALLOWED_ACTION",
+    "NUTRITION_TARGET_TOLERANCE",
+    "NUTRITION_SOURCE_TRUTH",
   ];
 
   for (const kind of priority) {

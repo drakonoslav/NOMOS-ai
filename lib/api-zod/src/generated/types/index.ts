@@ -9,6 +9,7 @@
 export * from "./apiError";
 export * from "./candidateEvaluation";
 export * from "./candidateStatus";
+export * from "./constraintKind";
 export * from "./conversationSuggestion";
 export * from "./conversationSuggestionConfidence";
 export * from "./conversationSuggestionType";

@@ -22,11 +22,11 @@
 
 import type { EvaluationResult, CandidateEvaluation } from "../ui/evaluation/eval_types";
 import type { CompiledConstraint } from "../compiler/constraint_compiler";
+import type { ConstraintKind } from "@workspace/api-client-react";
 import type {
   CandidateEvaluationReport,
   CandidateVerdict,
   ConstraintEvaluationRecord,
-  ConstraintKindLabel,
   EvaluationMethod,
   OverallEvaluationReport,
 } from "./evaluation_report_types";
@@ -332,13 +332,13 @@ function resolveVariableName(raw: string | null): string | null {
 function buildViolationReason(c: CompiledConstraint): string {
   const variableName = resolveVariableName(c.decisiveVariable ?? null) ?? "constraint";
   switch (c.kind) {
-    case "STRUCTURAL_LOCK":
+    case "NUTRITION_STRUCTURAL_LOCK":
       return `Structural lock violated: ${variableName} differs from declared baseline.`;
-    case "ALLOWED_ACTION":
+    case "NUTRITION_ALLOWED_ACTION":
       return `Allowed-action boundary violated: ${variableName} exceeded declared scope.`;
-    case "TARGET_TOLERANCE":
+    case "NUTRITION_TARGET_TOLERANCE":
       return `Target tolerance exceeded: ${variableName} diverged beyond declared limit.`;
-    case "SOURCE_TRUTH":
+    case "NUTRITION_SOURCE_TRUTH":
       return `Source-truth constraint violated: ${variableName} references undeclared data.`;
     default:
       return `Constraint violated: ${variableName}.`;
@@ -348,13 +348,13 @@ function buildViolationReason(c: CompiledConstraint): string {
 function buildSatisfactionReason(c: CompiledConstraint): string {
   const variableName = resolveVariableName(c.decisiveVariable ?? null) ?? "constraint";
   switch (c.kind) {
-    case "STRUCTURAL_LOCK":
+    case "NUTRITION_STRUCTURAL_LOCK":
       return `Structural lock satisfied: ${variableName} preserved.`;
-    case "ALLOWED_ACTION":
+    case "NUTRITION_ALLOWED_ACTION":
       return `Allowed-action scope satisfied: ${variableName} within declared boundary.`;
-    case "TARGET_TOLERANCE":
+    case "NUTRITION_TARGET_TOLERANCE":
       return `Target tolerance satisfied: ${variableName} within declared limit.`;
-    case "SOURCE_TRUTH":
+    case "NUTRITION_SOURCE_TRUTH":
       return `Source-truth constraint satisfied: ${variableName} uses declared data.`;
     default:
       return `Constraint satisfied.`;
@@ -364,13 +364,13 @@ function buildSatisfactionReason(c: CompiledConstraint): string {
 function buildViolationAdjustment(c: CompiledConstraint): string {
   const variableName = resolveVariableName(c.decisiveVariable ?? null) ?? "the constrained structure";
   switch (c.kind) {
-    case "STRUCTURAL_LOCK":
+    case "NUTRITION_STRUCTURAL_LOCK":
       return `Restore ${variableName} to its declared state.`;
-    case "ALLOWED_ACTION":
+    case "NUTRITION_ALLOWED_ACTION":
       return `Restrict action to the declared scope for ${variableName}.`;
-    case "TARGET_TOLERANCE":
+    case "NUTRITION_TARGET_TOLERANCE":
       return `Reduce ${variableName} to within the declared tolerance.`;
-    case "SOURCE_TRUTH":
+    case "NUTRITION_SOURCE_TRUTH":
       return `Use only declared source data for ${variableName}.`;
     default:
       return `Review constraint: ${c.raw.slice(0, 80)}.`;
@@ -391,13 +391,13 @@ function verdictFromStatus(
   }
 }
 
-function kindLabel(kind: string): ConstraintKindLabel {
+function kindLabel(kind: string): ConstraintKind {
   switch (kind) {
-    case "STRUCTURAL_LOCK":       return "STRUCTURAL_LOCK";
-    case "ALLOWED_ACTION":        return "ALLOWED_ACTION";
-    case "TARGET_TOLERANCE":      return "TARGET_TOLERANCE";
-    case "SOURCE_TRUTH":          return "SOURCE_TRUTH";
-    default:                      return "INTERPRETATION_REQUIRED";
+    case "NUTRITION_STRUCTURAL_LOCK": return "NUTRITION_STRUCTURAL_LOCK";
+    case "NUTRITION_ALLOWED_ACTION":  return "NUTRITION_ALLOWED_ACTION";
+    case "NUTRITION_TARGET_TOLERANCE": return "NUTRITION_TARGET_TOLERANCE";
+    case "NUTRITION_SOURCE_TRUTH":    return "NUTRITION_SOURCE_TRUTH";
+    default:                          return "INTERPRETATION_REQUIRED";
   }
 }
 

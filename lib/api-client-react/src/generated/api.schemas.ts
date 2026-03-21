@@ -68,6 +68,21 @@ export interface EvaluateQueryRequest {
   query: NomosQuery;
 }
 
+/**
+ * Canonical constraint kind. String values match the kernel's constraint_normalizer.ts classification taxonomy. This enum is the single source of truth — do not define a parallel kind type in the dashboard. INTERPRETATION_REQUIRED is the fallback used when no deterministic kernel pattern matches. New kinds must be added here first; the dashboard imports from this generated type.
+
+ */
+export type ConstraintKind =
+  (typeof ConstraintKind)[keyof typeof ConstraintKind];
+
+export const ConstraintKind = {
+  NUTRITION_STRUCTURAL_LOCK: "NUTRITION_STRUCTURAL_LOCK",
+  NUTRITION_ALLOWED_ACTION: "NUTRITION_ALLOWED_ACTION",
+  NUTRITION_TARGET_TOLERANCE: "NUTRITION_TARGET_TOLERANCE",
+  NUTRITION_SOURCE_TRUTH: "NUTRITION_SOURCE_TRUTH",
+  INTERPRETATION_REQUIRED: "INTERPRETATION_REQUIRED",
+} as const;
+
 export type CandidateStatus =
   (typeof CandidateStatus)[keyof typeof CandidateStatus];
 
