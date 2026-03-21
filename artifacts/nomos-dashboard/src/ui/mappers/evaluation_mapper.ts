@@ -3,54 +3,166 @@
  *
  * Maps EvaluationResult (engine output) to EvaluationResultViewModel (UI input).
  *
- * Design:
- * - Pure functions — no side effects outside of dev-mode inspection logs.
- * - cleanPhrase normalizes trailing punctuation for consistent display.
- * - toToneClassName maps CandidateStatus to a CSS class modifier.
- * - formatScore formats a margin score to a fixed-decimal string ("0.85").
- * - Optional summary fields are passed through as undefined when absent.
- * - No React or component logic lives here.
+ * Architecture:
+ *   EvaluationResult + CompiledConstraint[]
+ *     → buildOverallEvaluationReport()   [evaluation_report_builder.ts]
+ *     → assertEvaluationReportInvariants()  [evaluation_report_invariants.ts]
+ *     → mapReportToViewModel()            [this file]
+ *     → EvaluationResultViewModel         [used by React components]
  *
- * Sanitization contract:
- * - When compiled constraints are all deterministic (unresolvedCount === 0),
- *   any stale fallback text in candidate.reason or candidate.adjustments is
- *   stripped before rendering. This prevents the API's LLM-fallback residue
- *   from appearing when the dashboard compiler has already confirmed all
- *   constraints are typed.
+ * The report schema enforces strict separation between:
+ *   - classificationStatus (deterministic vs interpretation_required)
+ *   - satisfactionStatus   (satisfied vs violated vs not_evaluated)
+ *   - verdict              (lawful vs degraded vs invalid)
  *
- * Pipeline consistency invariant:
- * - If the footer note says "No interpretation fallback used" but any candidate
- *   still contains fallback text after sanitization, a console.error is emitted.
- *   This surfaces internal inconsistencies without crashing the UI.
+ * The UI renders from typed fields on the report — never from prose inference.
  *
  * Inspection log (dev only):
- * - logEvaluationInspection() emits a structured console.group with:
- *     1. raw evaluation result from nomos-core
- *     2. compiled constraints (dashboard-side)
- *     3. final mapped view model
- *   Set NOMOS_INSPECTION=0 or run in production to suppress.
+ *   Each evaluation emits a collapsed console group showing the report fields
+ *   so the pipeline is fully traceable.
+ *
+ * mapCandidateEvaluation() is retained as a standalone function for unit tests
+ * that operate at the candidate level without a full report.
  */
 
-import {
+import type {
   CandidateEvaluation,
   EvaluationResult,
 } from "../evaluation/eval_types";
-import {
+import type {
   CandidateEvaluationCardViewModel,
   EvaluationResultViewModel,
   UiCandidateStatus,
   UiMarginLabel,
 } from "./evaluation_view_models";
+import type { CompiledConstraint } from "../../compiler/constraint_compiler";
 import {
-  CompiledConstraint,
-  resolveDisplayDecisiveVariable,
   unresolvedConstraintCount,
 } from "../../compiler/constraint_compiler";
+import { buildOverallEvaluationReport } from "../../evaluation/evaluation_report_builder";
+import type { CandidateEvaluationReport, OverallEvaluationReport } from "../../evaluation/evaluation_report_types";
 
 /* =========================================================
-   Fallback text signals
-   Must mirror candidate_scoring.ts FALLBACK_SIGNAL and
-   llm_semantic_evaluator.ts fallback reason text exactly.
+   Main entry point — routes through OverallEvaluationReport
+   ========================================================= */
+
+export function mapEvaluationResultToViewModel(
+  result: EvaluationResult,
+  compiledConstraints?: CompiledConstraint[]
+): EvaluationResultViewModel {
+  // Build the formal report (invariants asserted inside)
+  const report = buildOverallEvaluationReport(result, compiledConstraints ?? []);
+
+  // Notes: API metadata first, then the three canonical summaries
+  const notes: string[] = [
+    ...(result.notes ?? []),
+    ...report.notes,
+  ];
+
+  const candidateCards: CandidateEvaluationCardViewModel[] = report.candidates.map((c) =>
+    mapReportCandidateToCard(c)
+  );
+
+  // Per-candidate diagnostic — always fires for the first candidate
+  if (report.candidates.length > 0) {
+    diagnoseCandidatePipeline(
+      result.candidateEvaluations[0]!,
+      compiledConstraints ?? [],
+      report.candidates[0]!,
+      candidateCards[0]!
+    );
+  }
+
+  const vm: EvaluationResultViewModel = {
+    overallStatus: toUiStatus(report.overallStatus),
+    overallStatusLabel: toUiStatus(report.overallStatus),
+    overallToneClassName: toToneClassName(toUiStatus(report.overallStatus)),
+    lawfulSetLabel:
+      report.lawfulCandidateIds.length > 0
+        ? report.lawfulCandidateIds.join(", ")
+        : "None",
+    decisiveVariable: cleanPhrase(report.decisiveVariable ?? undefined),
+    bestCandidateId: result.bestCandidateId ?? undefined,
+    strongestMarginScore:
+      report.strongestMargin !== null
+        ? formatScore(report.strongestMargin)
+        : undefined,
+    weakestAdmissibleMarginScore:
+      result.weakestAdmissibleMarginScore !== undefined
+        ? formatScore(result.weakestAdmissibleMarginScore)
+        : undefined,
+    candidateCards,
+    notes,
+  };
+
+  logEvaluationInspection(report, vm);
+
+  return vm;
+}
+
+/* =========================================================
+   Per-candidate mapping from report fields
+   ========================================================= */
+
+function mapReportCandidateToCard(
+  candidate: CandidateEvaluationReport
+): CandidateEvaluationCardViewModel {
+  const uiStatus = toUiStatus(candidate.verdict);
+
+  return {
+    id: candidate.candidateId,
+    title: candidate.candidateLabel,
+    status: uiStatus,
+    statusLabel: uiStatus,
+    toneClassName: toToneClassName(uiStatus),
+    decisiveVariable: cleanPhrase(candidate.decisiveVariable ?? undefined),
+    marginScore: formatScore(candidate.margin ?? 0),
+    marginLabel: marginLabelFromScore(candidate.margin ?? 0) as UiMarginLabel,
+    reason: cleanPhrase(candidate.summaryReason) ?? "",
+    adjustments: candidate.adjustments.map((a) => cleanPhrase(a) ?? a),
+  };
+}
+
+/* =========================================================
+   mapCandidateEvaluation — standalone for unit tests
+   Does NOT use the report schema. Retained for backward compatibility.
+   ========================================================= */
+
+export function mapCandidateEvaluation(
+  evaluation: CandidateEvaluation,
+  compiledConstraints?: CompiledConstraint[],
+  allDeterministic?: boolean
+): CandidateEvaluationCardViewModel {
+  const deterministic = allDeterministic ??
+    (compiledConstraints ? unresolvedConstraintCount(compiledConstraints) === 0 : false);
+
+  const decisiveVariable =
+    compiledConstraints && evaluation.decisiveVariable === "constraint interpretation"
+      ? fallbackResolveDecisiveVariable(compiledConstraints)
+      : evaluation.decisiveVariable;
+
+  const rawReason = deduplicateReasonString(evaluation.reason, deterministic);
+  const sanitizedAdjustments = sanitizeAdjustments(
+    evaluation.adjustments ?? [],
+    deterministic
+  );
+
+  return {
+    id: evaluation.id,
+    title: `Candidate ${evaluation.id}`,
+    status: evaluation.status as UiCandidateStatus,
+    statusLabel: evaluation.status as UiCandidateStatus,
+    toneClassName: toToneClassName(evaluation.status as UiCandidateStatus),
+    decisiveVariable: cleanPhrase(decisiveVariable),
+    marginScore: formatScore(evaluation.marginScore),
+    marginLabel: evaluation.marginLabel as UiMarginLabel,
+    reason: cleanPhrase(rawReason) ?? "",
+    adjustments: sanitizedAdjustments.map((a) => cleanPhrase(a) ?? a),
+  };
+}
+
+/* =========================================================
+   Fallback signals (used in standalone mapCandidateEvaluation)
    ========================================================= */
 
 const FALLBACK_REASON_SIGNALS = [
@@ -79,241 +191,37 @@ function containsFallbackAdjustmentSignal(text: string): boolean {
 
 const REASON_SEPARATOR = " Additionally: ";
 
-/* =========================================================
-   Main entry point
-   ========================================================= */
-
-export function mapEvaluationResultToViewModel(
-  result: EvaluationResult,
-  compiledConstraints?: CompiledConstraint[]
-): EvaluationResultViewModel {
-  const unresolved = compiledConstraints
-    ? unresolvedConstraintCount(compiledConstraints)
-    : null;
-
-  const allDeterministic =
-    unresolved !== null &&
-    unresolved === 0 &&
-    (compiledConstraints?.length ?? 0) > 0;
-
-  const globalDecisive =
-    compiledConstraints && result.decisiveVariable === "constraint interpretation"
-      ? resolveDisplayDecisiveVariable(compiledConstraints, result.decisiveVariable)
-      : result.decisiveVariable;
-
-  const notes = [...(result.notes ?? [])];
-
-  /* -------------------------------------------------------
-     Classification note (determinism of evaluation method)
-     This note is about HOW constraints were evaluated,
-     NOT whether any constraint was satisfied.
-     ------------------------------------------------------- */
-  if (allDeterministic) {
-    notes.push("All constraints were evaluated deterministically.");
-  } else if (unresolved !== null && unresolved > 0) {
-    notes.push(
-      `${unresolved} constraint${unresolved > 1 ? "s" : ""} could not be classified deterministically and require manual review.`
-    );
-  }
-
-  /* -------------------------------------------------------
-     Satisfaction note (outcome of evaluation — separate concept)
-     LAWFUL = satisfied, DEGRADED/INVALID = violated.
-     ------------------------------------------------------- */
-  const evals = result.candidateEvaluations;
-  const lawfulCount   = evals.filter((e) => e.status === "LAWFUL").length;
-  const violatedCount = evals.filter((e) => e.status !== "LAWFUL").length;
-
-  if (evals.length > 0) {
-    if (violatedCount === 0) {
-      notes.push(
-        `All ${evals.length} candidate${evals.length > 1 ? "s" : ""} are constraint-admissible.`
-      );
-    } else if (lawfulCount === 0) {
-      notes.push(
-        `Constraint violations detected across all ${evals.length} candidate${evals.length > 1 ? "s" : ""}.`
-      );
-    } else {
-      notes.push(
-        `${lawfulCount} of ${evals.length} candidate${evals.length > 1 ? "s" : ""} are constraint-admissible; ${violatedCount} have violations.`
-      );
-    }
-  }
-
-  const candidateCards = result.candidateEvaluations.map((e) =>
-    mapCandidateEvaluation(e, compiledConstraints, allDeterministic)
-  );
-
-  // Per-candidate diagnostic — always fires, focused on the first candidate
-  if (result.candidateEvaluations.length > 0) {
-    diagnoseCandidatePipeline(
-      result.candidateEvaluations[0]!,
-      compiledConstraints ?? [],
-      candidateCards[0]!
-    );
-  }
-
-  // Invariant: if a violation drove the verdict, "passed" must never appear in notes
-  const decisiveIsViolation =
-    result.overallStatus !== "LAWFUL" ||
-    globalDecisive.toLowerCase().includes("violation");
-
-  if (decisiveIsViolation) {
-    const badNote = notes.find((n) => n.toLowerCase().includes("passed"));
-    if (badNote) {
-      console.error(
-        "[NOMOS] Invariant violation: a satisfaction-pass note appeared alongside a violation verdict.",
-        "\n  decisiveVariable:", globalDecisive,
-        "\n  overallStatus:", result.overallStatus,
-        "\n  offending note:", badNote
-      );
-    }
-  }
-
-  // Pipeline consistency invariant check
-  if (allDeterministic) {
-    for (const card of candidateCards) {
-      const reasonHasFallback = containsFallbackReasonSignal(card.reason);
-      const adjustmentHasFallback = card.adjustments.some(containsFallbackAdjustmentSignal);
-      if (reasonHasFallback || adjustmentHasFallback) {
-        console.error(
-          "[NOMOS] Pipeline consistency error: candidate",
-          card.id,
-          "still contains fallback text after sanitization.",
-          "\n  reason:", card.reason,
-          "\n  adjustments:", card.adjustments,
-          "\n  This means the sanitization step missed a fallback signal pattern.",
-          "\n  Add the pattern to FALLBACK_REASON_SIGNALS or FALLBACK_ADJUSTMENT_SIGNALS."
-        );
-      }
-    }
-  }
-
-  const vm: EvaluationResultViewModel = {
-    overallStatus: result.overallStatus,
-    overallStatusLabel: result.overallStatus,
-    overallToneClassName: toToneClassName(result.overallStatus),
-    lawfulSetLabel:
-      result.lawfulSet.length > 0 ? result.lawfulSet.join(", ") : "None",
-    decisiveVariable: cleanPhrase(globalDecisive),
-    bestCandidateId: result.bestCandidateId ?? undefined,
-    strongestMarginScore:
-      result.strongestMarginScore !== undefined
-        ? formatScore(result.strongestMarginScore)
-        : undefined,
-    weakestAdmissibleMarginScore:
-      result.weakestAdmissibleMarginScore !== undefined
-        ? formatScore(result.weakestAdmissibleMarginScore)
-        : undefined,
-    candidateCards,
-    notes,
-  };
-
-  logEvaluationInspection(result, compiledConstraints, vm);
-
-  return vm;
-}
-
-/* =========================================================
-   Per-candidate mapping
-   ========================================================= */
-
-export function mapCandidateEvaluation(
-  evaluation: CandidateEvaluation,
-  compiledConstraints?: CompiledConstraint[],
-  allDeterministic?: boolean
-): CandidateEvaluationCardViewModel {
-  const decisiveVariable =
-    compiledConstraints && evaluation.decisiveVariable === "constraint interpretation"
-      ? resolveDisplayDecisiveVariable(compiledConstraints, evaluation.decisiveVariable)
-      : evaluation.decisiveVariable;
-
-  // Deduplicate and optionally strip fallback clauses from reason
-  const rawReason = deduplicateReasonString(evaluation.reason, allDeterministic ?? false);
-  const sanitizedAdjustments = sanitizeAdjustments(
-    evaluation.adjustments ?? [],
-    allDeterministic ?? false
-  );
-
-  return {
-    id: evaluation.id,
-    title: `Candidate ${evaluation.id}`,
-    status: evaluation.status,
-    statusLabel: evaluation.status,
-    toneClassName: toToneClassName(evaluation.status),
-    decisiveVariable: cleanPhrase(decisiveVariable),
-    marginScore: formatScore(evaluation.marginScore),
-    marginLabel: evaluation.marginLabel as UiMarginLabel,
-    reason: cleanPhrase(rawReason) ?? "",
-    adjustments: sanitizedAdjustments.map((a) => cleanPhrase(a) ?? a),
-  };
-}
-
-/* =========================================================
-   Reason deduplication + sanitization
-   ========================================================= */
-
-/**
- * Splits a merged reason string on " Additionally: ", deduplicates typed clauses,
- * handles fallback clauses.
- *
- * When allDeterministic is true: any clause that matches a fallback signal is
- * stripped entirely (stale API residue). If this empties the reason, falls back
- * to "All constraints passed deterministic evaluation."
- *
- * When allDeterministic is false: fallback clauses are deduplicated and
- * summarized as "N unresolved constraint interpretations remain."
- */
 function deduplicateReasonString(reason: string, allDeterministic: boolean): string {
   if (!reason) return reason;
 
-  const clauses = reason
-    .split(REASON_SEPARATOR)
-    .map((c) => c.trim())
-    .filter(Boolean);
-
+  const clauses = reason.split(REASON_SEPARATOR).map((c) => c.trim()).filter(Boolean);
   if (clauses.length === 0) return reason;
 
   const typedClauses: string[] = [];
   const fallbackClauses: string[] = [];
 
   for (const clause of clauses) {
-    if (containsFallbackReasonSignal(clause)) {
-      fallbackClauses.push(clause);
-    } else {
-      typedClauses.push(clause);
-    }
+    if (containsFallbackReasonSignal(clause)) fallbackClauses.push(clause);
+    else typedClauses.push(clause);
   }
 
-  // Deduplicate typed clauses — preserve order, keep first occurrence
   const seenTyped = new Set<string>();
   const uniqueTyped: string[] = [];
   for (const clause of typedClauses) {
     const key = clause.toLowerCase();
-    if (!seenTyped.has(key)) {
-      seenTyped.add(key);
-      uniqueTyped.push(clause);
-    }
+    if (!seenTyped.has(key)) { seenTyped.add(key); uniqueTyped.push(clause); }
   }
 
   if (allDeterministic) {
-    // Strip all fallback clauses — they are stale API residue.
-    // Do NOT say "passed" here — classification ≠ satisfaction.
-    if (uniqueTyped.length === 0) {
-      return "Evaluated deterministically. No typed reason produced.";
-    }
+    if (uniqueTyped.length === 0) return "Evaluated deterministically. No typed reason produced.";
     return uniqueTyped.join(REASON_SEPARATOR);
   }
 
-  // Non-deterministic path: deduplicate fallbacks then summarize
   const seenFallback = new Set<string>();
   const uniqueFallbacks: string[] = [];
   for (const clause of fallbackClauses) {
     const key = clause.toLowerCase();
-    if (!seenFallback.has(key)) {
-      seenFallback.add(key);
-      uniqueFallbacks.push(clause);
-    }
+    if (!seenFallback.has(key)) { seenFallback.add(key); uniqueFallbacks.push(clause); }
   }
 
   const result = [...uniqueTyped];
@@ -322,14 +230,9 @@ function deduplicateReasonString(reason: string, allDeterministic: boolean): str
   } else if (uniqueFallbacks.length === 1) {
     result.push(uniqueFallbacks[0]!);
   }
-
   return result.join(REASON_SEPARATOR);
 }
 
-/**
- * Strips stale fallback adjustment strings when allDeterministic is true.
- * Always deduplicates by case-insensitive exact match.
- */
 function sanitizeAdjustments(adjustments: string[], allDeterministic: boolean): string[] {
   const seen = new Set<string>();
   return adjustments.filter((a) => {
@@ -341,72 +244,69 @@ function sanitizeAdjustments(adjustments: string[], allDeterministic: boolean): 
   });
 }
 
+function fallbackResolveDecisiveVariable(compiledConstraints: CompiledConstraint[]): string {
+  // Pick the first non-interpretation-required constraint's decisiveVariable
+  const first = compiledConstraints.find((c) => c.kind !== "INTERPRETATION_REQUIRED");
+  return first?.decisiveVariable ?? "constraint boundary";
+}
+
 /* =========================================================
    Per-candidate diagnostic print
    Always fires for the first candidate of each evaluation.
-   Prints the five fields the pipeline needs for correctness verification.
    ========================================================= */
 
-/**
- * Prints a focused diagnostic for ONE candidate showing every layer:
- *  1. raw reason clauses (split on " Additionally: ")
- *  2. compiled constraint kinds + keys
- *  3. mapped decisive variable
- *  4. rendered reason string (after sanitization and deduplication)
- *  5. rendered adjustments list
- */
 function diagnoseCandidatePipeline(
   raw: CandidateEvaluation,
   compiledConstraints: CompiledConstraint[],
+  report: CandidateEvaluationReport,
   card: CandidateEvaluationCardViewModel
 ): void {
   const rawClauses = raw.reason
     .split(" Additionally: ")
     .map((c, i) => `  [${i}] ${c.trim()}`);
 
-  const constraintKinds = compiledConstraints.map(
-    (c) => `  ${c.kind}:${c.key ?? "—"}  "${c.raw.slice(0, 60)}${c.raw.length > 60 ? "…" : ""}"`
-  );
-
   console.group(
     `[NOMOS:DIAG] Candidate ${raw.id} — status=${raw.status} | decisive="${raw.decisiveVariable}" → "${card.decisiveVariable}"`
   );
 
   console.group("1. Raw reason clauses (pre-sanitization, split on ' Additionally: ')");
-  if (rawClauses.length === 0) {
-    console.log("  (empty)");
+  rawClauses.forEach((line) => console.log(line));
+  console.groupEnd();
+
+  console.group("2. Compiled constraint kinds & classification");
+  if (compiledConstraints.length === 0) {
+    console.log("  (none)");
   } else {
-    rawClauses.forEach((line) => console.log(line));
+    compiledConstraints.forEach((c) => {
+      const cls = c.kind === "INTERPRETATION_REQUIRED" ? "⚠ INTERPRETATION_REQUIRED" : "✓ deterministic";
+      console.log(`  ${cls}  [${c.kind}:${c.key}]  "${c.raw.slice(0, 55)}…"`);
+    });
+    console.log(`  unresolvedCount: ${unresolvedConstraintCount(compiledConstraints)} / ${compiledConstraints.length}`);
   }
   console.groupEnd();
 
-  console.group("2. Compiled constraint kinds");
-  if (constraintKinds.length === 0) {
-    console.log("  (none — no compiledConstraints provided)");
-  } else {
-    constraintKinds.forEach((line) => console.log(line));
-    console.log(
-      `  unresolvedCount: ${unresolvedConstraintCount(compiledConstraints)} / ${compiledConstraints.length}`
-    );
-  }
+  console.group("3. Report constraint records (satisfaction)");
+  report.constraintEvaluations.forEach((r) => {
+    const sat = r.satisfactionStatus === "violated" ? "✗ VIOLATED" :
+                r.satisfactionStatus === "not_evaluated" ? "? NOT_EVALUATED" : "✓ satisfied";
+    console.log(`  ${sat}  [${r.constraintKind}:${r.key}]  decisive="${r.decisiveVariable ?? "—"}"`);
+  });
+  console.log(`  Violated: ${report.constraintsViolated}  Satisfied: ${report.constraintsSatisfied}  Not-evaluated: ${report.constraintsNotEvaluated}`);
   console.groupEnd();
 
-  console.group("3. Mapped decisive variable");
-  console.log(`  raw:    "${raw.decisiveVariable}"`);
-  console.log(`  mapped: "${card.decisiveVariable}"`);
+  console.group("4. Mapped decisive variable");
+  console.log(`  raw API:  "${raw.decisiveVariable}"`);
+  console.log(`  report:   "${report.decisiveVariable}"`);
+  console.log(`  rendered: "${card.decisiveVariable}"`);
   console.groupEnd();
 
-  console.group("4. Rendered reason string (post-sanitization)");
+  console.group("5. Rendered reason string");
   console.log(`  "${card.reason}"`);
-  const stillHasFallback = containsFallbackReasonSignal(card.reason);
-  if (stillHasFallback) {
-    console.warn("  ⚠ STALE FALLBACK TEXT SURVIVED SANITIZATION — check FALLBACK_REASON_SIGNALS");
-  } else {
-    console.log("  ✓ no fallback residue");
-  }
+  const hasFallback = containsFallbackReasonSignal(card.reason);
+  console.log(hasFallback ? "  ⚠ STALE FALLBACK SURVIVED" : "  ✓ no fallback residue");
   console.groupEnd();
 
-  console.group("5. Rendered adjustments list");
+  console.group("6. Rendered adjustments");
   if (card.adjustments.length === 0) {
     console.log("  (none)");
   } else {
@@ -424,61 +324,39 @@ function diagnoseCandidatePipeline(
    Runtime inspection log (dev only)
    ========================================================= */
 
-/**
- * Logs the full evaluation pipeline state in a collapsed console group.
- * Only emits in development builds or when NOMOS_INSPECTION is set.
- * Suppressed in production automatically via import.meta.env.PROD.
- */
 function logEvaluationInspection(
-  rawResult: EvaluationResult,
-  compiledConstraints: CompiledConstraint[] | undefined,
-  mappedViewModel: EvaluationResultViewModel
+  report: OverallEvaluationReport,
+  vm: EvaluationResultViewModel
 ): void {
   if (typeof import.meta !== "undefined" && (import.meta as { env?: { PROD?: boolean } }).env?.PROD) {
     return;
   }
 
   console.groupCollapsed(
-    `[NOMOS] Evaluation inspection — overall: ${rawResult.overallStatus}, ` +
-    `${rawResult.candidateEvaluations.length} candidate(s), ` +
-    `${rawResult.candidateEvaluations[0]?.reason?.slice(0, 60) ?? ""}…`
+    `[NOMOS] Evaluation — method=${report.evaluationMethod} | status=${report.overallStatus} | ` +
+    `${report.totals.constraintsViolated} violated / ${report.totals.constraintsTotal} total`
   );
 
-  console.group("1. Raw evaluation result (from nomos-core API)");
-  console.log("overallStatus:", rawResult.overallStatus);
-  console.log("decisiveVariable:", rawResult.decisiveVariable);
-  console.log("notes:", rawResult.notes);
-  console.log("candidates:");
-  for (const c of rawResult.candidateEvaluations) {
-    console.log(`  [${c.id}] status=${c.status} decisive=${c.decisiveVariable}`);
-    console.log(`       reason=${c.reason}`);
-    console.log(`       adjustments=${JSON.stringify(c.adjustments ?? [])}`);
-  }
+  console.group("Classification");
+  console.log("  method:", report.evaluationMethod);
+  console.log(`  deterministic: ${report.totals.constraintsDeterministicallyClassified} / ${report.totals.constraintsTotal}`);
+  console.log(`  interpretation_required: ${report.totals.constraintsInterpretationRequired}`);
   console.groupEnd();
 
-  console.group("2. Compiled constraints (dashboard-side)");
-  if (!compiledConstraints || compiledConstraints.length === 0) {
-    console.log("(none — no compiled constraints passed)");
-  } else {
-    for (const cc of compiledConstraints) {
-      const status = cc.kind === "INTERPRETATION_REQUIRED" ? "⚠ UNRESOLVED" : "✓";
-      console.log(`  ${status} [${cc.kind}:${cc.key}] "${cc.raw.slice(0, 60)}…"`);
-      console.log(`       decisiveVariable: ${cc.decisiveVariable}, operator: ${cc.operator}`);
-    }
-    console.log(`unresolvedCount: ${unresolvedConstraintCount(compiledConstraints)}`);
-  }
+  console.group("Satisfaction");
+  console.log(`  satisfied: ${report.totals.constraintsSatisfied}`);
+  console.log(`  violated:  ${report.totals.constraintsViolated}`);
+  console.log(`  not_evaluated: ${report.totals.constraintsNotEvaluated}`);
   console.groupEnd();
 
-  console.group("3. Mapped view model (final card props)");
-  console.log("overallStatus:", mappedViewModel.overallStatus);
-  console.log("decisiveVariable:", mappedViewModel.decisiveVariable);
-  console.log("notes:", mappedViewModel.notes);
-  console.log("candidates:");
-  for (const card of mappedViewModel.candidateCards) {
-    console.log(`  [${card.id}] status=${card.status} decisive=${card.decisiveVariable}`);
-    console.log(`       reason=${card.reason}`);
-    console.log(`       adjustments=${JSON.stringify(card.adjustments)}`);
-  }
+  console.group("Verdict");
+  console.log("  overallStatus:", report.overallStatus);
+  console.log("  decisiveVariable:", report.decisiveVariable);
+  console.log("  lawfulCandidates:", report.lawfulCandidateIds);
+  console.groupEnd();
+
+  console.group("Notes (final)");
+  vm.notes.forEach((n, i) => console.log(`  [${i}] ${n}`));
   console.groupEnd();
 
   console.groupEnd();
@@ -487,6 +365,19 @@ function logEvaluationInspection(
 /* =========================================================
    Helpers
    ========================================================= */
+
+function toUiStatus(verdict: string): UiCandidateStatus {
+  switch (verdict) {
+    case "lawful":   return "LAWFUL";
+    case "degraded": return "DEGRADED";
+    case "invalid":  return "INVALID";
+    // pass-through for already-uppercase values
+    case "LAWFUL":   return "LAWFUL";
+    case "DEGRADED": return "DEGRADED";
+    case "INVALID":  return "INVALID";
+    default:         return "DEGRADED";
+  }
+}
 
 function toToneClassName(status: UiCandidateStatus): string {
   switch (status) {
@@ -505,4 +396,11 @@ function cleanPhrase(value?: string): string | undefined {
 
 function formatScore(score: number): string {
   return score.toFixed(2);
+}
+
+function marginLabelFromScore(score: number): string {
+  if (score >= 0.75) return "HIGH";
+  if (score >= 0.5)  return "MODERATE";
+  if (score > 0)     return "LOW";
+  return "FAILED";
 }

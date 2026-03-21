@@ -1,0 +1,236 @@
+Yes — that is the right next step.
+
+You now need a formal evaluation report schema with invariant checks between engine output and UI rendering.
+
+What the schema must separate
+
+Right now NOMOS is collapsing three different things:
+	•	constraint classification
+	•	constraint satisfaction
+	•	overall verdict
+
+Those must be separate fields, never inferred from one another.
+
+Core model
+
+Tell Replit to add a single canonical evaluation object, something like this:
+
+export type EvaluationMethod = "deterministic" | "semantic" | "hybrid";
+
+export type ConstraintClassificationStatus =
+  | "deterministic"
+  | "interpretation_required";
+
+export type ConstraintSatisfactionStatus =
+  | "satisfied"
+  | "violated"
+  | "not_evaluated";
+
+export type CandidateVerdict =
+  | "lawful"
+  | "degraded"
+  | "invalid";
+
+export interface ConstraintEvaluationRecord {
+  constraintId: string;
+  rawText: string;
+
+  classificationStatus: ConstraintClassificationStatus;
+  satisfactionStatus: ConstraintSatisfactionStatus;
+
+  constraintKind:
+    | "STRUCTURAL_LOCK"
+    | "ALLOWED_ACTION"
+    | "TARGET_TOLERANCE"
+    | "SOURCE_TRUTH"
+    | "INTERPRETATION_REQUIRED";
+
+  key: string;
+  operator: string | null;
+
+  decisiveVariable: string | null;
+
+  lhsSummary: string | null;
+  rhsSummary: string | null;
+
+  reason: string;
+  adjustment: string | null;
+}
+
+export interface CandidateEvaluationReport {
+  candidateId: string;
+  candidateLabel: string;
+
+  verdict: CandidateVerdict;
+  decisiveVariable: string | null;
+  margin: number | null;
+
+  constraintsTotal: number;
+  constraintsDeterministicallyClassified: number;
+  constraintsInterpretationRequired: number;
+
+  constraintsSatisfied: number;
+  constraintsViolated: number;
+  constraintsNotEvaluated: number;
+
+  constraintEvaluations: ConstraintEvaluationRecord[];
+
+  summaryReason: string;
+  adjustments: string[];
+}
+
+export interface OverallEvaluationReport {
+  evaluationMethod: EvaluationMethod;
+
+  overallStatus: CandidateVerdict;
+  lawfulCandidateIds: string[];
+
+  strongestMargin: number | null;
+  decisiveVariable: string | null;
+
+  candidates: CandidateEvaluationReport[];
+
+  totals: {
+    candidatesEvaluated: number;
+    constraintsTotal: number;
+    constraintsDeterministicallyClassified: number;
+    constraintsInterpretationRequired: number;
+    constraintsSatisfied: number;
+    constraintsViolated: number;
+    constraintsNotEvaluated: number;
+  };
+
+  notes: string[];
+}
+
+The invariants
+
+This is the most important part. Have Replit enforce these in one place.
+
+export function assertEvaluationReportInvariants(
+  report: OverallEvaluationReport
+): void {
+  for (const candidate of report.candidates) {
+    if (
+      candidate.constraintsViolated > 0 &&
+      candidate.summaryReason.toLowerCase().includes("all constraints passed")
+    ) {
+      throw new Error(
+        `Invariant failed: candidate ${candidate.candidateId} has violated constraints but says all constraints passed.`
+      );
+    }
+
+    if (
+      candidate.constraintsInterpretationRequired === 0 &&
+      candidate.summaryReason.toLowerCase().includes("manual review")
+    ) {
+      throw new Error(
+        `Invariant failed: candidate ${candidate.candidateId} mentions manual review with no interpretation-required constraints.`
+      );
+    }
+
+    if (
+      candidate.decisiveVariable?.toLowerCase().includes("violation") &&
+      candidate.constraintsViolated === 0
+    ) {
+      throw new Error(
+        `Invariant failed: candidate ${candidate.candidateId} names a violation without any violated constraints.`
+      );
+    }
+
+    if (
+      candidate.verdict === "lawful" &&
+      candidate.constraintsViolated > 0
+    ) {
+      throw new Error(
+        `Invariant failed: candidate ${candidate.candidateId} is lawful but has violated constraints.`
+      );
+    }
+  }
+}
+
+UI rules
+
+The UI must render from fields, not prose guesses.
+
+Tell Replit these exact rendering rules:
+	•	“All constraints were evaluated deterministically.” only if constraintsInterpretationRequired === 0
+	•	“All constraints passed.” only if constraintsViolated === 0 and constraintsNotEvaluated === 0
+	•	“Violations detected.” if constraintsViolated > 0
+	•	“Manual review required.” only if constraintsInterpretationRequired > 0
+
+So for your current case, the correct text would be:
+	•	“All constraints were evaluated deterministically.”
+	•	“1 or more constraint violations detected.”
+
+Not “all constraints passed.”
+
+Decisive variable rule
+
+The decisive variable must come from the highest-priority violated constraint, not from fallback text.
+
+Priority suggestion:
+	1.	violated structural lock
+	2.	violated source truth
+	3.	violated allowed action
+	4.	target tolerance miss
+	5.	interpretation required
+
+What to tell Replit
+
+Send this:
+
+Build a formal evaluation report schema so UI cannot contradict engine truth.
+
+Requirements:
+
+1. Add canonical types:
+- ConstraintEvaluationRecord
+- CandidateEvaluationReport
+- OverallEvaluationReport
+
+2. Separate these fields explicitly:
+- classificationStatus: deterministic vs interpretation_required
+- satisfactionStatus: satisfied vs violated vs not_evaluated
+- verdict: lawful vs degraded vs invalid
+
+3. UI must render from fields, not inferred prose.
+
+4. Add invariant checker:
+- violated constraints must never coexist with "all constraints passed"
+- no manual-review text if interpretationRequired count is zero
+- lawful candidates cannot have violated constraints
+- decisive variable naming a violation requires violated count > 0
+
+5. Add summary generation helpers:
+- generateClassificationSummary(...)
+- generateSatisfactionSummary(...)
+- generateVerdictSummary(...)
+
+6. Candidate cards must use:
+- decisive variable from violated constraint if present
+- summaryReason from canonical report
+- adjustments from violated constraints only
+
+7. Add regression test for current nutrition case:
+Expected:
+- deterministic classification true
+- violated constraints > 0
+- summary says deterministic evaluation completed
+- summary does NOT say all constraints passed
+- decisive variable may be protein placement violation only if that constraint is truly violated
+
+One more thing
+
+Your current result also suggests a second possible bug:
+
+If every candidate shows protein placement violation, that may mean the system is comparing candidates against the wrong baseline or treating all three candidates as if they changed protein placement even when they did not.
+
+So after the schema, the next audit is:
+	•	what is the baseline protein placement map
+	•	what is each candidate’s protein placement map
+	•	why are A, B, and C all flagged the same
+
+That may be real, or it may be another reporting issue.
+
+The immediate next move is the formal schema plus invariants. That’s the right foundation.

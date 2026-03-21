@@ -1,0 +1,62 @@
+After the formal evaluation report schema and invariants are added, run a protein-placement baseline audit.
+
+Potential bug:
+All candidates A, B, and C are being flagged with the same decisive variable:
+"protein placement violation"
+
+That suggests one of two things:
+1. the violation is real and all candidates truly violate the same structural lock
+2. the evaluator is comparing against the wrong baseline or reusing one candidate's violation across all candidates
+
+Please audit protein-placement evaluation deterministically.
+
+Requirements:
+
+1. Expose the baseline protein placement map for the compiled nutrition system.
+   Define it explicitly as:
+   - mealNumber -> protein-bearing foods present in that meal
+   - optionally include grams if the structural lock uses amounts
+   Example shape:
+   {
+     "1": [],
+     "2": ["whey"],
+     "3": ["yogurt", "whey"],
+     "4": ["whey"],
+     "5": ["whey"],
+     "6": ["whey"],
+     "7": []
+   }
+
+2. For each candidate A, B, and C, emit the evaluated protein placement map in the same format.
+
+3. Add a comparison result per candidate:
+   - proteinPlacementMatchesBaseline: true/false
+   - missingProteinFoodsByMeal
+   - addedProteinFoodsByMeal
+   - movedProteinFoods
+
+4. Add a deterministic explanation:
+   - If violation exists, show exactly which protein-bearing food moved from which meal to which meal.
+   - If no violation exists, protein placement decisive variable must not appear.
+
+5. Add invariant:
+   If candidate proteinPlacementMatchesBaseline === true
+   then:
+   - decisiveVariable must not equal "protein placement violation"
+   - no protein-placement adjustment text may be rendered
+
+6. Add regression test for the current nutrition audit:
+   - A, B, and C should each be checked independently
+   - ensure the evaluator does not reuse one candidate's protein-placement outcome for all candidates
+   - ensure candidate-local violations remain candidate-local
+
+7. Add runtime debug output for one evaluation:
+   BASELINE_PROTEIN_PLACEMENT_MAP
+   CANDIDATE_A_PROTEIN_PLACEMENT_MAP
+   CANDIDATE_B_PROTEIN_PLACEMENT_MAP
+   CANDIDATE_C_PROTEIN_PLACEMENT_MAP
+   PROTEIN_PLACEMENT_DIFFS
+
+Success condition:
+Protein placement violation should only appear for candidates that actually differ from the baseline meal protein map.
+If all three candidates show the same violation, the debug output must prove why.
