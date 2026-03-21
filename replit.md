@@ -95,13 +95,16 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
 
-### `packages/constitutional-kernel` (`@workspace/constitutional-kernel`)
+### `packages/constitutional-kernel` (`@nomos/core`)
 
-Mission Mathematics Constitutional AI Kernel — a formal reasoning substrate implementing four Laws (Feasibility, Robustness, Observability, Adaptive Correction) for mission-critical autonomous decision-making. This is **not** an LLM chatbot; it is a typed, testable constitutional reasoning engine.
+**NOMOS** — a constitutional system governing lawful action under reality. *Only the lawful may act.*
+
+Implements four Constitutional Laws (Feasibility, Robustness, Observability, Adaptive Correction) for mission-critical autonomous decision-making. This is **not** an LLM chatbot; it is a typed, testable constitutional reasoning engine with an integrated LLM proposal layer.
 
 - Module resolution: NodeNext (ESM), `composite: false`, `noEmit: true`
 - Uses `tsx` for direct execution (no compile step required)
-- Run demo: `pnpm --filter @workspace/constitutional-kernel exec tsx src/main.ts`
-- Typecheck: `pnpm --filter @workspace/constitutional-kernel exec tsc --noEmit`
-- Key modules: `belief_state`, `observer`, `feasibility_engine`, `robustness_analyzer`, `decision_engine`, `verification_kernel`, `model_registry`, `constitution_guard`, `audit_log`
-- Constitutional chain: belief → feasibility (Law I) → robustness (Law II) → decision → verification (Law IV) → guard → audit
+- Run demo: `pnpm --filter @nomos/core run start`
+- Typecheck: `pnpm --filter @nomos/core run check`
+- NOMOS modules: `NOMOS Belief`, `NOMOS Observer`, `NOMOS Model`, `NOMOS Proposer`, `NOMOS Decision`, `NOMOS Verifier`, `NOMOS Guard`, `NOMOS Audit`
+- Constitutional chain: belief → observer → model → llm_proposer → decision_engine → verification_kernel → constitution_guard → audit_log
+- Logo: `nomos-gate.svg` (Gate concept — passage conditional on law)

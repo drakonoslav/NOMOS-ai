@@ -1,7 +1,7 @@
 {
-  "name": "@workspace/constitutional-kernel",
+  "name": "@nomos/core",
   "version": "0.1.0",
-  "description": "Mission Mathematics Constitutional AI Kernel — formal reasoning substrate implementing Laws I–IV",
+  "description": "NOMOS — a constitutional system governing lawful action under reality. Implements Laws I–IV: Feasibility, Robustness, Observability, Adaptive Correction.",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 440" width="400" height="440" fill="none">
+
+  <!-- Outer gate frame: top bar + two pillars (open at bottom) -->
+  <rect x="60" y="60" width="280" height="28" rx="6" fill="#0B0B0C"/>
+  <rect x="60" y="60" width="28" height="260" rx="6" fill="#0B0B0C"/>
+  <rect x="312" y="60" width="28" height="260" rx="6" fill="#0B0B0C"/>
+
+  <!-- Central threshold bar (the law / the gate itself) -->
+  <rect x="176" y="100" width="48" height="220" rx="5" fill="#0B0B0C"/>
+
+  <!-- Ground line beneath — the base, the boundary -->
+  <rect x="60" y="368" width="280" height="20" rx="5" fill="#0B0B0C"/>
+
+</svg>

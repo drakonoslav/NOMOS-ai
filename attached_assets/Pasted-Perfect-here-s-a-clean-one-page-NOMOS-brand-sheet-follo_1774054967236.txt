@@ -1,0 +1,248 @@
+Perfect—here’s a clean, one-page NOMOS brand sheet followed by a logo concept sheet with 4 distinct directions you can hand directly to a designer or implement yourself.
+
+⸻
+
+🧾 NOMOS — One-Page Brand Sheet
+
+Name
+
+NOMOS
+
+Core Definition
+
+A constitutional system governing lawful action under reality.
+
+Tagline
+
+Only the lawful may act.
+
+⸻
+
+Essence
+	•	Law before action
+	•	Constraint before optimization
+	•	Verification before execution
+
+⸻
+
+Identity Keywords
+	•	Lawful
+	•	Exact
+	•	Sovereign
+	•	Cold
+	•	Structured
+	•	Non-negotiable
+
+⸻
+
+Brand Archetype
+
+The Gatekeeper of Action
+
+⸻
+
+Voice
+
+Declarative. Minimal. Authoritative.
+
+Examples
+	•	“Action denied.”
+	•	“Insufficient observability.”
+	•	“Model mismatch detected.”
+	•	“Recomputation required.”
+
+⸻
+
+System States
+
+Domain	States
+Verification	LAWFUL · DEGRADED · INVALID
+Authority	AUTHORIZED · CONSTRAINED · REFUSED
+Proposal	PROPOSED · SCREENED · REJECTED
+Model	ALIGNED · DEGRADED · MISMATCHED
+
+
+⸻
+
+Color System
+
+Primary
+	•	Obsidian — #0B0B0C
+	•	Bone — #E8E6E3
+	•	Iron — #5A5F66
+	•	Bronze — #6B5A3A
+
+Status (functional only)
+	•	Lawful → muted green
+	•	Degraded → amber
+	•	Invalid → deep red
+
+⸻
+
+Typography Direction
+	•	Display: classical / institutional serif
+	•	Body: clean technical sans
+
+Feel:
+constitution × systems engineering
+
+⸻
+
+Core Modules
+	•	NOMOS Belief
+	•	NOMOS Observer
+	•	NOMOS Model
+	•	NOMOS Proposer
+	•	NOMOS Decision
+	•	NOMOS Verifier
+	•	NOMOS Guard
+	•	NOMOS Audit
+
+⸻
+
+Identity Statement
+
+NOMOS does not assume that what is proposed may be done.
+It permits action only when law, stability, knowledge, and verification hold.
+
+⸻
+
+🧩 Logo Concept Sheet (4 Directions)
+
+These are not decorative—each encodes system behavior.
+
+⸻
+
+1. THE GATE (Primary Recommendation)
+
+Form
+	•	Rectangular frame
+	•	Vertical threshold bar in center
+	•	Optional base line (ground)
+
+│     │
+│  │  │
+│     │
+───────
+
+Meaning
+	•	Passage is conditional
+	•	Action must cross a boundary
+	•	Law is the threshold
+
+Why it fits
+
+This is literally what NOMOS does:
+
+nothing passes unless validated
+
+⸻
+
+2. THE SIGIL (CONSTITUTION SEAL)
+
+Form
+	•	Circle or shield
+	•	Inner geometric structure (grid, cross, or stacked bars)
+
+   ○
+ ┌─┼─┐
+ │   │
+ └───┘
+
+Meaning
+	•	Closure / completeness
+	•	System is self-contained
+	•	Authority is internal
+
+Use case
+	•	Papers
+	•	GitHub badge
+	•	“official” mark
+
+⸻
+
+3. STACKED LAWS (HIERARCHY MARK)
+
+Form
+	•	3–4 horizontal bars
+	•	Top bar narrower or elevated
+
+───────
+ ─────
+  ───
+
+Meaning
+	•	Law I → II → III → IV hierarchy
+	•	Lower-layer supremacy
+	•	Structure before action
+
+Why it fits
+
+This is your theorem stack visualized
+
+⸻
+
+4. THE NOMOS MONOGRAM (N-GLYPH)
+
+Form
+
+Custom “N” built from:
+	•	two vertical pillars
+	•	one diagonal constraint bar
+	•	optional base line
+
+│\  │
+│ \ │
+│  \│
+
+Meaning
+	•	Structure + crossing constraint
+	•	internal tension (law vs action)
+	•	identity mark
+
+Use case
+	•	app icon
+	•	favicon
+	•	minimal branding
+
+⸻
+
+🧭 Recommendation Stack
+
+If you want a clean system:
+	•	Primary logo: Gate
+	•	Secondary seal: Sigil
+	•	Technical diagram mark: Stacked Laws
+	•	UI/icon: N Monogram
+
+⸻
+
+🔧 Implementation Guidance
+
+Keep everything:
+	•	geometric
+	•	symmetrical
+	•	weight-balanced
+
+Avoid:
+	•	curves that feel soft
+	•	gradients
+	•	glow effects
+	•	“AI-looking” patterns
+
+This should feel like:
+
+infrastructure, not interface
+
+⸻
+
+🚀 If you want next
+
+I can:
+	•	turn one of these into an SVG you can drop into your repo
+	•	design a dark/light UI mock using NOMOS identity
+	•	or generate a print-ready PDF brand sheet
+
+Just say:
+
+“Generate SVG for Gate logo”

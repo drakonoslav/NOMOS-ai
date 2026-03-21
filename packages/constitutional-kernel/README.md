@@ -1,11 +1,24 @@
-# Epistemic AI Kernel
+# NOMOS
 
-**A Constitutionally Governed Architecture for Reality-Constrained Intelligence**
+**A constitutional system governing lawful action under reality.**
 
-This repository implements a formal reasoning substrate for AI systems whose decisions are
-governed by explicit epistemic laws. It is **not** an LLM chatbot, a heuristic planner, or
-an unconstrained optimizer. It is a constitutional reasoning engine in which every decision
-from belief formation through control actuation is subject to a strict ordering:
+*Only the lawful may act.*
+
+---
+
+NOMOS does not begin from fluency.
+It begins from law.
+It does not assume that what is proposed may be done.
+It does not assume that what is estimated is true.
+It does not assume that what is optimal will survive.
+It permits action only when feasibility, robustness, observability, and verification jointly hold.
+
+---
+
+This repository implements the NOMOS Core kernel — a formal reasoning substrate for AI systems
+whose decisions are governed by explicit epistemic law. It is **not** an LLM chatbot, a
+heuristic planner, or an unconstrained optimizer. It is a constitutional reasoning engine in
+which every decision from belief formation through control actuation is subject to a strict ordering:
 
 > **Feasibility → Robustness → Observability → Adaptation → Verification**
 
@@ -63,8 +76,8 @@ packages/constitutional-kernel/
 ```bash
 # From workspace root
 pnpm install
-pnpm --filter @workspace/constitutional-kernel run start
-pnpm --filter @workspace/constitutional-kernel run check
+pnpm --filter @nomos/core run start
+pnpm --filter @nomos/core run check
 
 # Or directly from the package directory
 pnpm start          # tsx src/main.ts
@@ -138,7 +151,7 @@ REAL WORLD (state evolves)
 
 ## Layer-by-Layer Description
 
-### 1 — Belief Layer (`belief_state.ts`)
+### NOMOS Belief (`belief_state.ts`)
 
 Maintains the explicit epistemic state:
 - `x̂(t)` — state estimate
@@ -149,7 +162,7 @@ Maintains the explicit epistemic state:
 Uncertainty is explicit here, not implicit. An unobservable or stale belief is flagged,
 never silently treated as ground truth.
 
-### 2 — Observer (`observer.ts`)
+### NOMOS Observer (`observer.ts`)
 
 Transforms bounded measurements into updated belief:
 - checks innovation residuals
@@ -160,7 +173,7 @@ Transforms bounded measurements into updated belief:
 
 Prevents: false certainty, stale inference, unobservable control.
 
-### 3 — Model Layer (`model_registry.ts`)
+### NOMOS Model (`model_registry.ts`)
 
 Maintains:
 - active model class ℳ and its measurement map
@@ -171,7 +184,7 @@ Maintains:
 
 The model is not assumed correct — it is continuously evaluated.
 
-### 4 — LLM Proposer (`llm_proposer.ts`)
+### NOMOS Proposer (`llm_proposer.ts`)
 
 Generates candidate proposals. This stage is **non-authoritative**.
 
@@ -221,7 +234,7 @@ This is not cosmetic. It encodes the constitutional fact that *proposal is not a
 Hard rule: the LLM cannot cross the verification boundary.
 ```
 
-### 5 — Decision Engine (`decision_engine.ts`)
+### NOMOS Decision (`decision_engine.ts`)
 
 Converts screened proposals into lawful candidates and applies the constitutional ranking:
 
@@ -249,7 +262,7 @@ Candidate Plan π
 
 Robustness dominates cost. This is where most fragile or infeasible proposals are rejected.
 
-### 6 — Verification Kernel (`verification_kernel.ts`)
+### NOMOS Verifier (`verification_kernel.ts`)
 
 Final cross-layer authority. Checks all four laws simultaneously:
 - feasibility (Law I)
@@ -261,7 +274,7 @@ Outputs exactly one of: `LAWFUL` | `DEGRADED` | `INVALID`
 
 No action may bypass this stage.
 
-### 7 — Constitution Guard (`constitution_guard.ts`)
+### NOMOS Guard (`constitution_guard.ts`)
 
 Translates verification status into runtime authority:
 - `mayAct` → apply the selected control
@@ -270,7 +283,7 @@ Translates verification status into runtime authority:
 
 This is the enforcement boundary.
 
-### 8 — Audit Log (`audit_log.ts`)
+### NOMOS Audit (`audit_log.ts`)
 
 Records the full system trace:
 - measurement snapshot
@@ -397,7 +410,7 @@ silently claiming lawful authority.
 ## Using the LLM Proposer
 
 ```typescript
-import { LLMProposer, MissionContext } from "@workspace/constitutional-kernel";
+import { LLMProposer, MissionContext } from "@nomos/core";
 
 const proposer = new LLMProposer();
 

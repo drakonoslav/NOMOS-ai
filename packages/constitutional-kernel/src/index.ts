@@ -1,7 +1,11 @@
 /**
- * index.ts
+ * NOMOS
+ * Only the lawful may act.
  *
- * Package barrel for the constitutional kernel.
+ * A constitutional system governing lawful action under reality.
+ * Implements Laws I–IV: Feasibility, Robustness, Observability, Adaptive Correction.
+ *
+ * Law.  Truth.  Constraint.
  */
 
 export * from "./belief_state.js";
