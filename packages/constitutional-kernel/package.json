@@ -1,0 +1,16 @@
+{
+  "name": "@workspace/constitutional-kernel",
+  "version": "0.1.0",
+  "description": "Mission Mathematics Constitutional AI Kernel — formal reasoning substrate implementing Laws I–IV",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "catalog:",
+    "typescript": "^5.9.2",
+    "@types/node": "catalog:"
+  }
+}
