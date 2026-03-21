@@ -1,0 +1,256 @@
+Perfect—this is the final piece that makes the demo feel interactive immediately.
+
+Below is a tiny, clean ScenarioSelector.tsx that:
+	•	plugs into a top bar or overview
+	•	switches between the 3 deterministic states
+	•	visually reflects the current NOMOS status (lawful / degraded / invalid)
+	•	stays consistent with your tone + CSS system
+
+⸻
+
+📁 src/ui/components/nomos/ScenarioSelector.tsx
+
+import React from "react";
+import { DemoScenario } from "../../demo/scenario_builder";
+
+export interface ScenarioSelectorProps {
+  value: DemoScenario;
+  onChange: (scenario: DemoScenario) => void;
+}
+
+const SCENARIOS: {
+  id: DemoScenario;
+  label: string;
+  short: string;
+}[] = [
+  {
+    id: "lawful_baseline",
+    label: "Lawful Baseline",
+    short: "LAWFUL",
+  },
+  {
+    id: "degraded_low_margin",
+    label: "Degraded Low Margin",
+    short: "DEGRADED",
+  },
+  {
+    id: "refused_infeasible",
+    label: "Refused Infeasible",
+    short: "INVALID",
+  },
+];
+
+export function ScenarioSelector({
+  value,
+  onChange,
+}: ScenarioSelectorProps) {
+  return (
+    <div className="scenario-selector">
+      <div className="scenario-selector__label">Scenario</div>
+
+      <div className="scenario-selector__group">
+        {SCENARIOS.map((s) => {
+          const isActive = value === s.id;
+
+          return (
+            <button
+              key={s.id}
+              className={[
+                "scenario-selector__button",
+                `scenario-selector__button--${statusClass(s.id)}`,
+                isActive ? "is-active" : "",
+              ].join(" ")}
+              onClick={() => onChange(s.id)}
+            >
+              <span className="scenario-selector__short">
+                {s.short}
+              </span>
+
+              <span className="scenario-selector__name">
+                {s.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================
+   Helpers
+========================================= */
+
+function statusClass(s: DemoScenario): "lawful" | "degraded" | "invalid" {
+  if (s === "lawful_baseline") return "lawful";
+  if (s === "degraded_low_margin") return "degraded";
+  return "invalid";
+}
+
+
+⸻
+
+🎨 Minimal CSS (add to nomos.css)
+
+.scenario-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--nm-space-3);
+}
+
+.scenario-selector__label {
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.scenario-selector__group {
+  display: flex;
+  gap: var(--nm-space-2);
+}
+
+/* BUTTON BASE */
+
+.scenario-selector__button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+
+  padding: 6px 10px;
+  min-width: 110px;
+
+  border-radius: var(--nm-radius-xs);
+  border: 1px solid var(--nm-border);
+
+  background: var(--nm-surface-2);
+  cursor: pointer;
+
+  transition: all var(--nm-transition-fast);
+}
+
+/* SHORT LABEL */
+
+.scenario-selector__short {
+  font-size: var(--nm-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* NAME */
+
+.scenario-selector__name {
+  font-size: var(--nm-text-sm);
+  color: var(--nm-text-secondary);
+}
+
+/* STATES */
+
+.scenario-selector__button--lawful {
+  border-color: color-mix(in srgb, var(--nm-lawful) 50%, var(--nm-border));
+}
+
+.scenario-selector__button--degraded {
+  border-color: color-mix(in srgb, var(--nm-degraded) 50%, var(--nm-border));
+}
+
+.scenario-selector__button--invalid {
+  border-color: color-mix(in srgb, var(--nm-invalid) 50%, var(--nm-border));
+}
+
+/* ACTIVE STATE */
+
+.scenario-selector__button.is-active {
+  background: var(--nm-surface-3);
+  border-color: var(--nm-border-strong);
+}
+
+.scenario-selector__button--lawful.is-active {
+  box-shadow: 0 0 0 1px var(--nm-lawful) inset;
+}
+
+.scenario-selector__button--degraded.is-active {
+  box-shadow: 0 0 0 1px var(--nm-degraded) inset;
+}
+
+.scenario-selector__button--invalid.is-active {
+  box-shadow: 0 0 0 1px var(--nm-invalid) inset;
+}
+
+/* HOVER */
+
+.scenario-selector__button:hover {
+  background: var(--nm-surface-3);
+}
+
+
+⸻
+
+🧩 Example usage (Top Bar)
+
+import React, { useState } from "react";
+import { ScenarioSelector } from "./ScenarioSelector";
+import { buildScenarioState } from "../../demo/scenario_builder";
+
+export function TopBar() {
+  const [scenario, setScenario] = useState("lawful_baseline");
+
+  const state = buildScenarioState(scenario);
+
+  return (
+    <div className="topbar">
+      <ScenarioSelector
+        value={scenario}
+        onChange={setScenario}
+      />
+
+      {/* You can pass `state` down to dashboard */}
+    </div>
+  );
+}
+
+
+⸻
+
+🧠 Why this matters
+
+This tiny component does something deceptively important:
+
+It lets the user toggle reality.
+
+And immediately see:
+	•	tone shift
+	•	verification shift
+	•	authority shift
+	•	admissibility shift
+
+So instead of:
+
+“this system can do X”
+
+They experience:
+
+“this system behaves differently under different conditions”
+
+That’s when NOMOS starts to feel:
+	•	consistent
+	•	grounded
+	•	real
+
+⸻
+
+If you want next
+
+The next high-leverage step is:
+
+👉 wire ScenarioSelector → global dashboard state (context/store)
+
+so:
+	•	every panel updates simultaneously
+	•	no prop drilling
+	•	scenario becomes a true system-level control
+
+Just say:
+
+“Add global scenario state”

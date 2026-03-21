@@ -1,0 +1,266 @@
+Add global scenario state
+
+Below is a clean, minimal Context-based store that makes the selected scenario a true app-level control. Every panel can subscribe without prop drilling.
+
+⸻
+
+📁 src/ui/state/ScenarioContext.tsx
+
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
+import {
+  DemoScenario,
+  buildScenarioState,
+  DashboardScenarioState,
+} from "../demo/scenario_builder";
+
+/* =========================================
+   Context Shape
+========================================= */
+
+interface ScenarioContextValue {
+  scenario: DemoScenario;
+  setScenario: (s: DemoScenario) => void;
+
+  /**
+   * Fully built deterministic runtime snapshot
+   * for the selected scenario.
+   */
+  state: DashboardScenarioState;
+}
+
+/* =========================================
+   Create Context
+========================================= */
+
+const ScenarioContext = createContext<ScenarioContextValue | null>(null);
+
+/* =========================================
+   Provider
+========================================= */
+
+export function ScenarioProvider({ children }: { children: ReactNode }) {
+  const [scenario, setScenario] =
+    useState<DemoScenario>("lawful_baseline");
+
+  const state = useMemo(
+    () => buildScenarioState(scenario),
+    [scenario]
+  );
+
+  const value = useMemo(
+    () => ({
+      scenario,
+      setScenario,
+      state,
+    }),
+    [scenario, state]
+  );
+
+  return (
+    <ScenarioContext.Provider value={value}>
+      {children}
+    </ScenarioContext.Provider>
+  );
+}
+
+/* =========================================
+   Hook
+========================================= */
+
+export function useScenario() {
+  const ctx = useContext(ScenarioContext);
+  if (!ctx) {
+    throw new Error(
+      "useScenario must be used inside ScenarioProvider"
+    );
+  }
+  return ctx;
+}
+
+
+⸻
+
+🧩 Wrap your app
+
+📁 src/ui/App.tsx
+
+import React from "react";
+import { ScenarioProvider } from "./state/ScenarioContext";
+import { DashboardPage } from "./pages/DashboardPage";
+
+export function App() {
+  return (
+    <ScenarioProvider>
+      <DashboardPage />
+    </ScenarioProvider>
+  );
+}
+
+
+⸻
+
+🔗 Connect ScenarioSelector to global state
+
+📁 TopBar.tsx
+
+import React from "react";
+import { ScenarioSelector } from "../components/nomos/ScenarioSelector";
+import { useScenario } from "../state/ScenarioContext";
+
+export function TopBar() {
+  const { scenario, setScenario } = useScenario();
+
+  return (
+    <div className="topbar">
+      <ScenarioSelector
+        value={scenario}
+        onChange={setScenario}
+      />
+    </div>
+  );
+}
+
+
+⸻
+
+🧠 Use state anywhere (no props)
+
+📁 DashboardPage.tsx
+
+import React from "react";
+import { useScenario } from "../state/ScenarioContext";
+import { StatusCard } from "../components/nomos/StatusCard";
+import { VerificationSummary } from "../components/nomos/VerificationSummary";
+
+export function DashboardPage() {
+  const { state } = useScenario();
+
+  return (
+    <div className="dashboard">
+      <header className="dashboard__header">
+        <h1>{state.label}</h1>
+        <p>{state.description}</p>
+      </header>
+
+      <div className="dashboard__grid">
+        <StatusCard input={state.toneInput} />
+        <VerificationSummary input={state.toneInput} />
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+🔄 What just happened
+
+You now have:
+
+Single source of truth
+
+const { scenario, state } = useScenario();
+
+Deterministic rebuild on change
+
+state = buildScenarioState(scenario);
+
+Zero prop drilling
+
+Every component can call:
+
+const { state } = useScenario();
+
+
+⸻
+
+🧠 Why this is the right architecture
+
+This turns scenario into:
+
+a system-level condition, not a component prop
+
+So:
+	•	StatusCard updates
+	•	VerificationSummary updates
+	•	Tone changes
+	•	Metrics change
+	•	Everything stays synchronized
+
+Instantly.
+
+⸻
+
+⚡ What it enables next
+
+Now you can:
+
+1. Add global panels easily
+	•	Audit log panel
+	•	Metrics panel
+	•	Belief state panel
+
+All just:
+
+const { state } = useScenario();
+
+
+⸻
+
+2. Animate transitions
+
+Switching:
+	•	LAWFUL → DEGRADED → INVALID
+
+You can animate:
+	•	color
+	•	tone density
+	•	panel emphasis
+
+⸻
+
+3. Replace mock with real runtime later
+
+Just swap:
+
+buildScenarioState(...)
+
+with:
+
+runNomosKernel(...)
+
+UI stays unchanged.
+
+⸻
+
+🔥 Final insight
+
+This step turns NOMOS from:
+
+“a UI with states”
+
+into:
+
+a system with a single governing condition that everything obeys
+
+That’s why it feels cohesive.
+
+⸻
+
+If you want next:
+
+👉 we can wire Query Builder → Scenario override → Live evaluation mode
+
+so NOMOS switches from:
+	•	demo reality
+to
+	•	user-submitted reality
+
+Just say:
+“Connect Query Builder to runtime”

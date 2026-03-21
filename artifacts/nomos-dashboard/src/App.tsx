@@ -12,7 +12,7 @@ import VerificationPage from "@/pages/verification";
 import BeliefPage from "@/pages/belief";
 import DecisionPage from "@/pages/decision";
 import AuditPage from "@/pages/audit";
-import QueryBuilderPage from "@/pages/query";
+import { QueryBuilderPage } from "@/ui/pages/query/QueryBuilderPage";
 import { ScenarioProvider } from "@/context/scenario-context";
 
 const queryClient = new QueryClient({

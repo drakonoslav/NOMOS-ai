@@ -1,0 +1,319 @@
+Add audit timeline panel
+
+This is the final piece that makes NOMOS inspectable over time, not just at a single state.
+
+You’re going to build:
+
+a persistent, scrollable, step-by-step execution trace of the constitutional pipeline
+
+⸻
+
+🧱 1. First — extend AuditLog to support persistence
+
+📁 src/core/audit_log.ts (patch)
+
+export interface AuditEntry {
+  id: string;
+  timestamp: number;
+  stage: string;
+  payload: any;
+}
+
+export class AuditLog {
+  private entries: AuditEntry[] = [];
+
+  record(stage: string, payload: any) {
+    const entry: AuditEntry = {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      stage,
+      payload,
+    };
+
+    this.entries.push(entry);
+    this.persist();
+  }
+
+  getEntries(): AuditEntry[] {
+    return this.entries;
+  }
+
+  clear() {
+    this.entries = [];
+    localStorage.removeItem("nomos_audit_log");
+  }
+
+  /* -----------------------------
+     Persistence
+  ----------------------------- */
+
+  private persist() {
+    try {
+      localStorage.setItem(
+        "nomos_audit_log",
+        JSON.stringify(this.entries)
+      );
+    } catch {}
+  }
+
+  load() {
+    try {
+      const raw = localStorage.getItem("nomos_audit_log");
+      if (!raw) return;
+
+      this.entries = JSON.parse(raw);
+    } catch {}
+  }
+}
+
+
+⸻
+
+🧠 2. Expose audit log globally
+
+📁 ScenarioContext.tsx (add)
+
+import { AuditLog, AuditEntry } from "../../core/audit_log";
+
+const audit = new AuditLog();
+audit.load();
+
+interface ScenarioContextValue {
+  ...
+  auditEntries: AuditEntry[];
+  clearAudit: () => void;
+}
+
+Inside provider:
+
+const [auditEntries, setAuditEntries] = useState<AuditEntry[]>(
+  audit.getEntries()
+);
+
+function refreshAudit() {
+  setAuditEntries([...audit.getEntries()]);
+}
+
+function clearAudit() {
+  audit.clear();
+  refreshAudit();
+}
+
+After every evaluation:
+
+await runNomosEvaluation(q);
+refreshAudit();
+
+Expose:
+
+auditEntries,
+clearAudit,
+
+
+⸻
+
+📁 3. AuditTimelinePanel.tsx
+
+import React, { useState } from "react";
+import { useScenario } from "../../state/ScenarioContext";
+
+export function AuditTimelinePanel() {
+  const { auditEntries, clearAudit } = useScenario();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  return (
+    <div className="panel audit-panel">
+      <div className="panel-header">
+        Audit Timeline
+        <button onClick={clearAudit} className="audit-clear">
+          Clear
+        </button>
+      </div>
+
+      <div className="audit-list">
+        {auditEntries.length === 0 && (
+          <div className="audit-empty">
+            No audit entries yet.
+          </div>
+        )}
+
+        {auditEntries.map((entry) => {
+          const expanded = expandedId === entry.id;
+
+          return (
+            <div
+              key={entry.id}
+              className={`audit-item audit-item--${entry.stage}`}
+            >
+              <div
+                className="audit-item__header"
+                onClick={() =>
+                  setExpandedId(expanded ? null : entry.id)
+                }
+              >
+                <span className="audit-stage">
+                  {formatStage(entry.stage)}
+                </span>
+
+                <span className="audit-time">
+                  {formatTime(entry.timestamp)}
+                </span>
+              </div>
+
+              {expanded && (
+                <pre className="audit-payload">
+                  {safeStringify(entry.payload)}
+                </pre>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 4. CSS (add to nomos.css)
+
+.audit-panel {
+  max-height: 520px;
+  display: flex;
+  flex-direction: column;
+}
+
+.audit-clear {
+  margin-left: auto;
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.audit-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+  margin-top: var(--nm-space-3);
+}
+
+.audit-item {
+  border: 1px solid var(--nm-border);
+  border-radius: var(--nm-radius-xs);
+  background: var(--nm-surface-2);
+}
+
+.audit-item__header {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.audit-stage {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-secondary);
+}
+
+.audit-time {
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+}
+
+.audit-payload {
+  padding: 10px;
+  font-size: 11px;
+  background: var(--nm-surface-3);
+  border-top: 1px solid var(--nm-border);
+  overflow-x: auto;
+}
+
+.audit-empty {
+  padding: 12px;
+  color: var(--nm-text-muted);
+}
+
+
+⸻
+
+🧩 5. Use it in dashboard
+
+📁 DashboardPage.tsx
+
+import { AuditTimelinePanel } from "../components/nomos/AuditTimelinePanel";
+
+<div className="dashboard__grid">
+  <StatusCard input={state.toneInput} />
+  <VerificationSummary input={state.toneInput} />
+  <AuditTimelinePanel />
+</div>
+
+
+⸻
+
+🧠 What this gives you
+
+Now NOMOS shows:
+
+Not just outcome
+	•	LAWFUL / DEGRADED / INVALID
+
+But process
+	•	belief_initialized
+	•	observation_complete
+	•	model_selected
+	•	proposals_generated
+	•	decision_selected
+	•	verification_complete
+	•	constitution_enforced
+	•	runtime_complete
+
+⸻
+
+🔥 Why this is powerful
+
+Because now a user can:
+
+click any decision and ask:
+“Where did this come from?”
+
+And NOMOS can answer with:
+	•	exact step
+	•	exact data
+	•	exact transition
+
+⸻
+
+🧠 Final insight
+
+Without audit:
+
+NOMOS looks intelligent
+
+With audit:
+
+NOMOS is legible
+
+That’s the difference between:
+	•	a system you trust visually
+	•	and a system you trust structurally
+
+⸻
+
+If you want next
+
+The strongest upgrade after this is:
+
+👉 add diff view between two audit runs
+
+So users can compare:
+	•	why something was LAWFUL yesterday
+	•	but DEGRADED today
+
+Just say:
+“Add audit diff view”

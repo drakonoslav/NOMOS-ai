@@ -1,0 +1,291 @@
+Highlight decisive variable in diff
+
+This upgrade makes the diff panel go from:
+
+“here are changes”
+
+to:
+
+“this is the change that determined the outcome”
+
+⸻
+
+🧠 What we’re adding
+
+The diff system will now:
+	1.	Detect status transition
+	•	LAWFUL → DEGRADED
+	•	DEGRADED → INVALID
+	•	etc.
+	2.	Score which variable changed most meaningfully:
+	•	feasibility
+	•	robustness
+	•	model confidence
+	•	identifiability
+	•	observability
+	•	adaptation
+	3.	Mark:
+
+decisive variable = root cause of state change
+
+⸻
+
+🧱 1. Extend diff model
+
+📁 audit_diff.ts (upgrade)
+
+export interface DecisiveDiff {
+  variable: string;
+  before: any;
+  after: any;
+  reason: string;
+}
+
+export interface DiffResult {
+  stageDiffs: StageDiff[];
+  decisive?: DecisiveDiff;
+}
+
+
+⸻
+
+🧠 2. Add decisive variable detection
+
+export function diffRunsWithDecision(
+  runA: AuditEntry[],
+  runB: AuditEntry[]
+): DiffResult {
+  const stageDiffs = diffRuns(runA, runB);
+
+  const beforeVerification = findStage(runA, "verification_complete");
+  const afterVerification = findStage(runB, "verification_complete");
+
+  const decisive = findDecisiveChange(
+    beforeVerification,
+    afterVerification
+  );
+
+  return {
+    stageDiffs,
+    decisive,
+  };
+}
+
+
+⸻
+
+🔍 3. Core logic: find decisive variable
+
+function findDecisiveChange(a: any, b: any): DecisiveDiff | undefined {
+  if (!a || !b) return;
+
+  // 1. Feasibility (highest priority)
+  if (a.feasibility?.ok !== b.feasibility?.ok) {
+    return {
+      variable: "feasibility",
+      before: a.feasibility?.ok,
+      after: b.feasibility?.ok,
+      reason: "Feasibility transition determines legality boundary",
+    };
+  }
+
+  // 2. Robustness
+  if (a.robustness?.ok !== b.robustness?.ok) {
+    return {
+      variable: "robustness margin",
+      before: a.robustness?.epsilon,
+      after: b.robustness?.epsilon,
+      reason: "Robustness crossing threshold reduces allowable operation",
+    };
+  }
+
+  // 3. Model confidence
+  if (a.model?.confidence !== b.model?.confidence) {
+    const delta = Math.abs(
+      (a.model?.confidence ?? 0) - (b.model?.confidence ?? 0)
+    );
+
+    if (delta > 0.1) {
+      return {
+        variable: "model confidence",
+        before: a.model?.confidence,
+        after: b.model?.confidence,
+        reason: "Model reliability shift alters admissibility",
+      };
+    }
+  }
+
+  // 4. Identifiability
+  if (a.identifiability?.ok !== b.identifiability?.ok) {
+    return {
+      variable: "identifiability",
+      before: a.identifiability?.ok,
+      after: b.identifiability?.ok,
+      reason: "Loss of identifiability breaks system grounding",
+    };
+  }
+
+  // 5. Observability
+  if (a.observability?.ok !== b.observability?.ok) {
+    return {
+      variable: "observability",
+      before: a.observability?.ok,
+      after: b.observability?.ok,
+      reason: "Insufficient observability limits control validity",
+    };
+  }
+
+  // 6. Adaptation
+  if (a.adaptation?.ok !== b.adaptation?.ok) {
+    return {
+      variable: "adaptation integrity",
+      before: a.adaptation?.ok,
+      after: b.adaptation?.ok,
+      reason: "Adaptation breakdown prevents recovery",
+    };
+  }
+
+  return;
+}
+
+function findStage(entries: AuditEntry[], stage: string) {
+  return entries.find((e) => e.stage === stage)?.payload;
+}
+
+
+⸻
+
+🧩 4. Upgrade AuditDiffPanel
+
+📁 AuditDiffPanel.tsx (patch)
+
+import { diffRunsWithDecision } from "../../audit/audit_diff";
+
+Replace diff logic:
+
+const result =
+  runA && runB
+    ? diffRunsWithDecision(
+        getRunEntries(runA),
+        getRunEntries(runB)
+      )
+    : null;
+
+const diffs = result?.stageDiffs ?? [];
+const decisive = result?.decisive;
+
+
+⸻
+
+🧠 5. Add decisive highlight UI
+
+Insert above diff list:
+
+{decisive && (
+  <div className="audit-decisive">
+    <div className="audit-decisive__title">
+      Decisive Variable
+    </div>
+
+    <div className="audit-decisive__body">
+      <div className="audit-decisive__var">
+        {decisive.variable}
+      </div>
+
+      <div className="audit-decisive__change">
+        {String(decisive.before)} → {String(decisive.after)}
+      </div>
+
+      <div className="audit-decisive__reason">
+        {decisive.reason}
+      </div>
+    </div>
+  </div>
+)}
+
+
+⸻
+
+🎨 6. CSS
+
+.audit-decisive {
+  border: 1px solid var(--nm-border-strong);
+  background: var(--nm-surface-3);
+  padding: 10px;
+  margin-bottom: var(--nm-space-3);
+  border-radius: var(--nm-radius-sm);
+}
+
+.audit-decisive__title {
+  font-size: var(--nm-text-xs);
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+  margin-bottom: 4px;
+}
+
+.audit-decisive__var {
+  font-weight: 700;
+  font-size: var(--nm-text-md);
+}
+
+.audit-decisive__change {
+  font-family: var(--nm-font-mono);
+  margin-top: 4px;
+}
+
+.audit-decisive__reason {
+  margin-top: 6px;
+  color: var(--nm-text-secondary);
+  font-size: var(--nm-text-sm);
+}
+
+
+⸻
+
+🔥 What this does (critical)
+
+Now when comparing runs, NOMOS will explicitly say:
+
+Decisive Variable
+robustness margin
+
+0.045 → 0.028
+
+Robustness crossing threshold reduces allowable operation
+
+
+⸻
+
+🧠 Why this matters
+
+Without this:
+	•	users see differences
+	•	but must interpret causality themselves
+
+With this:
+	•	NOMOS identifies the causal pivot
+
+⸻
+
+🧠 Final insight
+
+This is the moment the system starts to feel like:
+
+it understands its own decisions
+
+Because it can point to:
+
+the exact variable that changed legality
+
+⸻
+
+If you want next
+
+👉 connect this decisive variable into the tone_resolver
+
+So responses automatically say:
+
+“The decisive factor is robustness margin.”
+
+Just say:
+“Inject decisive variable into tone system”

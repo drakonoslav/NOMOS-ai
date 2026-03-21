@@ -1,0 +1,337 @@
+Connect Query Builder to runtime
+
+Below is a clean, non-breaking extension that lets NOMOS switch between:
+	•	DEMO mode (deterministic scenarios)
+	•	LIVE mode (user-submitted NomosQuery → parsed → evaluated)
+
+It preserves your constitutional flow:
+
+input → parse → confirm → evaluate → render
+
+⸻
+
+1) Extend global state to support runtime mode
+
+📁 src/ui/state/ScenarioContext.tsx (patch)
+
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  ReactNode,
+} from "react";
+import {
+  DemoScenario,
+  buildScenarioState,
+  DashboardScenarioState,
+} from "../demo/scenario_builder";
+import { NomosQuery } from "../query/types"; // define if not present
+import { runNomosEvaluation } from "../runtime/evaluate_nomos"; // new
+
+type RuntimeMode = "DEMO" | "LIVE";
+
+interface ScenarioContextValue {
+  mode: RuntimeMode;
+  setMode: (m: RuntimeMode) => void;
+
+  scenario: DemoScenario;
+  setScenario: (s: DemoScenario) => void;
+
+  state: DashboardScenarioState;
+
+  /** LIVE */
+  liveQuery?: NomosQuery;
+  setLiveQuery: (q?: NomosQuery) => void;
+
+  evaluateLiveQuery: (q: NomosQuery) => Promise<void>;
+}
+
+const ScenarioContext = createContext<ScenarioContextValue | null>(null);
+
+export function ScenarioProvider({ children }: { children: ReactNode }) {
+  const [mode, setMode] = useState<RuntimeMode>("DEMO");
+
+  const [scenario, setScenario] =
+    useState<DemoScenario>("lawful_baseline");
+
+  const [liveQuery, setLiveQuery] = useState<NomosQuery | undefined>();
+  const [liveState, setLiveState] =
+    useState<DashboardScenarioState | null>(null);
+
+  const demoState = useMemo(
+    () => buildScenarioState(scenario),
+    [scenario]
+  );
+
+  const state = mode === "DEMO" ? demoState : liveState ?? demoState;
+
+  async function evaluateLiveQuery(q: NomosQuery) {
+    const result = await runNomosEvaluation(q);
+
+    setLiveQuery(q);
+    setLiveState(result);
+    setMode("LIVE");
+  }
+
+  const value = useMemo(
+    () => ({
+      mode,
+      setMode,
+
+      scenario,
+      setScenario,
+
+      state,
+
+      liveQuery,
+      setLiveQuery,
+
+      evaluateLiveQuery,
+    }),
+    [mode, scenario, state, liveQuery]
+  );
+
+  return (
+    <ScenarioContext.Provider value={value}>
+      {children}
+    </ScenarioContext.Provider>
+  );
+}
+
+export function useScenario() {
+  const ctx = useContext(ScenarioContext);
+  if (!ctx) {
+    throw new Error("useScenario must be used inside ScenarioProvider");
+  }
+  return ctx;
+}
+
+
+⸻
+
+2) Add runtime evaluator (adapter layer)
+
+📁 src/ui/runtime/evaluate_nomos.ts
+
+This converts a NomosQuery → DashboardScenarioState
+
+import { DashboardScenarioState } from "../demo/scenario_builder";
+import { NomosQuery } from "../query/types";
+
+/**
+ * First-pass evaluator adapter
+ * Replace internals later with full NOMOS kernel
+ */
+export async function runNomosEvaluation(
+  query: NomosQuery
+): Promise<DashboardScenarioState> {
+  // VERY SIMPLE deterministic logic (first pass)
+
+  const hasHardConstraint = query.state.constraints?.some((c) =>
+    c.toLowerCase().includes("must not fail")
+  );
+
+  const hasUncertainty =
+    (query.state.uncertainties?.length ?? 0) > 0;
+
+  const candidates = query.candidates ?? [];
+
+  // INVALID
+  if (hasHardConstraint && candidates.length === 0) {
+    return {
+      scenario: "refused_infeasible",
+      label: "Live Evaluation (Invalid)",
+      description: "No admissible candidates under declared constraints.",
+      toneInput: {
+        verificationStatus: "INVALID",
+        authority: "REFUSED",
+        epsilonX: 0.1,
+        identifiability: "FULL",
+        modelConfidence: 0.7,
+        feasibilityOk: false,
+        robustnessOk: false,
+        observabilityOk: true,
+        identifiabilityOk: true,
+        modelOk: true,
+        adaptationOk: false,
+        selectedCandidateIds: [],
+        rejectedCandidateIds: candidates.map((c) => c.id),
+        activeConstraint: "declared constraint violation",
+        decisiveVariable: "constraint feasibility",
+        reasons: ["Feasibility violation detected."],
+        adjustments: ["Introduce viable candidate"],
+      },
+      metrics: {
+        proposalCount: candidates.length,
+        actionOutcome: "REFUSED",
+      },
+    };
+  }
+
+  // DEGRADED
+  if (hasUncertainty) {
+    return {
+      scenario: "degraded_low_margin",
+      label: "Live Evaluation (Degraded)",
+      description: "Uncertainty reduces operating margin.",
+      toneInput: {
+        verificationStatus: "DEGRADED",
+        authority: "CONSTRAINED",
+        epsilonX: 0.15,
+        identifiability: "PARTIAL",
+        modelConfidence: 0.6,
+        feasibilityOk: true,
+        robustnessOk: false,
+        observabilityOk: true,
+        identifiabilityOk: true,
+        modelOk: false,
+        adaptationOk: true,
+        selectedCandidateIds: candidates.slice(0, 1).map((c) => c.id),
+        rejectedCandidateIds: candidates.slice(1).map((c) => c.id),
+        activeConstraint: "uncertainty",
+        decisiveVariable: "model confidence",
+        reasons: ["Uncertainty impacts outcome."],
+        adjustments: ["Reduce uncertainty"],
+      },
+      metrics: {
+        proposalCount: candidates.length,
+        actionOutcome: "DEGRADED_ACTION_APPLIED",
+      },
+    };
+  }
+
+  // LAWFUL
+  return {
+    scenario: "lawful_baseline",
+    label: "Live Evaluation (Lawful)",
+    description: "All declared constraints satisfied.",
+    toneInput: {
+      verificationStatus: "LAWFUL",
+      authority: "AUTHORIZED",
+      epsilonX: 0.05,
+      identifiability: "FULL",
+      modelConfidence: 0.9,
+      feasibilityOk: true,
+      robustnessOk: true,
+      observabilityOk: true,
+      identifiabilityOk: true,
+      modelOk: true,
+      adaptationOk: true,
+      selectedCandidateIds: candidates.map((c) => c.id),
+      rejectedCandidateIds: [],
+      activeConstraint: "none",
+      decisiveVariable: "robustness margin",
+      reasons: ["All constraints satisfied."],
+      adjustments: [],
+    },
+    metrics: {
+      proposalCount: candidates.length,
+      actionOutcome: "APPLIED",
+    },
+  };
+}
+
+
+⸻
+
+3) Connect Query Builder → runtime
+
+📁 inside QueryBuilderPage.tsx (key change)
+
+import { useScenario } from "../state/ScenarioContext";
+
+const { evaluateLiveQuery } = useScenario();
+
+async function handleEvaluate() {
+  if (!parsedQuery || !previewAccepted) return;
+
+  setIsEvaluating(true);
+
+  try {
+    await evaluateLiveQuery(parsedQuery);
+  } finally {
+    setIsEvaluating(false);
+  }
+}
+
+
+⸻
+
+4) Add mode indicator (top bar)
+
+📁 TopBar.tsx
+
+const { mode, setMode } = useScenario();
+
+<div className="mode-toggle">
+  <button
+    className={mode === "DEMO" ? "active" : ""}
+    onClick={() => setMode("DEMO")}
+  >
+    Demo
+  </button>
+
+  <button
+    className={mode === "LIVE" ? "active" : ""}
+    onClick={() => setMode("LIVE")}
+  >
+    Live
+  </button>
+</div>
+
+
+⸻
+
+5) Behavior summary
+
+DEMO mode
+	•	controlled scenarios
+	•	deterministic
+	•	teaching mode
+
+LIVE mode
+	•	user input
+	•	parsed + confirmed
+	•	evaluated
+	•	rendered through same UI
+
+⸻
+
+🧠 Why this is the correct architecture
+
+Because:
+	•	UI stays unchanged
+	•	tone system stays intact
+	•	verification pipeline stays intact
+	•	only input source changes
+
+So NOMOS becomes:
+
+a single system with two input regimes
+
+⸻
+
+🔥 Final result
+
+You now have:
+	•	structured input (Query Builder)
+	•	controlled parsing
+	•	confirmation boundary
+	•	evaluation pipeline
+	•	tone-compliant output
+	•	global state switch
+	•	deterministic + live modes
+
+This is the moment NOMOS becomes:
+
+an actual system, not just an interface
+
+⸻
+
+If you want next:
+
+👉 we can replace runNomosEvaluation with your full constitutional kernel pipeline (belief → observer → model → proposer → decision → verification → guard → audit)
+
+Just say:
+“Wire full kernel into runtime”

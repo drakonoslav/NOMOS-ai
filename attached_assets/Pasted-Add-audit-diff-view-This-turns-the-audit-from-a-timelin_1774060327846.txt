@@ -1,0 +1,366 @@
+Add audit diff view
+
+This turns the audit from a timeline into a diagnostic instrument:
+
+not just “what happened”
+but “what changed and why”
+
+⸻
+
+🧠 What we’re building
+
+A panel that lets you:
+	1.	Select Run A (earlier)
+	2.	Select Run B (later)
+	3.	See:
+	•	stage-by-stage differences
+	•	decisive variable shifts
+	•	constraint changes
+	•	outcome transition (LAWFUL → DEGRADED → INVALID)
+
+⸻
+
+🧱 1. Extend AuditLog with run grouping
+
+Right now entries are flat. We need runs.
+
+📁 audit_log.ts (upgrade)
+
+export interface AuditEntry {
+  id: string;
+  runId: string;
+  timestamp: number;
+  stage: string;
+  payload: any;
+}
+
+export interface AuditRun {
+  runId: string;
+  startedAt: number;
+}
+
+export class AuditLog {
+  private entries: AuditEntry[] = [];
+  private runs: AuditRun[] = [];
+  private currentRunId: string | null = null;
+
+  startRun() {
+    this.currentRunId = crypto.randomUUID();
+
+    this.runs.push({
+      runId: this.currentRunId,
+      startedAt: Date.now(),
+    });
+
+    this.persist();
+  }
+
+  record(stage: string, payload: any) {
+    if (!this.currentRunId) {
+      this.startRun();
+    }
+
+    this.entries.push({
+      id: crypto.randomUUID(),
+      runId: this.currentRunId!,
+      timestamp: Date.now(),
+      stage,
+      payload,
+    });
+
+    this.persist();
+  }
+
+  getRuns(): AuditRun[] {
+    return this.runs;
+  }
+
+  getEntriesByRun(runId: string): AuditEntry[] {
+    return this.entries.filter((e) => e.runId === runId);
+  }
+
+  clear() {
+    this.entries = [];
+    this.runs = [];
+    this.currentRunId = null;
+    localStorage.removeItem("nomos_audit_log");
+  }
+
+  private persist() {
+    localStorage.setItem(
+      "nomos_audit_log",
+      JSON.stringify({
+        entries: this.entries,
+        runs: this.runs,
+      })
+    );
+  }
+
+  load() {
+    const raw = localStorage.getItem("nomos_audit_log");
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    this.entries = parsed.entries ?? [];
+    this.runs = parsed.runs ?? [];
+  }
+}
+
+
+⸻
+
+⚠️ Important: start a run in runtime
+
+📁 evaluate_nomos.ts
+
+At the top:
+
+const audit = new AuditLog();
+audit.startRun();
+
+
+⸻
+
+🧩 2. Expose runs in context
+
+ScenarioContext.tsx additions
+
+auditRuns: AuditRun[];
+getRunEntries: (runId: string) => AuditEntry[];
+
+Implementation:
+
+const [auditRuns, setAuditRuns] = useState(audit.getRuns());
+
+function refreshAudit() {
+  setAuditEntries([...audit.getEntries()]);
+  setAuditRuns([...audit.getRuns()]);
+}
+
+function getRunEntries(runId: string) {
+  return audit.getEntriesByRun(runId);
+}
+
+
+⸻
+
+🧠 3. Diff engine (core logic)
+
+📁 src/ui/audit/audit_diff.ts
+
+import { AuditEntry } from "../../core/audit_log";
+
+export interface StageDiff {
+  stage: string;
+  changed: boolean;
+  before?: any;
+  after?: any;
+}
+
+export function diffRuns(
+  runA: AuditEntry[],
+  runB: AuditEntry[]
+): StageDiff[] {
+  const mapA = indexByStage(runA);
+  const mapB = indexByStage(runB);
+
+  const stages = new Set([
+    ...Object.keys(mapA),
+    ...Object.keys(mapB),
+  ]);
+
+  const diffs: StageDiff[] = [];
+
+  for (const stage of stages) {
+    const a = mapA[stage];
+    const b = mapB[stage];
+
+    const changed = JSON.stringify(a) !== JSON.stringify(b);
+
+    diffs.push({
+      stage,
+      changed,
+      before: a,
+      after: b,
+    });
+  }
+
+  return diffs;
+}
+
+function indexByStage(entries: AuditEntry[]) {
+  const map: Record<string, any> = {};
+  for (const e of entries) {
+    map[e.stage] = e.payload;
+  }
+  return map;
+}
+
+
+⸻
+
+🎛️ 4. AuditDiffPanel.tsx
+
+import React, { useState } from "react";
+import { useScenario } from "../../state/ScenarioContext";
+import { diffRuns } from "../../audit/audit_diff";
+
+export function AuditDiffPanel() {
+  const { auditRuns, getRunEntries } = useScenario();
+
+  const [runA, setRunA] = useState<string | null>(null);
+  const [runB, setRunB] = useState<string | null>(null);
+
+  const diffs =
+    runA && runB
+      ? diffRuns(getRunEntries(runA), getRunEntries(runB))
+      : [];
+
+  return (
+    <div className="panel audit-diff">
+      <div className="panel-header">Audit Diff</div>
+
+      <div className="audit-diff__selectors">
+        <select onChange={(e) => setRunA(e.target.value)}>
+          <option>Select Run A</option>
+          {auditRuns.map((r) => (
+            <option key={r.runId} value={r.runId}>
+              {formatRun(r)}
+            </option>
+          ))}
+        </select>
+
+        <select onChange={(e) => setRunB(e.target.value)}>
+          <option>Select Run B</option>
+          {auditRuns.map((r) => (
+            <option key={r.runId} value={r.runId}>
+              {formatRun(r)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="audit-diff__list">
+        {diffs.map((d) => (
+          <div
+            key={d.stage}
+            className={`audit-diff__item ${
+              d.changed ? "changed" : ""
+            }`}
+          >
+            <div className="audit-diff__stage">
+              {d.stage}
+            </div>
+
+            {d.changed && (
+              <div className="audit-diff__payloads">
+                <pre>{safe(d.before)}</pre>
+                <pre>{safe(d.after)}</pre>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 5. CSS
+
+.audit-diff__selectors {
+  display: flex;
+  gap: var(--nm-space-2);
+  margin-bottom: var(--nm-space-3);
+}
+
+.audit-diff__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.audit-diff__item {
+  border: 1px solid var(--nm-border);
+  padding: 6px;
+  border-radius: var(--nm-radius-xs);
+}
+
+.audit-diff__item.changed {
+  border-color: var(--nm-degraded);
+  background: color-mix(in srgb, var(--nm-degraded) 10%, transparent);
+}
+
+.audit-diff__stage {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+}
+
+.audit-diff__payloads {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--nm-space-2);
+  margin-top: 6px;
+}
+
+
+⸻
+
+🧠 What this unlocks
+
+Now NOMOS can answer:
+
+“Why did this change?”
+
+And show:
+	•	model confidence dropped
+	•	robustness margin crossed threshold
+	•	constraint activated
+	•	identifiability degraded
+
+⸻
+
+🔥 Example insight
+
+LAWFUL → DEGRADED
+
+Changed stage: verification_complete
+
+Before:
+robustness.ok = true
+
+After:
+robustness.ok = false
+
+Decisive variable: robustness margin
+
+That is real system introspection.
+
+⸻
+
+🧠 Final insight
+
+This is where NOMOS crosses into:
+
+explainable decision systems
+
+Not:
+	•	“AI reasoning”
+
+But:
+	•	traceable state transitions across time
+
+⸻
+
+If you want next
+
+👉 highlight decisive variable automatically in diff view
+
+So the system itself points to:
+
+“this is what changed everything”
+
+Just say:
+“Highlight decisive variable in diff”

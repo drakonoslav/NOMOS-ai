@@ -1,0 +1,263 @@
+Absolutely. Here is a tiny scenario_builder.ts that emits three deterministic dashboard states:
+	•	lawful_baseline
+	•	degraded_low_margin
+	•	refused_infeasible
+
+These are designed so your StatusCard and VerificationSummary can render immediately, without waiting for the full runtime pipeline.
+
+⸻
+
+src/ui/demo/scenario_builder.ts
+
+/**
+ * src/ui/demo/scenario_builder.ts
+ *
+ * Tiny deterministic scenario builder for NOMOS dashboard rendering.
+ *
+ * Purpose:
+ * - Provide immediate, stable demo states for UI pages
+ * - Render LAWFUL / DEGRADED / INVALID without requiring live runtime execution
+ * - Feed directly into tone_resolver-driven components
+ */
+
+import { ToneResolverInput } from "../tone/tone_resolver";
+
+export type DemoScenario =
+  | "lawful_baseline"
+  | "degraded_low_margin"
+  | "refused_infeasible";
+
+export interface DashboardMetricState {
+  selectedPlanId?: string;
+  proposalCount: number;
+  actionOutcome: "APPLIED" | "DEGRADED_ACTION_APPLIED" | "REFUSED";
+}
+
+export interface DashboardScenarioState {
+  scenario: DemoScenario;
+  label: string;
+  description: string;
+  toneInput: ToneResolverInput;
+  metrics: DashboardMetricState;
+}
+
+export function buildScenarioState(
+  scenario: DemoScenario
+): DashboardScenarioState {
+  switch (scenario) {
+    case "lawful_baseline":
+      return lawfulBaselineScenario();
+
+    case "degraded_low_margin":
+      return degradedLowMarginScenario();
+
+    case "refused_infeasible":
+      return refusedInfeasibleScenario();
+  }
+}
+
+export function buildAllScenarioStates(): DashboardScenarioState[] {
+  return [
+    buildScenarioState("lawful_baseline"),
+    buildScenarioState("degraded_low_margin"),
+    buildScenarioState("refused_infeasible"),
+  ];
+}
+
+function lawfulBaselineScenario(): DashboardScenarioState {
+  return {
+    scenario: "lawful_baseline",
+    label: "Lawful Baseline",
+    description:
+      "All primary legality conditions hold with comfortable margin.",
+    toneInput: {
+      verificationStatus: "LAWFUL",
+      authority: "AUTHORIZED",
+
+      epsilonX: 0.03,
+      identifiability: "FULL",
+      modelConfidence: 0.92,
+
+      robustnessEpsilon: 0.12,
+      robustnessEpsilonMin: 0.03,
+
+      feasibilityOk: true,
+      robustnessOk: true,
+      observabilityOk: true,
+      identifiabilityOk: true,
+      modelOk: true,
+      adaptationOk: true,
+
+      selectedCandidateIds: ["A"],
+      rejectedCandidateIds: ["B"],
+
+      activeConstraint: "none",
+      decisiveVariable: "robustness margin",
+
+      reasons: [
+        "Feasibility satisfied.",
+        "Robustness condition satisfied.",
+        "Observability condition satisfied.",
+        "Model adequacy satisfied.",
+      ],
+
+      adjustments: [],
+    },
+    metrics: {
+      selectedPlanId: "candidate-A",
+      proposalCount: 2,
+      actionOutcome: "APPLIED",
+    },
+  };
+}
+
+function degradedLowMarginScenario(): DashboardScenarioState {
+  return {
+    scenario: "degraded_low_margin",
+    label: "Degraded Low Margin",
+    description:
+      "Feasibility holds, but operating margin is reduced and only constrained action is appropriate.",
+    toneInput: {
+      verificationStatus: "DEGRADED",
+      authority: "CONSTRAINED",
+
+      epsilonX: 0.14,
+      identifiability: "PARTIAL",
+      modelConfidence: 0.61,
+
+      robustnessEpsilon: 0.035,
+      robustnessEpsilonMin: 0.03,
+
+      feasibilityOk: true,
+      robustnessOk: false,
+      observabilityOk: true,
+      identifiabilityOk: true,
+      modelOk: false,
+      adaptationOk: true,
+
+      selectedCandidateIds: ["B"],
+      rejectedCandidateIds: ["A", "C"],
+
+      activeConstraint: "resource availability",
+      decisiveVariable: "model confidence",
+
+      reasons: [
+        "Feasibility satisfied.",
+        "Robustness condition below threshold.",
+        "Model adequacy below threshold.",
+        "Constraint margin reduced at resource availability.",
+      ],
+
+      adjustments: [
+        "Increase resource margin",
+        "Reduce control aggressiveness",
+      ],
+    },
+    metrics: {
+      selectedPlanId: "candidate-B",
+      proposalCount: 3,
+      actionOutcome: "DEGRADED_ACTION_APPLIED",
+    },
+  };
+}
+
+function refusedInfeasibleScenario(): DashboardScenarioState {
+  return {
+    scenario: "refused_infeasible",
+    label: "Refused Infeasible",
+    description:
+      "No lawful candidate remains because feasibility is broken at the lowest layer.",
+    toneInput: {
+      verificationStatus: "INVALID",
+      authority: "REFUSED",
+
+      epsilonX: 0.09,
+      identifiability: "FULL",
+      modelConfidence: 0.73,
+
+      robustnessEpsilon: 0,
+      robustnessEpsilonMin: 0.03,
+
+      feasibilityOk: false,
+      robustnessOk: false,
+      observabilityOk: true,
+      identifiabilityOk: true,
+      modelOk: true,
+      adaptationOk: false,
+
+      selectedCandidateIds: [],
+      rejectedCandidateIds: ["A", "B"],
+
+      activeConstraint: "resource < 0",
+      decisiveVariable: "resource depletion",
+
+      reasons: [
+        "Feasibility violation detected.",
+        "Constraint exceeded: resource < 0.",
+        "No admissible candidates remain.",
+      ],
+
+      adjustments: [
+        "Increase available resource",
+        "Reduce candidate demand",
+      ],
+    },
+    metrics: {
+      selectedPlanId: undefined,
+      proposalCount: 2,
+      actionOutcome: "REFUSED",
+    },
+  };
+}
+
+
+⸻
+
+Example usage
+
+In a page or story:
+
+import React, { useState } from "react";
+import {
+  buildScenarioState,
+  DemoScenario,
+} from "../demo/scenario_builder";
+import { StatusCard } from "../components/nomos/StatusCard";
+import { VerificationSummary } from "../components/nomos/VerificationSummary";
+
+export function ScenarioPreviewPage() {
+  const [scenario, setScenario] = useState<DemoScenario>("lawful_baseline");
+  const state = buildScenarioState(scenario);
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div>
+        <button onClick={() => setScenario("lawful_baseline")}>Lawful</button>
+        <button onClick={() => setScenario("degraded_low_margin")}>Degraded</button>
+        <button onClick={() => setScenario("refused_infeasible")}>Invalid</button>
+      </div>
+
+      <div>
+        <h2>{state.label}</h2>
+        <p>{state.description}</p>
+      </div>
+
+      <StatusCard input={state.toneInput} />
+      <VerificationSummary input={state.toneInput} />
+    </div>
+  );
+}
+
+
+⸻
+
+Why this is useful
+
+This gives you immediate contrast:
+	•	Lawful shows compressed, calm authorization
+	•	Degraded shows constrained, reasoned limitation
+	•	Invalid shows decisive refusal
+
+So the UI can demonstrate NOMOS’s full behavioral range before the deeper runtime integration is finished.
+
+If you want, I can next write a tiny ScenarioSelector.tsx component that plugs into the top bar or overview page.
