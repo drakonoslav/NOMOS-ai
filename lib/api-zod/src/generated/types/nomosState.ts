@@ -19,6 +19,7 @@ export interface NomosState {
   runId: string;
   timestamp: number;
   missionId: string;
+  scenario: string;
   verificationStatus: NomosVerificationStatus;
   authority: NomosAuthorityDecision;
   actionOutcome: NomosActionOutcome;

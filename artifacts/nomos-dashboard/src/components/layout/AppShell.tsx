@@ -4,6 +4,7 @@ import { useGetNomosState } from "@workspace/api-client-react";
 import { Shield, Activity, ListTree, Scale, Eye, Database, AlertTriangle, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useScenario, type DemoScenario } from "@/context/scenario-context";
 
 interface NavItem {
   name: string;
@@ -18,6 +19,11 @@ const NAV_ITEMS: NavItem[] = [
   { name: "DECISION", href: "/decision", icon: Scale },
   { name: "BELIEF", href: "/belief", icon: Eye },
   { name: "AUDIT", href: "/audit", icon: Database },
+];
+
+const SCENARIOS: { value: DemoScenario; label: string; short: string }[] = [
+  { value: "lawful_baseline", label: "LAWFUL BASELINE", short: "LAWFUL" },
+  { value: "refused_infeasible", label: "REFUSED — INFEASIBLE", short: "REFUSED" },
 ];
 
 function getStatusVariant(status: string) {
@@ -41,13 +47,17 @@ function getStatusVariant(status: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const { scenario, setScenario } = useScenario();
 
-  const { data: state, isLoading, isError } = useGetNomosState({
-    query: {
-      refetchInterval: 10000, // 10 seconds auto-refresh
-      retry: 2,
+  const { data: state, isLoading, isError } = useGetNomosState(
+    { scenario },
+    {
+      query: {
+        refetchInterval: 10000,
+        retry: 2,
+      },
     }
-  });
+  );
 
   if (isLoading) {
     return (
@@ -69,8 +79,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <p className="text-muted-foreground max-w-md">
           The constitutional verification chain is broken or unreachable. No lawful action may proceed.
         </p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="mt-8 px-6 py-2 border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors tracking-widest uppercase text-xs"
         >
           REINITIALIZE KERNEL
@@ -82,7 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background flex w-full">
       {/* Mobile Nav Toggle */}
-      <button 
+      <button
         className="md:hidden fixed top-4 left-4 z-50 p-2 bg-card border border-border text-foreground"
         onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
       >
@@ -108,13 +118,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {NAV_ITEMS.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link 
-                key={item.href} 
+              <Link
+                key={item.href}
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 text-xs font-mono tracking-widest transition-colors",
-                  isActive 
-                    ? "bg-secondary text-primary border-l-2 border-primary" 
+                  isActive
+                    ? "bg-secondary text-primary border-l-2 border-primary"
                     : "text-muted-foreground hover:bg-secondary/50 hover:text-primary border-l-2 border-transparent"
                 )}
                 onClick={() => setMobileMenuOpen(false)}
@@ -147,24 +157,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex flex-col justify-center px-4 md:px-8 z-30 sticky top-0">
-          <div className="flex items-center justify-between ml-12 md:ml-0">
-            <h2 className="text-sm font-mono tracking-widest text-muted-foreground uppercase hidden sm:block">
+        <header className="border-b border-border bg-card/50 backdrop-blur-sm flex flex-col justify-center px-4 md:px-8 z-30 sticky top-0">
+          <div className="flex items-center justify-between ml-12 md:ml-0 py-3 gap-4">
+            <h2 className="text-sm font-mono tracking-widest text-muted-foreground uppercase hidden sm:block shrink-0">
               {NAV_ITEMS.find(n => n.href === location)?.name || "DASHBOARD"}
             </h2>
-            
-            <div className="flex items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-2 bg-background border border-border px-3 py-1">
+
+            <div className="flex items-center gap-2 md:gap-3 overflow-x-auto no-scrollbar flex-1 justify-end">
+              {/* Scenario Selector */}
+              <div className="flex items-center gap-1 bg-background border border-border p-1 shrink-0">
+                <span className="text-[9px] font-mono text-muted-foreground px-1 hidden lg:block">SCENARIO</span>
+                {SCENARIOS.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => setScenario(s.value)}
+                    className={cn(
+                      "px-2 py-1 text-[10px] font-mono tracking-widest transition-colors",
+                      scenario === s.value
+                        ? s.value === "refused_infeasible"
+                          ? "bg-destructive/20 text-destructive border border-destructive/40"
+                          : "bg-success/20 text-success border border-success/40"
+                        : "text-muted-foreground hover:text-primary hover:bg-secondary/50 border border-transparent"
+                    )}
+                  >
+                    <span className="hidden md:inline">{s.label}</span>
+                    <span className="md:hidden">{s.short}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Status badges */}
+              <div className="flex items-center gap-2 bg-background border border-border px-3 py-1 shrink-0">
                 <span className="text-[10px] font-mono text-muted-foreground">STATUS</span>
                 <Badge variant={getStatusVariant(state.verificationStatus)}>{state.verificationStatus}</Badge>
               </div>
-              
-              <div className="flex items-center gap-2 bg-background border border-border px-3 py-1">
+
+              <div className="flex items-center gap-2 bg-background border border-border px-3 py-1 shrink-0">
                 <span className="text-[10px] font-mono text-muted-foreground">AUTH</span>
                 <Badge variant={getStatusVariant(state.authority)}>{state.authority}</Badge>
               </div>
 
-              <div className="flex items-center gap-2 bg-background border border-border px-3 py-1 hidden lg:flex">
+              <div className="items-center gap-2 bg-background border border-border px-3 py-1 hidden xl:flex shrink-0">
                 <span className="text-[10px] font-mono text-muted-foreground">CONFIDENCE</span>
                 <span className="text-xs font-mono text-primary">{state.modelConfidenceScore.toFixed(4)}</span>
               </div>

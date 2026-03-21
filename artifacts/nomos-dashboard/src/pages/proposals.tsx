@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatVector, cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useScenario } from "@/context/scenario-context";
 
 export default function ProposalsPage() {
-  const { data: state } = useGetNomosState();
+  const { scenario } = useScenario();
+  const { data: state } = useGetNomosState({ scenario });
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   if (!state) return null;

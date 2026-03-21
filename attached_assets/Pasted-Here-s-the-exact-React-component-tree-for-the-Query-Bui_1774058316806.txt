@@ -1,0 +1,541 @@
+Here’s the exact React component tree for the Query Builder page.
+
+This is the better next move before the LLM-assisted parser, because it fixes the interaction contract first. Once the UI captures the right structure, the parser can become stronger without changing the product shape.
+
+Query Builder page
+
+Route
+
+/query
+
+Purpose
+
+Convert human intent into a canonical NomosQuery before evaluation.
+
+Top-level tree
+
+QueryBuilderPage
+├── QueryPageHeader
+│   ├── PageTitle
+│   ├── PageSubtitle
+│   └── SubmissionQualityBadge
+├── QueryModeSwitcher
+│   ├── GuidedModeTab
+│   └── NaturalLanguageModeTab
+├── QueryWorkspace
+│   ├── QueryInputColumn
+│   │   ├── GuidedQueryForm
+│   │   │   ├── StateSection
+│   │   │   │   ├── SituationField
+│   │   │   │   ├── FactsListEditor
+│   │   │   │   ├── ConstraintsListEditor
+│   │   │   │   └── UncertaintiesListEditor
+│   │   │   ├── CandidatesSection
+│   │   │   │   ├── CandidateList
+│   │   │   │   │   ├── CandidateCard
+│   │   │   │   │   ├── CandidateCard
+│   │   │   │   │   └── ...
+│   │   │   │   └── AddCandidateButton
+│   │   │   ├── ObjectiveSection
+│   │   │   │   └── ObjectiveField
+│   │   │   └── FormActions
+│   │   │       ├── ParseButton
+│   │   │       ├── ResetButton
+│   │   │       └── EvaluateButton
+│   │   └── NaturalLanguageForm
+│   │       ├── RawInputField
+│   │       ├── PromptHintsPanel
+│   │       └── FormActions
+│   │           ├── ParseButton
+│   │           ├── ResetButton
+│   │           └── EvaluateButton
+│   └── QueryOutputColumn
+│       ├── ParsePreviewPanel
+│       │   ├── ParsedStatePanel
+│       │   ├── ParsedCandidatesPanel
+│       │   ├── ParsedObjectivePanel
+│       │   └── ParserDiagnosticsPanel
+│       ├── MissingInfoPanel
+│       └── EvaluationLaunchPanel
+│           ├── EvaluateStatusLine
+│           └── EvaluateButton
+└── QueryFooterNote
+
+Component responsibilities
+
+QueryBuilderPage
+
+Owns:
+	•	mode (guided or natural)
+	•	local draft state
+	•	parsed NomosQuery
+	•	submission quality
+	•	evaluate action
+
+Suggested shape:
+
+type QueryMode = "guided" | "natural";
+
+interface QueryBuilderPageState {
+  mode: QueryMode;
+  rawInput: string;
+  guidedDraft: GuidedQueryDraft;
+  parsedQuery?: NomosQuery;
+  parseErrors: string[];
+  isParsing: boolean;
+  isEvaluating: boolean;
+}
+
+
+⸻
+
+QueryPageHeader
+
+Displays:
+	•	title: NOMOS Query
+	•	subtitle: Submit state, constraints, candidates, and objective for evaluation.
+	•	submission quality badge:
+	•	COMPLETE
+	•	PARTIAL
+	•	INSUFFICIENT
+
+⸻
+
+QueryModeSwitcher
+
+Two tabs:
+	•	Guided
+	•	Natural Language
+
+Guided is default.
+
+⸻
+
+Input column
+
+GuidedQueryForm
+
+Props
+
+interface GuidedQueryFormProps {
+  value: GuidedQueryDraft;
+  onChange: (next: GuidedQueryDraft) => void;
+  onParse: () => void;
+  onEvaluate: () => void;
+  onReset: () => void;
+  canEvaluate: boolean;
+}
+
+Tree
+
+GuidedQueryForm
+├── StateSection
+├── CandidatesSection
+├── ObjectiveSection
+└── FormActions
+
+
+⸻
+
+StateSection
+
+Tree
+
+StateSection
+├── SectionHeader
+├── SituationField
+├── FactsListEditor
+├── ConstraintsListEditor
+└── UncertaintiesListEditor
+
+Purpose
+
+Capture the current world as structured state.
+
+Field rules
+
+SituationField
+Single multiline text area.
+Prompt:
+
+Describe the current situation in plain terms.
+
+FactsListEditor
+Array of short fact entries.
+Examples:
+	•	“Current job stable”
+	•	“Fuel remaining is low”
+	•	“Sensor delay is 40ms”
+
+ConstraintsListEditor
+Array of hard limits.
+Examples:
+	•	“Must avoid income gap > 2 months”
+	•	“Fuel must remain non-negative”
+
+UncertaintiesListEditor
+Array of unknowns.
+Examples:
+	•	“Culture at new job uncertain”
+	•	“Disturbance magnitude may rise”
+
+⸻
+
+CandidatesSection
+
+Tree
+
+CandidatesSection
+├── SectionHeader
+├── CandidateList
+│   ├── CandidateCard
+│   ├── CandidateCard
+│   └── ...
+└── AddCandidateButton
+
+CandidateCard
+
+Fields:
+	•	candidate id (A, B, C)
+	•	description
+	•	optional notes
+	•	remove button
+
+Props:
+
+interface CandidateCardProps {
+  value: GuidedCandidateDraft;
+  onChange: (next: GuidedCandidateDraft) => void;
+  onRemove: () => void;
+}
+
+
+⸻
+
+ObjectiveSection
+
+Tree
+
+ObjectiveSection
+├── SectionHeader
+└── ObjectiveField
+
+Single multiline field:
+
+What outcome matters most?
+
+⸻
+
+NaturalLanguageForm
+
+Tree
+
+NaturalLanguageForm
+├── SectionHeader
+├── RawInputField
+├── PromptHintsPanel
+└── FormActions
+
+RawInputField
+
+Large textarea with placeholder:
+
+STATE:
+- ...
+
+CONSTRAINTS:
+- ...
+
+UNCERTAINTIES:
+- ...
+
+CANDIDATES:
+A: ...
+B: ...
+
+OBJECTIVE:
+...
+
+PromptHintsPanel
+
+Shows reusable prompt templates:
+	•	candidate evaluation
+	•	boundary question
+	•	transition question
+	•	sensitivity question
+
+⸻
+
+FormActions
+
+Tree
+
+FormActions
+├── ParseButton
+├── ResetButton
+└── EvaluateButton
+
+Behavior:
+	•	Parse: builds canonical NomosQuery
+	•	Reset: clears current mode inputs
+	•	Evaluate: only enabled when parsed query exists and completeness is not INSUFFICIENT
+
+⸻
+
+Output column
+
+ParsePreviewPanel
+
+Tree
+
+ParsePreviewPanel
+├── PanelHeader
+├── ParsedStatePanel
+├── ParsedCandidatesPanel
+├── ParsedObjectivePanel
+└── ParserDiagnosticsPanel
+
+Purpose
+
+Show the user what NOMOS thinks they submitted.
+
+⸻
+
+ParsedStatePanel
+
+Renders canonical state:
+
+ParsedStatePanel
+├── DescriptionBlock
+├── FactsList
+├── ConstraintsList
+└── UncertaintiesList
+
+
+⸻
+
+ParsedCandidatesPanel
+
+Renders parsed candidates as cards or rows:
+
+ParsedCandidatesPanel
+├── CandidatePreviewRow
+├── CandidatePreviewRow
+└── ...
+
+Each row:
+	•	id
+	•	description
+
+⸻
+
+ParsedObjectivePanel
+
+Shows parsed objective text or empty state.
+
+⸻
+
+ParserDiagnosticsPanel
+
+Shows:
+	•	parser confidence
+	•	completeness
+	•	notes
+
+Suggested labels:
+	•	Parser Confidence
+	•	Submission Quality
+	•	Findings
+
+⸻
+
+MissingInfoPanel
+
+Only visible if completeness is not COMPLETE.
+
+Tree
+
+MissingInfoPanel
+├── PanelHeader
+└── MissingItemList
+
+Examples:
+	•	No explicit constraints detected.
+	•	No candidate alternatives detected.
+	•	Objective not specified.
+
+⸻
+
+EvaluationLaunchPanel
+
+Final pre-submit block.
+
+Tree
+
+EvaluationLaunchPanel
+├── EvaluateStatusLine
+└── EvaluateButton
+
+Status examples:
+	•	Ready for NOMOS evaluation
+	•	Submission incomplete
+	•	Add at least one candidate and one constraint
+
+⸻
+
+Suggested types
+
+src/ui/query/query_builder_types.ts
+
+export interface GuidedCandidateDraft {
+  id: string;
+  description: string;
+  notes?: string;
+}
+
+export interface GuidedQueryDraft {
+  situation: string;
+  facts: string[];
+  constraints: string[];
+  uncertainties: string[];
+  candidates: GuidedCandidateDraft[];
+  objective: string;
+}
+
+
+⸻
+
+Suggested page file tree
+
+src/ui/pages/query/
+  QueryBuilderPage.tsx
+
+src/ui/components/query/
+  QueryPageHeader.tsx
+  QueryModeSwitcher.tsx
+  GuidedQueryForm.tsx
+  NaturalLanguageForm.tsx
+  StateSection.tsx
+  CandidatesSection.tsx
+  CandidateCard.tsx
+  ObjectiveSection.tsx
+  FormActions.tsx
+  ParsePreviewPanel.tsx
+  ParsedStatePanel.tsx
+  ParsedCandidatesPanel.tsx
+  ParsedObjectivePanel.tsx
+  ParserDiagnosticsPanel.tsx
+  MissingInfoPanel.tsx
+  EvaluationLaunchPanel.tsx
+
+Recommended layout proportions
+
+Desktop:
+	•	left input column: 56%
+	•	right preview column: 44%
+
+Tablet:
+	•	stacked
+	•	input first, preview second
+
+Mobile:
+	•	one column
+	•	preview under actions
+
+Interaction rules
+
+Guided mode
+	•	updates local draft only
+	•	parse happens on button press or debounced if desired
+
+Natural language mode
+	•	parse on button press
+	•	later can upgrade to live parse preview
+
+Evaluation rule
+
+Do not let the page evaluate raw text directly.
+
+Always require:
+	1.	parse
+	2.	preview
+	3.	confirm evaluate
+
+That preserves NOMOS identity.
+
+Visual tone
+
+This page should feel:
+	•	structured
+	•	serious
+	•	not like a chat window
+
+So:
+	•	no chat bubbles
+	•	no assistant avatar
+	•	no “Ask NOMOS anything”
+
+Instead use:
+	•	Submit Query
+	•	Parse Submission
+	•	Evaluate Candidates
+	•	Preview Structured Query
+
+What to tell Replit
+
+Paste this:
+
+Build the NOMOS Query Builder page using this exact component hierarchy.
+
+Route:
+- /query -> QueryBuilderPage
+
+Top-level structure:
+- QueryPageHeader
+- QueryModeSwitcher
+- QueryWorkspace
+  - QueryInputColumn
+    - GuidedQueryForm OR NaturalLanguageForm
+  - QueryOutputColumn
+    - ParsePreviewPanel
+    - MissingInfoPanel
+    - EvaluationLaunchPanel
+- QueryFooterNote
+
+Guided form sections:
+- StateSection
+  - SituationField
+  - FactsListEditor
+  - ConstraintsListEditor
+  - UncertaintiesListEditor
+- CandidatesSection
+  - CandidateList
+  - CandidateCard
+  - AddCandidateButton
+- ObjectiveSection
+  - ObjectiveField
+- FormActions
+  - ParseButton
+  - ResetButton
+  - EvaluateButton
+
+Natural language form:
+- RawInputField
+- PromptHintsPanel
+- FormActions
+
+Preview column:
+- ParsedStatePanel
+- ParsedCandidatesPanel
+- ParsedObjectivePanel
+- ParserDiagnosticsPanel
+- MissingInfoPanel
+- EvaluationLaunchPanel
+
+Requirements:
+- Use the canonical NomosQuery shape from query_types.ts
+- Evaluation must use parsed query, not raw input
+- No chat UI
+- This should feel like a structured constitutional submission workflow
+
+If you want next, I can write the LLM-assisted parser version that upgrades the rule-based parser into a stronger extractor.

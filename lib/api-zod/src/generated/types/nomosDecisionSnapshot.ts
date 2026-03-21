@@ -11,5 +11,6 @@ export interface NomosDecisionSnapshot {
   rankedCandidateCount: number;
   rejectedCandidateCount: number;
   robustnessEpsilon: number;
+  robustnessEpsilonMin: number;
   topRejectionReason?: string | null;
 }

@@ -13,7 +13,11 @@ import type {
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus, NomosState } from "./api.schemas";
+import type {
+  GetNomosStateParams,
+  HealthStatus,
+  NomosState,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
 import type { ErrorType } from "../custom-fetch";
@@ -102,41 +106,57 @@ export function useHealthCheck<
 /**
  * @summary Run the NOMOS constitutional kernel and return full system state
  */
-export const getGetNomosStateUrl = () => {
-  return `/api/nomos/state`;
+export const getGetNomosStateUrl = (params?: GetNomosStateParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/nomos/state?${stringifiedParams}`
+    : `/api/nomos/state`;
 };
 
 export const getNomosState = async (
+  params?: GetNomosStateParams,
   options?: RequestInit,
 ): Promise<NomosState> => {
-  return customFetch<NomosState>(getGetNomosStateUrl(), {
+  return customFetch<NomosState>(getGetNomosStateUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetNomosStateQueryKey = () => {
-  return [`/api/nomos/state`] as const;
+export const getGetNomosStateQueryKey = (params?: GetNomosStateParams) => {
+  return [`/api/nomos/state`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetNomosStateQueryOptions = <
   TData = Awaited<ReturnType<typeof getNomosState>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getNomosState>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetNomosStateParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNomosState>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetNomosStateQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetNomosStateQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getNomosState>>> = ({
     signal,
-  }) => getNomosState({ signal, ...requestOptions });
+  }) => getNomosState(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getNomosState>>,
@@ -157,15 +177,18 @@ export type GetNomosStateQueryError = ErrorType<unknown>;
 export function useGetNomosState<
   TData = Awaited<ReturnType<typeof getNomosState>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getNomosState>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetNomosStateQueryOptions(options);
+>(
+  params?: GetNomosStateParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNomosState>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNomosStateQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

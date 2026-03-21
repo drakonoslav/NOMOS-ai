@@ -1,0 +1,895 @@
+Absolutely. Below are first-pass implementation bodies for the NOMOS query UI components.
+
+These are designed to be:
+	•	severe
+	•	structured
+	•	non-chat-like
+	•	usable immediately
+
+They assume React + TypeScript and no specific UI library.
+
+⸻
+
+src/ui/components/query/QueryPageHeader.tsx
+
+import React from "react";
+import { SubmissionCompleteness } from "../../../query/query_types";
+
+export interface QueryPageHeaderProps {
+  title: string;
+  subtitle: string;
+  completeness?: SubmissionCompleteness;
+}
+
+function completenessLabel(
+  completeness?: SubmissionCompleteness
+): { text: string; className: string } {
+  switch (completeness) {
+    case "COMPLETE":
+      return { text: "COMPLETE", className: "status-complete" };
+    case "PARTIAL":
+      return { text: "PARTIAL", className: "status-partial" };
+    case "INSUFFICIENT":
+      return { text: "INSUFFICIENT", className: "status-insufficient" };
+    default:
+      return { text: "UNPARSED", className: "status-unparsed" };
+  }
+}
+
+export function QueryPageHeader({
+  title,
+  subtitle,
+  completeness,
+}: QueryPageHeaderProps) {
+  const badge = completenessLabel(completeness);
+
+  return (
+    <div className="panel query-page-header">
+      <div className="query-page-header__main">
+        <div className="query-page-header__eyebrow">NOMOS QUERY</div>
+        <h1 className="query-page-header__title">{title}</h1>
+        <p className="query-page-header__subtitle">{subtitle}</p>
+      </div>
+
+      <div className="query-page-header__status">
+        <div className="query-page-header__status-label">Submission Quality</div>
+        <div className={`status-badge ${badge.className}`}>{badge.text}</div>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/QueryModeSwitcher.tsx
+
+import React from "react";
+import { QueryMode } from "../../pages/query/QueryBuilderPage";
+
+export interface QueryModeSwitcherProps {
+  mode: QueryMode;
+  onChange: (mode: QueryMode) => void;
+}
+
+export function QueryModeSwitcher({
+  mode,
+  onChange,
+}: QueryModeSwitcherProps) {
+  return (
+    <div className="panel query-mode-switcher">
+      <div className="query-mode-switcher__label">Submission Mode</div>
+      <div className="query-mode-switcher__tabs">
+        <button
+          type="button"
+          className={`query-tab ${mode === "guided" ? "is-active" : ""}`}
+          onClick={() => onChange("guided")}
+        >
+          Guided
+        </button>
+        <button
+          type="button"
+          className={`query-tab ${mode === "natural" ? "is-active" : ""}`}
+          onClick={() => onChange("natural")}
+        >
+          Natural Language
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/GuidedQueryForm.tsx
+
+import React from "react";
+import {
+  GuidedCandidateDraft,
+  GuidedQueryDraft,
+} from "../../pages/query/QueryBuilderPage";
+
+export interface GuidedQueryFormProps {
+  value: GuidedQueryDraft;
+  onChange: (next: GuidedQueryDraft) => void;
+  onParse: () => void;
+  onEvaluate: () => void;
+  onReset: () => void;
+  canParse: boolean;
+  canEvaluate: boolean;
+  isParsing: boolean;
+  isEvaluating: boolean;
+}
+
+function updateArrayAt<T>(arr: T[], index: number, next: T): T[] {
+  return arr.map((item, i) => (i === index ? next : item));
+}
+
+function removeArrayAt<T>(arr: T[], index: number): T[] {
+  return arr.filter((_, i) => i !== index);
+}
+
+export function GuidedQueryForm({
+  value,
+  onChange,
+  onParse,
+  onEvaluate,
+  onReset,
+  canParse,
+  canEvaluate,
+  isParsing,
+  isEvaluating,
+}: GuidedQueryFormProps) {
+  const setSituation = (situation: string) => onChange({ ...value, situation });
+  const setObjective = (objective: string) => onChange({ ...value, objective });
+
+  const setFacts = (facts: string[]) => onChange({ ...value, facts });
+  const setConstraints = (constraints: string[]) => onChange({ ...value, constraints });
+  const setUncertainties = (uncertainties: string[]) =>
+    onChange({ ...value, uncertainties });
+  const setCandidates = (candidates: GuidedCandidateDraft[]) =>
+    onChange({ ...value, candidates });
+
+  return (
+    <div className="guided-query-form">
+      <div className="panel">
+        <div className="panel-header">State</div>
+
+        <label className="form-field">
+          <span className="form-label">Situation</span>
+          <textarea
+            className="form-textarea"
+            rows={5}
+            value={value.situation}
+            onChange={(e) => setSituation(e.target.value)}
+            placeholder="Describe the current situation in plain terms."
+          />
+        </label>
+
+        <ListEditor
+          label="Facts"
+          values={value.facts}
+          onChange={setFacts}
+          placeholder="Enter a factual condition."
+        />
+
+        <ListEditor
+          label="Constraints"
+          values={value.constraints}
+          onChange={setConstraints}
+          placeholder="Enter a hard limit or requirement."
+        />
+
+        <ListEditor
+          label="Uncertainties"
+          values={value.uncertainties}
+          onChange={setUncertainties}
+          placeholder="Enter an unknown or unresolved factor."
+        />
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">Candidates</div>
+
+        <div className="candidate-list">
+          {value.candidates.map((candidate, index) => (
+            <CandidateRow
+              key={`${candidate.id}-${index}`}
+              value={candidate}
+              onChange={(next) =>
+                setCandidates(updateArrayAt(value.candidates, index, next))
+              }
+              onRemove={() =>
+                setCandidates(removeArrayAt(value.candidates, index))
+              }
+            />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={() => {
+            const nextId = String.fromCharCode(65 + value.candidates.length);
+            setCandidates([
+              ...value.candidates,
+              { id: nextId, description: "", notes: "" },
+            ]);
+          }}
+        >
+          Add Candidate
+        </button>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">Objective</div>
+
+        <label className="form-field">
+          <span className="form-label">Objective</span>
+          <textarea
+            className="form-textarea"
+            rows={4}
+            value={value.objective}
+            onChange={(e) => setObjective(e.target.value)}
+            placeholder="Describe the outcome that matters most."
+          />
+        </label>
+      </div>
+
+      <div className="panel form-actions-panel">
+        <div className="form-actions">
+          <button
+            type="button"
+            className="button"
+            onClick={onParse}
+            disabled={!canParse || isParsing}
+          >
+            {isParsing ? "Parsing..." : "Parse"}
+          </button>
+
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onReset}
+            disabled={isParsing || isEvaluating}
+          >
+            Reset
+          </button>
+
+          <button
+            type="button"
+            className="button button-accent"
+            onClick={onEvaluate}
+            disabled={!canEvaluate || isEvaluating}
+          >
+            {isEvaluating ? "Evaluating..." : "Evaluate"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ListEditor({
+  label,
+  values,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="list-editor">
+      <div className="form-label">{label}</div>
+
+      {values.map((item, index) => (
+        <div className="list-editor__row" key={`${label}-${index}`}>
+          <input
+            className="form-input"
+            value={item}
+            onChange={(e) =>
+              onChange(updateArrayAt(values, index, e.target.value))
+            }
+            placeholder={placeholder}
+          />
+          <button
+            type="button"
+            className="button button-ghost"
+            onClick={() => onChange(removeArrayAt(values, index))}
+            disabled={values.length <= 1}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+
+      <button
+        type="button"
+        className="button button-secondary"
+        onClick={() => onChange([...values, ""])}
+      >
+        Add {label.slice(0, -1)}
+      </button>
+    </div>
+  );
+}
+
+function CandidateRow({
+  value,
+  onChange,
+  onRemove,
+}: {
+  value: GuidedCandidateDraft;
+  onChange: (next: GuidedCandidateDraft) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="candidate-row">
+      <div className="candidate-row__meta">
+        <label className="form-field candidate-row__id">
+          <span className="form-label">ID</span>
+          <input
+            className="form-input"
+            value={value.id}
+            onChange={(e) => onChange({ ...value, id: e.target.value })}
+          />
+        </label>
+      </div>
+
+      <label className="form-field">
+        <span className="form-label">Description</span>
+        <textarea
+          className="form-textarea"
+          rows={3}
+          value={value.description}
+          onChange={(e) => onChange({ ...value, description: e.target.value })}
+          placeholder="Describe the candidate action."
+        />
+      </label>
+
+      <label className="form-field">
+        <span className="form-label">Notes (optional)</span>
+        <input
+          className="form-input"
+          value={value.notes ?? ""}
+          onChange={(e) => onChange({ ...value, notes: e.target.value })}
+          placeholder="Optional supporting note."
+        />
+      </label>
+
+      <div className="candidate-row__actions">
+        <button
+          type="button"
+          className="button button-ghost"
+          onClick={onRemove}
+        >
+          Remove Candidate
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/NaturalLanguageForm.tsx
+
+import React from "react";
+
+export interface NaturalLanguageFormProps {
+  value: string;
+  onChange: (next: string) => void;
+  onParse: () => void;
+  onReset: () => void;
+  canParse: boolean;
+  isParsing: boolean;
+}
+
+export function NaturalLanguageForm({
+  value,
+  onChange,
+  onParse,
+  onReset,
+  canParse,
+  isParsing,
+}: NaturalLanguageFormProps) {
+  return (
+    <div className="natural-language-form">
+      <div className="panel">
+        <div className="panel-header">Natural Language Submission</div>
+
+        <label className="form-field">
+          <span className="form-label">Raw Input</span>
+          <textarea
+            className="form-textarea form-textarea--large"
+            rows={16}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={`STATE:
+- Describe the current situation
+
+CONSTRAINTS:
+- List hard limits
+
+UNCERTAINTIES:
+- List unknowns
+
+CANDIDATES:
+A: ...
+B: ...
+
+OBJECTIVE:
+...`}
+          />
+        </label>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">Prompt Hints</div>
+        <ul className="hint-list">
+          <li>State the current situation clearly.</li>
+          <li>Name hard constraints explicitly.</li>
+          <li>Provide at least two candidate actions.</li>
+          <li>State the objective separately from the constraints.</li>
+        </ul>
+      </div>
+
+      <div className="panel form-actions-panel">
+        <div className="form-actions">
+          <button
+            type="button"
+            className="button"
+            onClick={onParse}
+            disabled={!canParse || isParsing}
+          >
+            {isParsing ? "Parsing..." : "Parse"}
+          </button>
+
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onReset}
+            disabled={isParsing}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/ParsePreviewPanel.tsx
+
+import React from "react";
+import { NomosQuery } from "../../../query/query_types";
+
+export interface ParsePreviewPanelProps {
+  parsedQuery?: NomosQuery;
+  parseErrors: string[];
+  parseWarnings: string[];
+  previewAccepted: boolean;
+  onAcceptPreview: (accepted: boolean) => void;
+}
+
+export function ParsePreviewPanel({
+  parsedQuery,
+  parseErrors,
+  parseWarnings,
+  previewAccepted,
+  onAcceptPreview,
+}: ParsePreviewPanelProps) {
+  return (
+    <div className="panel parse-preview-panel">
+      <div className="panel-header">Parse Preview</div>
+
+      {parseErrors.length > 0 && (
+        <div className="message-block message-block--error">
+          <div className="message-block__title">Parse Errors</div>
+          <ul>
+            {parseErrors.map((err) => (
+              <li key={err}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!parsedQuery && parseErrors.length === 0 && (
+        <div className="empty-state">
+          Parse a submission to preview the canonical NomosQuery.
+        </div>
+      )}
+
+      {parsedQuery && (
+        <>
+          <section className="preview-section">
+            <div className="preview-section__title">State</div>
+            <div className="preview-block">
+              <div className="preview-label">Description</div>
+              <div className="preview-text">{parsedQuery.state.description}</div>
+            </div>
+
+            <PreviewList title="Facts" values={parsedQuery.state.facts} />
+            <PreviewList
+              title="Constraints"
+              values={parsedQuery.state.constraints}
+            />
+            <PreviewList
+              title="Uncertainties"
+              values={parsedQuery.state.uncertainties}
+            />
+          </section>
+
+          <section className="preview-section">
+            <div className="preview-section__title">Candidates</div>
+            {parsedQuery.candidates.length === 0 ? (
+              <div className="empty-inline">No candidates extracted.</div>
+            ) : (
+              <div className="candidate-preview-list">
+                {parsedQuery.candidates.map((candidate) => (
+                  <div className="candidate-preview-card" key={candidate.id}>
+                    <div className="candidate-preview-card__id">{candidate.id}</div>
+                    <div className="candidate-preview-card__description">
+                      {candidate.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="preview-section">
+            <div className="preview-section__title">Objective</div>
+            <div className="preview-text">
+              {parsedQuery.objective?.description ?? "No explicit objective extracted."}
+            </div>
+          </section>
+
+          <section className="preview-section">
+            <div className="preview-section__title">Parser Diagnostics</div>
+            <div className="diagnostics-grid">
+              <div className="diagnostic-card">
+                <div className="diagnostic-card__label">Parser Confidence</div>
+                <div className="diagnostic-card__value">
+                  {parsedQuery.parserConfidence}
+                </div>
+              </div>
+              <div className="diagnostic-card">
+                <div className="diagnostic-card__label">Completeness</div>
+                <div className="diagnostic-card__value">
+                  {parsedQuery.completeness}
+                </div>
+              </div>
+            </div>
+
+            {(parseWarnings.length > 0 || parsedQuery.notes.length > 0) && (
+              <div className="message-block message-block--warning">
+                <div className="message-block__title">Notes</div>
+                <ul>
+                  {[...parseWarnings, ...parsedQuery.notes].map((note, idx) => (
+                    <li key={`${idx}-${note}`}>{note}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+
+          <section className="preview-section preview-confirmation">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={previewAccepted}
+                onChange={(e) => onAcceptPreview(e.target.checked)}
+              />
+              <span>
+                I confirm this structured query matches my intended submission.
+              </span>
+            </label>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PreviewList({
+  title,
+  values,
+}: {
+  title: string;
+  values: string[];
+}) {
+  return (
+    <div className="preview-block">
+      <div className="preview-label">{title}</div>
+      {values.length === 0 ? (
+        <div className="empty-inline">None declared.</div>
+      ) : (
+        <ul className="preview-list">
+          {values.map((value) => (
+            <li key={value}>{value}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/MissingInfoPanel.tsx
+
+import React from "react";
+import { NomosQuery } from "../../../query/query_types";
+
+export interface MissingInfoPanelProps {
+  parsedQuery?: NomosQuery;
+}
+
+export function MissingInfoPanel({ parsedQuery }: MissingInfoPanelProps) {
+  if (!parsedQuery) return null;
+
+  const missing: string[] = [];
+
+  if (parsedQuery.state.constraints.length === 0) {
+    missing.push("No explicit constraints detected.");
+  }
+
+  if (parsedQuery.candidates.length === 0) {
+    missing.push("No candidate alternatives detected.");
+  }
+
+  if (!parsedQuery.objective?.description) {
+    missing.push("No explicit objective detected.");
+  }
+
+  if (parsedQuery.state.facts.length === 0) {
+    missing.push("No explicit factual state declarations detected.");
+  }
+
+  if (missing.length === 0) return null;
+
+  return (
+    <div className="panel">
+      <div className="panel-header">Missing Information</div>
+      <ul className="preview-list">
+        {missing.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/EvaluationLaunchPanel.tsx
+
+import React from "react";
+import { NomosQuery } from "../../../query/query_types";
+
+export interface EvaluationLaunchPanelProps {
+  parsedQuery?: NomosQuery;
+  previewAccepted: boolean;
+  isEvaluating: boolean;
+  canEvaluate: boolean;
+  onEvaluate: () => void;
+}
+
+function buildStatusMessage(
+  parsedQuery: NomosQuery | undefined,
+  previewAccepted: boolean
+): string {
+  if (!parsedQuery) {
+    return "Parse a submission before evaluation.";
+  }
+
+  if (!previewAccepted) {
+    return "Confirm the parsed query before evaluation.";
+  }
+
+  if (parsedQuery.completeness === "INSUFFICIENT") {
+    return "Submission is insufficient for evaluation. Add constraints, candidates, or objective.";
+  }
+
+  if (parsedQuery.completeness === "PARTIAL") {
+    return "Submission is usable but incomplete. Evaluation will proceed under reduced confidence.";
+  }
+
+  return "Ready for NOMOS evaluation.";
+}
+
+export function EvaluationLaunchPanel({
+  parsedQuery,
+  previewAccepted,
+  isEvaluating,
+  canEvaluate,
+  onEvaluate,
+}: EvaluationLaunchPanelProps) {
+  const message = buildStatusMessage(parsedQuery, previewAccepted);
+
+  return (
+    <div className="panel">
+      <div className="panel-header">Evaluation Launch</div>
+
+      <div className="evaluation-status-line">{message}</div>
+
+      <button
+        type="button"
+        className="button button-accent"
+        onClick={onEvaluate}
+        disabled={!canEvaluate || isEvaluating}
+      >
+        {isEvaluating ? "Evaluating..." : "Evaluate with NOMOS"}
+      </button>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/query/EvaluationResultPanel.tsx
+
+import React from "react";
+import { NomosQueryResponse } from "../../../query/query_response_types";
+
+export interface EvaluationResultPanelProps {
+  result?: NomosQueryResponse;
+}
+
+export function EvaluationResultPanel({
+  result,
+}: EvaluationResultPanelProps) {
+  if (!result) return null;
+
+  return (
+    <div className="panel evaluation-result-panel">
+      <div className="panel-header">Evaluation Result</div>
+
+      <div className="diagnostics-grid">
+        <div className="diagnostic-card">
+          <div className="diagnostic-card__label">Submission Quality</div>
+          <div className="diagnostic-card__value">{result.submissionQuality}</div>
+        </div>
+
+        <div className="diagnostic-card">
+          <div className="diagnostic-card__label">Overall Status</div>
+          <div className="diagnostic-card__value">{result.overallStatus}</div>
+        </div>
+      </div>
+
+      <section className="preview-section">
+        <div className="preview-section__title">Candidate Evaluations</div>
+        <div className="candidate-evaluation-list">
+          {result.candidateEvaluations.map((candidate) => (
+            <div className="candidate-evaluation-card" key={candidate.id}>
+              <div className="candidate-evaluation-card__top">
+                <span className="candidate-evaluation-card__id">{candidate.id}</span>
+                <span className="status-badge">{candidate.classification}</span>
+              </div>
+              <ul className="preview-list">
+                {candidate.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="preview-section">
+        <div className="preview-section__title">Lawful Set</div>
+        {result.lawfulSet.length === 0 ? (
+          <div className="empty-inline">No lawful candidates returned.</div>
+        ) : (
+          <div className="lawful-set">
+            {result.lawfulSet.join(", ")}
+          </div>
+        )}
+      </section>
+
+      {result.adjustments && result.adjustments.length > 0 && (
+        <section className="preview-section">
+          <div className="preview-section__title">Adjustments</div>
+          {result.adjustments.map((adj) => (
+            <div className="adjustment-card" key={adj.candidateId}>
+              <div className="adjustment-card__title">
+                Candidate {adj.candidateId}
+              </div>
+              <ul className="preview-list">
+                {adj.actions.map((action) => (
+                  <li key={action}>{action}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {result.notes.length > 0 && (
+        <section className="preview-section">
+          <div className="preview-section__title">Notes</div>
+          <ul className="preview-list">
+            {result.notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+Minimal CSS direction
+
+These implementations will look better immediately if Replit adds styles roughly like:
+	•	.panel
+	•	.panel-header
+	•	.form-field
+	•	.form-label
+	•	.form-input
+	•	.form-textarea
+	•	.button
+	•	.button-secondary
+	•	.button-accent
+	•	.button-ghost
+	•	.status-badge
+	•	.query-workspace
+	•	.query-input-column
+	•	.query-output-column
+	•	.preview-section
+	•	.preview-label
+	•	.preview-list
+	•	.empty-state
+	•	.empty-inline
+	•	.diagnostics-grid
+	•	.diagnostic-card
+
+Use:
+	•	dark theme default
+	•	low radius
+	•	hard borders
+	•	restrained spacing
+	•	no chat bubbles
+
+⸻
+
+What to tell Replit
+
+Paste this:
+
+Implement the first-pass bodies for the NOMOS query UI components exactly as provided.
+
+Files:
+- QueryPageHeader.tsx
+- QueryModeSwitcher.tsx
+- GuidedQueryForm.tsx
+- NaturalLanguageForm.tsx
+- ParsePreviewPanel.tsx
+- MissingInfoPanel.tsx
+- EvaluationLaunchPanel.tsx
+- EvaluationResultPanel.tsx
+
+Requirements:
+- keep the constitutional flow
+- Parse must precede Evaluate
+- Preview confirmation must be required
+- Evaluate must use parsedQuery, not raw text
+- styling should be severe, structured, and non-chat-like
+- add minimal CSS so the page is immediately legible in dark theme
+
+The best next move after this is for me to write the first-pass CSS/token file so the Query Builder page actually looks good on first render.

@@ -17,10 +17,18 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Run the NOMOS constitutional kernel and return full system state
  */
+export const GetNomosStateQueryParams = zod.object({
+  scenario: zod
+    .enum(["lawful_baseline", "refused_infeasible"])
+    .optional()
+    .describe("Demo scenario to run. Defaults to current default scenario."),
+});
+
 export const GetNomosStateResponse = zod.object({
   runId: zod.string(),
   timestamp: zod.number(),
   missionId: zod.string(),
+  scenario: zod.string(),
   verificationStatus: zod.enum(["LAWFUL", "DEGRADED", "INVALID"]),
   authority: zod.enum(["AUTHORIZED", "CONSTRAINED", "REFUSED"]),
   actionOutcome: zod.enum(["APPLIED", "DEGRADED_ACTION_APPLIED", "REFUSED"]),
@@ -88,6 +96,7 @@ export const GetNomosStateResponse = zod.object({
     rankedCandidateCount: zod.number(),
     rejectedCandidateCount: zod.number(),
     robustnessEpsilon: zod.number(),
+    robustnessEpsilonMin: zod.number(),
     topRejectionReason: zod.string().nullish(),
   }),
   audit: zod.object({

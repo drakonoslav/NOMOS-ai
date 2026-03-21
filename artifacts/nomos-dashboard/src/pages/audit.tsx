@@ -4,9 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { formatVector, formatTimestamp, cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Database } from "lucide-react";
+import { useScenario } from "@/context/scenario-context";
 
 export default function AuditPage() {
-  const { data: state } = useGetNomosState();
+  const { scenario } = useScenario();
+  const { data: state } = useGetNomosState({ scenario });
   if (!state) return null;
 
   const a = state.audit;

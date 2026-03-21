@@ -12,6 +12,7 @@ import VerificationPage from "@/pages/verification";
 import BeliefPage from "@/pages/belief";
 import DecisionPage from "@/pages/decision";
 import AuditPage from "@/pages/audit";
+import { ScenarioProvider } from "@/context/scenario-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,7 +40,6 @@ function Router() {
 }
 
 function App() {
-  // Force dark theme for the austere aesthetic
   useEffect(() => {
     document.documentElement.classList.add("dark");
   }, []);
@@ -47,9 +47,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <ScenarioProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </ScenarioProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

@@ -1,9 +1,11 @@
 import { useGetNomosState } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import { useScenario } from "@/context/scenario-context";
 
 export default function DecisionPage() {
-  const { data: state } = useGetNomosState();
+  const { scenario } = useScenario();
+  const { data: state } = useGetNomosState({ scenario });
   if (!state) return null;
 
   const d = state.decision;

@@ -1,0 +1,421 @@
+Exactly. That flow is the right one because it preserves submission → interpretation → confirmation → evaluation.
+
+If the user can go straight from raw text to evaluation, NOMOS starts behaving like a chatbot again.
+The preview step is what keeps it constitutional.
+
+Why this interaction model is correct
+
+1. Paste natural language
+
+This preserves accessibility.
+
+Humans think in messy language first, not canonical structures.
+
+2. Hit Parse
+
+This makes the extraction step explicit.
+
+NOMOS is saying:
+
+“Before I evaluate, I will state what I think you submitted.”
+
+3. Preview canonical NomosQuery
+
+This is the critical boundary.
+
+It lets the user inspect:
+	•	what was treated as fact
+	•	what was treated as constraint
+	•	what was treated as uncertainty
+	•	what candidates were extracted
+	•	what objective was inferred
+
+This prevents silent misinterpretation.
+
+4. Only then hit Evaluate
+
+Now the user is no longer evaluating vague prose.
+
+They are evaluating a declared structured state.
+
+That is exactly what NOMOS should require.
+
+⸻
+
+The clean wiring pattern
+
+You want the Query Builder page to have two distinct state transitions:
+
+Parse state
+
+Raw input becomes a NomosQuery
+
+Evaluation state
+
+A parsed NomosQuery becomes a NOMOS evaluation request
+
+Do not collapse those into one button.
+
+⸻
+
+Recommended event flow
+
+RawInput
+  ↓
+ParseRequested
+  ↓
+ParserResult(NomosQuery)
+  ↓
+PreviewAccepted
+  ↓
+EvaluationRequested
+  ↓
+NomosEvaluationResponse
+
+That’s the whole interaction contract.
+
+⸻
+
+Exact page state shape
+
+QueryBuilderPage state
+
+type QueryMode = "guided" | "natural";
+
+interface QueryBuilderPageState {
+  mode: QueryMode;
+
+  rawInput: string;
+  guidedDraft: GuidedQueryDraft;
+
+  parsedQuery?: NomosQuery;
+  parseErrors: string[];
+  parseWarnings: string[];
+
+  isParsing: boolean;
+  isEvaluating: boolean;
+
+  previewAccepted: boolean;
+
+  evaluationResult?: NomosQueryResponse;
+}
+
+
+⸻
+
+Button rules
+
+Parse button
+
+Enabled when:
+	•	natural mode: raw input is non-empty
+	•	guided mode: at least one meaningful field is non-empty
+
+Evaluate button
+
+Enabled only when:
+	•	parsedQuery exists
+	•	previewAccepted === true
+	•	parsedQuery.completeness !== "INSUFFICIENT"
+
+That last rule is important.
+
+⸻
+
+Best UX behavior
+
+After Parse
+
+Automatically:
+	•	populate the preview column
+	•	reset previewAccepted = false
+	•	clear prior evaluation result
+
+Then require user confirmation
+
+A checkbox or explicit button:
+
+I confirm this structured query matches my intended submission.
+
+Only after that:
+	•	previewAccepted = true
+
+Then allow Evaluate.
+
+That’s the right NOMOS move.
+
+⸻
+
+Exact component responsibilities
+
+NaturalLanguageForm
+
+Owns:
+	•	raw input textarea
+	•	parse action trigger
+
+Does not own evaluation.
+
+ParsePreviewPanel
+
+Owns:
+	•	display of canonical NomosQuery
+	•	parser confidence
+	•	completeness
+	•	notes
+	•	confirmation action
+
+EvaluationLaunchPanel
+
+Owns:
+	•	final evaluate button
+	•	explanation of whether evaluation is currently allowed
+
+This separation matters.
+
+⸻
+
+Exact React wiring
+
+Parent page logic
+
+const [rawInput, setRawInput] = useState("");
+const [parsedQuery, setParsedQuery] = useState<NomosQuery | undefined>();
+const [previewAccepted, setPreviewAccepted] = useState(false);
+const [isParsing, setIsParsing] = useState(false);
+const [isEvaluating, setIsEvaluating] = useState(false);
+const [evaluationResult, setEvaluationResult] = useState<NomosQueryResponse | undefined>();
+const [parseErrors, setParseErrors] = useState<string[]>([]);
+
+async function handleParse() {
+  setIsParsing(true);
+  setParseErrors([]);
+  setPreviewAccepted(false);
+  setEvaluationResult(undefined);
+
+  try {
+    const result = await parser.parse({
+      rawInput,
+      allowFallback: true,
+      operatorHints: [
+        "extract constraints conservatively",
+        "do not infer legality",
+      ],
+    });
+
+    setParsedQuery(result);
+  } catch (err) {
+    setParsedQuery(undefined);
+    setParseErrors([
+      err instanceof Error ? err.message : String(err),
+    ]);
+  } finally {
+    setIsParsing(false);
+  }
+}
+
+async function handleEvaluate() {
+  if (!parsedQuery || !previewAccepted) return;
+
+  setIsEvaluating(true);
+  try {
+    const result = await evaluateNomosQuery(parsedQuery);
+    setEvaluationResult(result);
+  } finally {
+    setIsEvaluating(false);
+  }
+}
+
+
+⸻
+
+Exact page render structure
+
+<QueryBuilderPageLayout>
+  <QueryInputColumn>
+    <NaturalLanguageForm
+      value={rawInput}
+      onChange={setRawInput}
+      onParse={handleParse}
+      isParsing={isParsing}
+    />
+  </QueryInputColumn>
+
+  <QueryOutputColumn>
+    <ParsePreviewPanel
+      parsedQuery={parsedQuery}
+      parseErrors={parseErrors}
+      previewAccepted={previewAccepted}
+      onAcceptPreview={setPreviewAccepted}
+    />
+
+    <EvaluationLaunchPanel
+      parsedQuery={parsedQuery}
+      previewAccepted={previewAccepted}
+      isEvaluating={isEvaluating}
+      onEvaluate={handleEvaluate}
+    />
+
+    {evaluationResult && (
+      <EvaluationResultPanel result={evaluationResult} />
+    )}
+  </QueryOutputColumn>
+</QueryBuilderPageLayout>
+
+
+⸻
+
+What ParsePreviewPanel should show
+
+It should render the canonical NomosQuery in a way that makes misreadings obvious.
+
+Sections
+	•	State description
+	•	Facts
+	•	Constraints
+	•	Uncertainties
+	•	Candidates
+	•	Objective
+	•	Parser confidence
+	•	Submission completeness
+	•	Notes
+
+Confirmation control
+
+At bottom:
+
+<label>
+  <input
+    type="checkbox"
+    checked={previewAccepted}
+    onChange={(e) => onAcceptPreview(e.target.checked)}
+  />
+  I confirm this structured query matches my intended submission.
+</label>
+
+That single line makes the whole flow feel serious.
+
+⸻
+
+What EvaluationLaunchPanel should say
+
+Use exact state-based messaging.
+
+No parsed query
+
+Parse a submission before evaluation.
+
+Parsed but not accepted
+
+Confirm the parsed query before evaluation.
+
+Parsed and insufficient
+
+Submission is insufficient for evaluation. Add constraints, candidates, or objective.
+
+Parsed and accepted
+
+Ready for NOMOS evaluation.
+
+That makes the user understand the contract.
+
+⸻
+
+What evaluateNomosQuery should do
+
+At first, it does not need to hit the full physical kernel.
+
+You can build a typed evaluation adapter that:
+	•	takes canonical NomosQuery
+	•	converts it into candidate comparisons
+	•	returns structured classifications
+
+Later, that can feed deeper into full NOMOS runtime.
+
+Suggested function
+
+async function evaluateNomosQuery(
+  query: NomosQuery
+): Promise<NomosQueryResponse> {
+  // first pass: map candidates to structured screening response
+}
+
+
+⸻
+
+Why this is stronger than normal chat UX
+
+Because the user is forced to confront:
+
+“Is this really the state I intended to submit?”
+
+That is a much deeper interaction than:
+	•	sending text
+	•	getting advice
+
+It creates:
+	•	accountability
+	•	clarity
+	•	lawful evaluation context
+
+⸻
+
+What to tell Replit
+
+Paste this exactly:
+
+Wire the parser into the NOMOS Query Builder page with a strict 4-step interaction model:
+
+1. User pastes natural language
+2. User clicks Parse
+3. UI shows canonical NomosQuery preview
+4. User must confirm preview before Evaluate is enabled
+
+Requirements:
+- Do not allow direct evaluation from raw text
+- Add page state for:
+  - rawInput
+  - parsedQuery
+  - parseErrors
+  - previewAccepted
+  - isParsing
+  - isEvaluating
+  - evaluationResult
+- Parsing must reset previewAccepted to false
+- ParsePreviewPanel must display:
+  - state.description
+  - facts
+  - constraints
+  - uncertainties
+  - candidates
+  - objective
+  - parserConfidence
+  - completeness
+  - notes
+- Add an explicit confirmation control:
+  - “I confirm this structured query matches my intended submission.”
+- EvaluationLaunchPanel must only enable Evaluate when:
+  - parsedQuery exists
+  - previewAccepted is true
+  - completeness is not INSUFFICIENT
+- Add exact state-based messages for why Evaluate is disabled
+- Keep the overall interaction severe, structured, and non-chat-like
+
+
+⸻
+
+Final insight
+
+This flow matters because NOMOS should never evaluate:
+
+what the user might have meant
+
+It should evaluate:
+
+what has been explicitly declared and confirmed
+
+That’s the difference between:
+	•	conversational AI
+	•	and constitutional AI
+
+If you want, next I can write the exact QueryBuilderPage.tsx scaffold with typed props and component signatures.

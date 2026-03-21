@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatVector } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useScenario } from "@/context/scenario-context";
 
 export default function BeliefPage() {
-  const { data: state } = useGetNomosState();
+  const { scenario } = useScenario();
+  const { data: state } = useGetNomosState({ scenario });
   if (!state) return null;
 
   const b = state.belief;

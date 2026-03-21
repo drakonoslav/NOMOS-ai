@@ -1,0 +1,589 @@
+Let’s continue properly.
+
+Build NOMOS query system
+
+The goal is to turn vague human input into a lawful NOMOS submission.
+
+Not:
+	•	“chat”
+	•	“advice mode”
+	•	freeform rambling
+
+But:
+
+natural language → structured reality query → NOMOS evaluation
+
+⸻
+
+1. Core idea
+
+A user says something like:
+
+“I’m thinking of taking a new job but I’m not sure if it’s wise.”
+
+The query system should transform that into:
+	•	state
+	•	constraints
+	•	candidates
+	•	objective
+	•	uncertainties
+
+Then NOMOS can evaluate it.
+
+⸻
+
+2. Canonical query object
+
+src/query/query_types.ts
+
+export type NomosCandidateClassification = "LAWFUL" | "DEGRADED" | "INVALID";
+
+export interface NomosStateBlock {
+  description: string;
+  facts: string[];
+  constraints: string[];
+  uncertainties: string[];
+}
+
+export interface NomosCandidateBlock {
+  id: string;
+  description: string;
+}
+
+export interface NomosObjectiveBlock {
+  description: string;
+}
+
+export interface NomosQuery {
+  rawInput: string;
+
+  state: NomosStateBlock;
+  candidates: NomosCandidateBlock[];
+  objective?: NomosObjectiveBlock;
+
+  /**
+   * parser confidence is about extraction quality,
+   * not lawfulness
+   */
+  parserConfidence: "HIGH" | "MEDIUM" | "LOW";
+
+  /**
+   * whether the parser thinks the submission is usable
+   * by NOMOS without further clarification
+   */
+  completeness: "COMPLETE" | "PARTIAL" | "INSUFFICIENT";
+
+  notes: string[];
+}
+
+
+⸻
+
+3. Query parser stages
+
+The parser should work in 3 stages:
+
+Stage A — extract
+
+Find:
+	•	situation/state
+	•	possible actions
+	•	hard limits
+	•	desired outcome
+	•	missing unknowns
+
+Stage B — normalize
+
+Turn messy language into structured fields.
+
+Stage C — assess completeness
+
+Decide:
+	•	complete enough
+	•	partial but usable
+	•	too vague
+
+⸻
+
+4. Parser outputs
+
+You want NOMOS to classify the submission itself before evaluating candidates.
+
+Submission quality states
+	•	COMPLETE
+	•	PARTIAL
+	•	INSUFFICIENT
+
+This is separate from:
+	•	LAWFUL
+	•	DEGRADED
+	•	INVALID
+
+That distinction is important.
+
+⸻
+
+5. Natural language parser design
+
+src/query/query_parser.ts
+
+import {
+  NomosCandidateBlock,
+  NomosObjectiveBlock,
+  NomosQuery,
+  NomosStateBlock,
+} from "./query_types";
+
+function splitSentences(input: string): string[] {
+  return input
+    .split(/[\n\.!?]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function looksLikeConstraint(sentence: string): boolean {
+  const lower = sentence.toLowerCase();
+  return [
+    "must",
+    "cannot",
+    "can't",
+    "should not",
+    "at least",
+    "no more than",
+    "avoid",
+    "need to",
+    "required",
+    "limit",
+  ].some((token) => lower.includes(token));
+}
+
+function looksLikeUncertainty(sentence: string): boolean {
+  const lower = sentence.toLowerCase();
+  return [
+    "not sure",
+    "uncertain",
+    "unknown",
+    "maybe",
+    "might",
+    "probably",
+    "guess",
+    "unsure",
+    "unclear",
+  ].some((token) => lower.includes(token));
+}
+
+function looksLikeObjective(sentence: string): boolean {
+  const lower = sentence.toLowerCase();
+  return [
+    "goal",
+    "want",
+    "maximize",
+    "minimize",
+    "best",
+    "optimize",
+    "trying to",
+    "would like",
+    "priority",
+  ].some((token) => lower.includes(token));
+}
+
+function looksLikeCandidate(sentence: string): boolean {
+  const lower = sentence.toLowerCase();
+  return [
+    "option",
+    "candidate",
+    "could",
+    "either",
+    "or",
+    "plan",
+    "choice",
+    "path",
+    "stay",
+    "leave",
+    "accept",
+    "reject",
+    "increase",
+    "decrease",
+  ].some((token) => lower.includes(token));
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+}
+
+export class NomosQueryParser {
+  public parse(rawInput: string): NomosQuery {
+    const sentences = splitSentences(rawInput);
+
+    const facts: string[] = [];
+    const constraints: string[] = [];
+    const uncertainties: string[] = [];
+    const objectiveSentences: string[] = [];
+    const candidateSentences: string[] = [];
+
+    for (const sentence of sentences) {
+      if (looksLikeConstraint(sentence)) {
+        constraints.push(sentence);
+        continue;
+      }
+
+      if (looksLikeUncertainty(sentence)) {
+        uncertainties.push(sentence);
+        continue;
+      }
+
+      if (looksLikeObjective(sentence)) {
+        objectiveSentences.push(sentence);
+        continue;
+      }
+
+      if (looksLikeCandidate(sentence)) {
+        candidateSentences.push(sentence);
+        continue;
+      }
+
+      facts.push(sentence);
+    }
+
+    const candidates = this.extractCandidates(candidateSentences, rawInput);
+    const state = this.buildState(rawInput, facts, constraints, uncertainties);
+    const objective = this.buildObjective(objectiveSentences);
+
+    const completeness = this.assessCompleteness(state, candidates, objective);
+    const parserConfidence = this.assessConfidence(state, candidates, completeness);
+
+    const notes: string[] = [];
+    if (candidates.length === 0) {
+      notes.push("No explicit candidates detected.");
+    }
+    if (constraints.length === 0) {
+      notes.push("No explicit hard constraints detected.");
+    }
+    if (!objective) {
+      notes.push("No explicit objective detected.");
+    }
+
+    return {
+      rawInput,
+      state,
+      candidates,
+      objective,
+      parserConfidence,
+      completeness,
+      notes,
+    };
+  }
+
+  private buildState(
+    rawInput: string,
+    facts: string[],
+    constraints: string[],
+    uncertainties: string[]
+  ): NomosStateBlock {
+    return {
+      description: rawInput.trim(),
+      facts: dedupe(facts),
+      constraints: dedupe(constraints),
+      uncertainties: dedupe(uncertainties),
+    };
+  }
+
+  private buildObjective(sentences: string[]): NomosObjectiveBlock | undefined {
+    const normalized = dedupe(sentences);
+    if (normalized.length === 0) return undefined;
+
+    return {
+      description: normalized.join("; "),
+    };
+  }
+
+  private extractCandidates(
+    candidateSentences: string[],
+    rawInput: string
+  ): NomosCandidateBlock[] {
+    const out: NomosCandidateBlock[] = [];
+
+    // Structured "A: ... B: ..." pattern
+    const labeledMatches = [...rawInput.matchAll(/\b([A-Z])\s*:\s*([^\n]+)/g)];
+    if (labeledMatches.length > 0) {
+      for (const match of labeledMatches) {
+        out.push({
+          id: match[1],
+          description: match[2].trim(),
+        });
+      }
+      return out;
+    }
+
+    // Bullet-like "either X or Y"
+    const lower = rawInput.toLowerCase();
+    if (lower.includes("either") && lower.includes(" or ")) {
+      const parts = rawInput.split(/\bor\b/i).map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        return parts.slice(0, 3).map((description, i) => ({
+          id: String.fromCharCode(65 + i),
+          description,
+        }));
+      }
+    }
+
+    // Fallback: each candidate-like sentence becomes a candidate
+    return dedupe(candidateSentences).map((description, i) => ({
+      id: String.fromCharCode(65 + i),
+      description,
+    }));
+  }
+
+  private assessCompleteness(
+    state: NomosStateBlock,
+    candidates: NomosCandidateBlock[],
+    objective?: NomosObjectiveBlock
+  ): "COMPLETE" | "PARTIAL" | "INSUFFICIENT" {
+    const hasFacts = state.facts.length > 0 || state.description.length > 0;
+    const hasConstraints = state.constraints.length > 0;
+    const hasCandidates = candidates.length > 0;
+    const hasObjective = !!objective;
+
+    if (hasFacts && hasConstraints && hasCandidates && hasObjective) {
+      return "COMPLETE";
+    }
+
+    if (hasFacts && hasCandidates) {
+      return "PARTIAL";
+    }
+
+    return "INSUFFICIENT";
+  }
+
+  private assessConfidence(
+    state: NomosStateBlock,
+    candidates: NomosCandidateBlock[],
+    completeness: "COMPLETE" | "PARTIAL" | "INSUFFICIENT"
+  ): "HIGH" | "MEDIUM" | "LOW" {
+    if (
+      completeness === "COMPLETE" &&
+      state.constraints.length >= 1 &&
+      candidates.length >= 2
+    ) {
+      return "HIGH";
+    }
+
+    if (completeness === "PARTIAL") {
+      return "MEDIUM";
+    }
+
+    return "LOW";
+  }
+}
+
+
+⸻
+
+6. Query guidance UI
+
+The best UI is not a blank box.
+
+It should gently force structure.
+
+Best form pattern
+
+QueryBuilderPage
+
+QueryBuilderPage
+├── IntroPanel
+├── StateSection
+│   ├── SituationField
+│   ├── FactsField
+│   ├── ConstraintsField
+│   └── UncertaintiesField
+├── CandidatesSection
+│   ├── CandidateCard A
+│   ├── CandidateCard B
+│   └── AddCandidateButton
+├── ObjectiveSection
+│   └── ObjectiveField
+├── ParsePreviewSection
+│   ├── ParsedStatePreview
+│   ├── ParsedCandidatesPreview
+│   └── CompletenessBadge
+└── SubmitSection
+    ├── EvaluateButton
+    └── MissingInfoWarnings
+
+
+⸻
+
+7. Best user input mode
+
+Give users two ways:
+
+Mode A — Guided form
+
+Best for clarity.
+
+Mode B — Natural language box
+
+Best for speed.
+
+Then parse the natural language into the same canonical query.
+
+That’s the right architecture.
+
+⸻
+
+8. Prompt templates users can reuse
+
+These are the best kinds of queries for NOMOS.
+
+Template 1 — candidate evaluation
+
+STATE:
+[Describe the current situation.]
+
+CONSTRAINTS:
+- [hard limit]
+- [hard limit]
+
+UNCERTAINTIES:
+- [unknown or unclear factor]
+
+CANDIDATES:
+A: [candidate action]
+B: [candidate action]
+C: [candidate action]
+
+OBJECTIVE:
+[What outcome matters most?]
+
+Template 2 — boundary question
+
+Given this state and candidate, what makes it invalid?
+
+Template 3 — transition question
+
+What would need to change to make Candidate B lawful?
+
+Template 4 — margin question
+
+Which constraint is closest to failure under this candidate?
+
+Template 5 — sensitivity question
+
+Which variable most strongly determines whether this remains lawful?
+
+
+⸻
+
+9. Query response format
+
+You want responses that feel wise because they are structured.
+
+src/query/query_response_types.ts
+
+export interface NomosCandidateEvaluation {
+  id: string;
+  classification: "LAWFUL" | "DEGRADED" | "INVALID";
+  reasons: string[];
+}
+
+export interface NomosAdjustment {
+  candidateId: string;
+  actions: string[];
+}
+
+export interface NomosQueryResponse {
+  submissionQuality: "COMPLETE" | "PARTIAL" | "INSUFFICIENT";
+  overallStatus: "LAWFUL" | "DEGRADED" | "INVALID";
+  candidateEvaluations: NomosCandidateEvaluation[];
+  lawfulSet: string[];
+  adjustments?: NomosAdjustment[];
+  notes: string[];
+}
+
+
+⸻
+
+10. Example
+
+User input
+
+I have a stable job now, but a new one pays more. I’m not sure about the culture. I need to avoid a long income gap and I want long-term growth. I could stay, accept, or negotiate first.
+
+Parsed query
+
+{
+  "state": {
+    "description": "I have a stable job now, but a new one pays more...",
+    "facts": [
+      "I have a stable job now",
+      "a new one pays more"
+    ],
+    "constraints": [
+      "I need to avoid a long income gap"
+    ],
+    "uncertainties": [
+      "I’m not sure about the culture"
+    ]
+  },
+  "candidates": [
+    { "id": "A", "description": "stay" },
+    { "id": "B", "description": "accept" },
+    { "id": "C", "description": "negotiate first" }
+  ],
+  "objective": {
+    "description": "I want long-term growth"
+  },
+  "parserConfidence": "MEDIUM",
+  "completeness": "PARTIAL"
+}
+
+That is already much better than a vague chat prompt.
+
+⸻
+
+11. What to tell Replit
+
+Paste this:
+
+Build the NOMOS query system.
+
+Requirements:
+1. Add a natural language query parser that converts freeform input into a canonical NomosQuery object.
+2. Add:
+   - src/query/query_types.ts
+   - src/query/query_parser.ts
+   - optionally src/query/query_response_types.ts
+3. Canonical query must include:
+   - state.description
+   - state.facts
+   - state.constraints
+   - state.uncertainties
+   - candidates[]
+   - objective
+   - parserConfidence
+   - completeness
+4. Completeness states:
+   - COMPLETE
+   - PARTIAL
+   - INSUFFICIENT
+5. Build a UI query form with two modes:
+   - guided structured form
+   - natural language parser mode
+6. Add a parse preview panel so the user sees what NOMOS thinks they submitted before evaluation.
+7. Do not treat parser confidence as lawfulness.
+8. Keep downstream legality decisions in the existing NOMOS pipeline.
+
+
+⸻
+
+12. Why this matters
+
+Because this is how users stop “asking AI for advice” and start:
+
+submitting reality to NOMOS for evaluation
+
+That’s the correct interaction model.
+
+If you want, next I can write:
+	•	the exact React component tree for the Query Builder page
+	•	or the LLM-assisted parser version that upgrades the rule-based parser into a stronger extractor

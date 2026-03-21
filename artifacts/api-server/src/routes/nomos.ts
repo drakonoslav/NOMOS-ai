@@ -3,9 +3,10 @@ import { runKernelOnce } from "nomos-core";
 
 const nomosRouter = Router();
 
-nomosRouter.get("/nomos/state", async (_req, res) => {
+nomosRouter.get("/nomos/state", async (req, res) => {
   try {
-    const state = await runKernelOnce();
+    const scenario = typeof req.query.scenario === "string" ? req.query.scenario : undefined;
+    const state = await runKernelOnce(scenario);
     res.json(state);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown kernel error";

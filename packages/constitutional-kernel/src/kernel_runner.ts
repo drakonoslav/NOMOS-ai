@@ -8,6 +8,10 @@
  *         → verification_kernel → constitution_guard → audit_log
  *
  * The LLM is proposer only. Authority stays in verification_kernel and constitution_guard.
+ *
+ * Two deterministic demo scenarios are supported:
+ *   lawful_baseline     — produces LAWFUL / AUTHORIZED / APPLIED
+ *   refused_infeasible  — produces INVALID / REFUSED / REFUSED via feasibility failure
  */
 
 import { BeliefState, ParameterBelief, MeasurementSnapshot, BeliefStateManager } from "./belief_state.js";
@@ -20,6 +24,7 @@ import { DecisionEngine } from "./decision_engine.js";
 import { decideAuthority } from "./constitution_guard.js";
 import { AuditLog, AuditRecord } from "./audit_log.js";
 import { LLMProposer, MissionContext, LLMProposal } from "./llm_proposer.js";
+import { buildScenarioConfig, resolveScenario } from "./scenarios.js";
 
 export interface KernelProposalResult {
   id: string;
@@ -71,6 +76,7 @@ export interface KernelDecisionResult {
   rankedCandidateCount: number;
   rejectedCandidateCount: number;
   robustnessEpsilon: number;
+  robustnessEpsilonMin: number;
   topRejectionReason: string | null;
 }
 
@@ -87,6 +93,7 @@ export interface KernelRunResult {
   runId: string;
   timestamp: number;
   missionId: string;
+  scenario: string;
   verificationStatus: "LAWFUL" | "DEGRADED" | "INVALID";
   authority: "AUTHORIZED" | "CONSTRAINED" | "REFUSED";
   actionOutcome: "APPLIED" | "DEGRADED_ACTION_APPLIED" | "REFUSED";
@@ -109,7 +116,10 @@ function meanControlValue(seq: number[][]): number {
 }
 function safeRunId(): string { return `run-${Math.random().toString(36).slice(2, 10)}`; }
 
-export async function runKernelOnce(): Promise<KernelRunResult> {
+export async function runKernelOnce(scenarioInput?: string | null): Promise<KernelRunResult> {
+  const scenario = resolveScenario(scenarioInput);
+  const cfg = buildScenarioConfig(scenario);
+
   // ── 1. MODEL SETUP ──────────────────────────────────────────────────────────
 
   const primaryModel: RegisteredModel = {
@@ -176,18 +186,18 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
 
   const t0 = nowMs();
   const initialBelief: BeliefState = {
-    xHat: [0.0, 1.0],
+    xHat: cfg.initialXHat,
     thetaHat: initialThetaBelief,
     uncertainty: {
-      epsilonX: 0.05,
-      covariance: [[0.01, 0], [0, 0.01]],
-      lower: [-0.05, 0.95],
-      upper: [0.05, 1.05],
+      epsilonX: cfg.initialEpsilonX,
+      covariance: cfg.initialCovariance,
+      lower: [cfg.initialXHat[0]! - cfg.initialEpsilonX, cfg.initialXHat[1]! - cfg.initialEpsilonX],
+      upper: [cfg.initialXHat[0]! + cfg.initialEpsilonX, cfg.initialXHat[1]! + cfg.initialEpsilonX],
     },
-    confidence: "MEDIUM",
+    confidence: cfg.initialEpsilonX <= 0.04 ? "HIGH" : "MEDIUM",
     identifiability: "FULL",
     staleByMs: 0,
-    provenance: ["bootstrap"],
+    provenance: ["bootstrap", `scenario:${scenario}`],
     timestamp: t0,
   };
 
@@ -196,10 +206,10 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
   // ── 3. OBSERVER ──────────────────────────────────────────────────────────
 
   const measurement: MeasurementSnapshot = {
-    z: [0.12, 0.96],
-    epsilonZ: 0.03,
+    z: cfg.measurementZ,
+    epsilonZ: cfg.measurementEpsilonZ,
     timestamp: t0 + 100,
-    delayMs: 40,
+    delayMs: cfg.measurementDelayMs,
     source: "mock_sensor",
   };
 
@@ -209,11 +219,11 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
     measurement,
     model: modelRegistry.getActiveModel().implementation as ObserverModel,
     control: [0.2],
-    resources: [0.85],
-    disturbances: [0.1],
+    resources: cfg.resources,
+    disturbances: cfg.disturbances,
     currentTime: measurement.timestamp,
-    requiredEpsilonX: 0.08,
-    requiredFisherMin: 0.2,
+    requiredEpsilonX: cfg.requiredEpsilonX,
+    requiredFisherMin: cfg.requiredFisherMin,
   });
 
   const updatedBelief = observerResult.belief;
@@ -278,16 +288,21 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
   const equalityConstraints: ConstraintDefinition[] = [
     { name: "state_dimension_guard", evaluate: (x) => (x.length === 2 ? 0 : 1), tolerance: 1e-9 },
   ];
+
+  // energy_positive_margin: x[1] must stay above threshold + margin
+  // This is the key constraint that drives feasibility failure in refused_infeasible
+  const energyThreshold = cfg.energyMarginThreshold;
   const inequalityConstraints: ConstraintDefinition[] = [
-    { name: "energy_positive_margin", evaluate: (x) => -((x[1] ?? 0) - 0.20), margin: 0.02 },
+    { name: "energy_positive_margin", evaluate: (x) => -((x[1] ?? 0) - energyThreshold), margin: 0.02 },
     { name: "position_upper_bound", evaluate: (x) => (x[0] ?? 0) - 1.50, margin: 0.05 },
   ];
   const terminalConstraints: ConstraintDefinition[] = [
-    { name: "terminal_target_nearness", evaluate: (x) => Math.abs((x[0] ?? 0) - 1.0) - 0.75, margin: 0.0 },
+    { name: "terminal_target_nearness", evaluate: (x) => Math.abs((x[0] ?? 0) - 1.0) - cfg.terminalTolerance, margin: 0.0 },
   ];
   const conservationConstraints: ConstraintDefinition[] = [];
 
   const theta = updatedBelief.thetaHat.mean;
+  const epsilonMin = 0.03;
 
   const decisionEngine = new DecisionEngine();
   const candidatePlans = proposalBundle.proposals
@@ -295,19 +310,23 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
     .map((proposal) => {
       const seq = proposal.planSketch!.controlSequence;
       let x = [...updatedBelief.xHat];
-      const r = [0.85];
+      const r = cfg.resources.slice();
       let t = measurement.timestamp / 1000;
       const dt = 0.5;
       for (const step of seq) {
-        x = modelRegistry.predictNextState(x, step, r, [0.1], t, dt);
+        x = modelRegistry.predictNextState(x, step, r, cfg.disturbances, t, dt);
         t += dt;
       }
       const nominalX = x;
       const nominalU = [meanControlValue(seq)];
       const nominalR = r;
 
+      // Sensitivity matrix scale controls robustness radius:
+      //   lawful_baseline: small scale → large epsilon → passes robustness check
+      //   refused_infeasible: larger scale, but moot (fails feasibility first)
       const maxU = Math.max(...seq.map((s) => Math.abs(s[0] ?? 0)), 0.01);
-      const sensitivityMatrix = [[maxU * 2.0, 0], [0, maxU * 1.5]];
+      const sc = cfg.sensitivityMatrixScale;
+      const sensitivityMatrix = [[maxU * sc, 0], [0, maxU * sc * 0.75]];
 
       const feasibilityInput: FeasibilityInput = {
         x: nominalX, u: nominalU, r: nominalR,
@@ -327,7 +346,7 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
         nominalR,
         feasibilityInput,
         robustnessConfig: {
-          epsilonMin: 0.03,
+          epsilonMin,
           sensitivityMatrix,
           delayPresent: (measurement.delayMs ?? 0) > 0,
           analyzedOnDelayedModel: primaryModel.signature.delayAware,
@@ -346,7 +365,7 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
     reasons: ["No candidate plans evaluated."],
   };
   const fallbackRobustness: RobustnessReport = {
-    epsilon: 0, epsilonMin: 0.03, bounded: false, horizonBound: 0,
+    epsilon: 0, epsilonMin, bounded: false, horizonBound: 0,
     marginReport: {}, sensitivitySingularValues: [], fragileDimensions: [],
     delayConsistent: true, reasons: ["No candidate plans evaluated."],
   };
@@ -359,7 +378,7 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
   const adaptation: AdaptationStatus = {
     inRecoveryTube: distanceToNominal <= 0.75,
     objectiveDrift: Math.abs((actualState[0] ?? 0) - 1.0),
-    objectiveTolerance: 0.90,
+    objectiveTolerance: cfg.objectiveTolerance,
     invariantError: 0.0,
     invariantTolerance: 0.02,
   };
@@ -445,6 +464,7 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
     runId: safeRunId(),
     timestamp: runTimestamp,
     missionId: missionContext.missionId,
+    scenario,
     verificationStatus: verification.status as "LAWFUL" | "DEGRADED" | "INVALID",
     authority: authorityStr,
     actionOutcome,
@@ -488,6 +508,7 @@ export async function runKernelOnce(): Promise<KernelRunResult> {
       rankedCandidateCount: decision.ranking?.length ?? 0,
       rejectedCandidateCount: decision.rejectedPlans.length,
       robustnessEpsilon: decision.robustness?.epsilon ?? 0,
+      robustnessEpsilonMin: epsilonMin,
       topRejectionReason: decision.rejectedPlans[0]?.reasons[0] ?? decision.reason ?? null,
     },
     audit: {

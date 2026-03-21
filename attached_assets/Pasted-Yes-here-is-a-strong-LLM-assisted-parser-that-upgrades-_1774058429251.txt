@@ -1,0 +1,428 @@
+Yes — here is a strong LLM-assisted parser that upgrades the rule-based parser into a structured extractor while keeping NOMOS’s authority boundaries intact.
+
+This version uses the OpenAI Responses API with Structured Outputs / JSON Schema, which OpenAI recommends for new projects and for schema-constrained outputs.  ￼
+
+Design intent
+
+The parser may:
+	•	extract state
+	•	extract constraints
+	•	extract uncertainties
+	•	extract candidates
+	•	extract objective
+	•	assess parser confidence / completeness
+
+The parser may not:
+	•	classify proposals as lawful
+	•	replace decision_engine
+	•	replace verification_kernel
+	•	replace constitution_guard
+
+So this is an extraction layer, not an authority layer.
+
+⸻
+
+1. src/query/query_types.ts
+
+export type SubmissionCompleteness = "COMPLETE" | "PARTIAL" | "INSUFFICIENT";
+export type ParserConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export interface NomosStateBlock {
+  description: string;
+  facts: string[];
+  constraints: string[];
+  uncertainties: string[];
+}
+
+export interface NomosCandidateBlock {
+  id: string;
+  description: string;
+}
+
+export interface NomosObjectiveBlock {
+  description: string;
+}
+
+export interface NomosQuery {
+  rawInput: string;
+  state: NomosStateBlock;
+  candidates: NomosCandidateBlock[];
+  objective?: NomosObjectiveBlock;
+  parserConfidence: ParserConfidence;
+  completeness: SubmissionCompleteness;
+  notes: string[];
+}
+
+
+⸻
+
+2. src/query/llm_query_parser.ts
+
+/**
+ * src/query/llm_query_parser.ts
+ *
+ * LLM-assisted parser for NOMOS queries.
+ *
+ * Constitutional role:
+ * - Extracts structured query objects from natural language.
+ * - Does not assign lawfulness.
+ * - Does not authorize action.
+ *
+ * Uses:
+ * - OpenAI Responses API
+ * - Structured Outputs / JSON Schema
+ */
+
+import OpenAI from "openai";
+import {
+  NomosCandidateBlock,
+  NomosObjectiveBlock,
+  NomosQuery,
+  NomosStateBlock,
+  ParserConfidence,
+  SubmissionCompleteness,
+} from "./query_types";
+
+export interface LLMQueryParserInput {
+  rawInput: string;
+  operatorHints?: string[];
+}
+
+interface LLMExtractedNomosQuery {
+  state: {
+    description: string;
+    facts: string[];
+    constraints: string[];
+    uncertainties: string[];
+  };
+  candidates: {
+    id: string;
+    description: string;
+  }[];
+  objective?: {
+    description: string;
+  };
+  parserConfidence: ParserConfidence;
+  completeness: SubmissionCompleteness;
+  notes: string[];
+}
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.4";
+
+let cachedClient: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!OPENAI_API_KEY) {
+    throw new Error(
+      "Missing OPENAI_API_KEY. Add it to Replit Secrets or your environment."
+    );
+  }
+
+  if (!cachedClient) {
+    cachedClient = new OpenAI({ apiKey: OPENAI_API_KEY });
+  }
+
+  return cachedClient;
+}
+
+const NOMOS_QUERY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    state: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        description: { type: "string" },
+        facts: {
+          type: "array",
+          items: { type: "string" },
+        },
+        constraints: {
+          type: "array",
+          items: { type: "string" },
+        },
+        uncertainties: {
+          type: "array",
+          items: { type: "string" },
+        },
+      },
+      required: ["description", "facts", "constraints", "uncertainties"],
+    },
+    candidates: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          id: { type: "string" },
+          description: { type: "string" },
+        },
+        required: ["id", "description"],
+      },
+    },
+    objective: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        description: { type: "string" },
+      },
+      required: ["description"],
+    },
+    parserConfidence: {
+      type: "string",
+      enum: ["HIGH", "MEDIUM", "LOW"],
+    },
+    completeness: {
+      type: "string",
+      enum: ["COMPLETE", "PARTIAL", "INSUFFICIENT"],
+    },
+    notes: {
+      type: "array",
+      items: { type: "string" },
+    },
+  },
+  required: ["state", "candidates", "parserConfidence", "completeness", "notes"],
+} as const;
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+}
+
+function normalizeCandidateIds(
+  candidates: NomosCandidateBlock[]
+): NomosCandidateBlock[] {
+  return candidates.map((c, idx) => ({
+    id: c.id?.trim() || String.fromCharCode(65 + idx),
+    description: c.description.trim(),
+  }));
+}
+
+function validateExtractedQuery(
+  extracted: LLMExtractedNomosQuery
+): LLMExtractedNomosQuery {
+  return {
+    state: {
+      description: extracted.state.description.trim(),
+      facts: dedupe(extracted.state.facts),
+      constraints: dedupe(extracted.state.constraints),
+      uncertainties: dedupe(extracted.state.uncertainties),
+    },
+    candidates: normalizeCandidateIds(
+      extracted.candidates.filter((c) => c.description && c.description.trim().length > 0)
+    ),
+    objective:
+      extracted.objective && extracted.objective.description.trim().length > 0
+        ? { description: extracted.objective.description.trim() }
+        : undefined,
+    parserConfidence: extracted.parserConfidence,
+    completeness: extracted.completeness,
+    notes: dedupe(extracted.notes),
+  };
+}
+
+export class LLMQueryParser {
+  public async parse(input: LLMQueryParserInput): Promise<NomosQuery> {
+    const client = getClient();
+
+    const systemPrompt = [
+      "You are the NOMOS query extractor.",
+      "Your job is to convert human natural language into a structured NomosQuery.",
+      "You are NOT the decision engine, verifier, or constitution guard.",
+      "Do not determine whether anything is lawful, degraded, or invalid.",
+      "Only extract the user's current state, constraints, uncertainties, candidate actions, and objective.",
+      "Prefer explicit extraction over speculation.",
+      "If something is missing, leave it empty and note the absence in notes.",
+      "Return only schema-valid structured output.",
+    ].join(" ");
+
+    const userPayload = {
+      rawInput: input.rawInput,
+      operatorHints: input.operatorHints ?? [],
+    };
+
+    const response = await client.responses.create({
+      model: OPENAI_MODEL,
+      input: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: JSON.stringify(userPayload),
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "nomos_query_extraction",
+          schema: NOMOS_QUERY_SCHEMA,
+          strict: true,
+        },
+      },
+    });
+
+    const raw = response.output_text;
+    if (!raw || raw.trim().length === 0) {
+      throw new Error("LLMQueryParser received empty structured output.");
+    }
+
+    const parsed = JSON.parse(raw) as LLMExtractedNomosQuery;
+    const clean = validateExtractedQuery(parsed);
+
+    return {
+      rawInput: input.rawInput,
+      state: clean.state,
+      candidates: clean.candidates,
+      objective: clean.objective,
+      parserConfidence: clean.parserConfidence,
+      completeness: clean.completeness,
+      notes: clean.notes,
+    };
+  }
+}
+
+
+⸻
+
+3. Optional fallback wrapper: src/query/query_parser.ts
+
+If you want the system to survive parser/API failure, wrap the existing rule-based parser and the new LLM parser together.
+
+import { NomosQuery } from "./query_types";
+import { LLMQueryParser } from "./llm_query_parser";
+import { NomosQueryParser as RuleBasedParser } from "./query_parser_rule_based";
+
+export interface HybridQueryParserInput {
+  rawInput: string;
+  operatorHints?: string[];
+  allowFallback?: boolean;
+}
+
+export class HybridNomosQueryParser {
+  private llm = new LLMQueryParser();
+  private fallback = new RuleBasedParser();
+
+  public async parse(input: HybridQueryParserInput): Promise<NomosQuery> {
+    try {
+      return await this.llm.parse({
+        rawInput: input.rawInput,
+        operatorHints: input.operatorHints,
+      });
+    } catch (err) {
+      if (!input.allowFallback) {
+        throw err;
+      }
+
+      const fallback = this.fallback.parse(input.rawInput);
+      return {
+        ...fallback,
+        notes: [
+          ...fallback.notes,
+          `LLM parser unavailable; fallback parser used: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ],
+      };
+    }
+  }
+}
+
+If you use this, rename your existing rule-based file to:
+
+src/query/query_parser_rule_based.ts
+
+and leave its contents as-is.
+
+⸻
+
+4. Example usage in a page or route
+
+import { HybridNomosQueryParser } from "./query/query_parser";
+
+const parser = new HybridNomosQueryParser();
+
+const parsedQuery = await parser.parse({
+  rawInput: `
+I have a stable job now, but a new one pays more.
+I'm not sure about the culture.
+I need to avoid a long income gap.
+I want long-term growth.
+I could stay, accept, or negotiate first.
+  `.trim(),
+  operatorHints: [
+    "extract constraints conservatively",
+    "do not infer legality",
+  ],
+  allowFallback: true,
+});
+
+console.log(parsedQuery);
+
+
+⸻
+
+5. What this gives you
+
+This is stronger than the rule-based parser because the model can:
+	•	separate facts from constraints more reliably
+	•	detect implicit candidates
+	•	summarize objective statements more naturally
+	•	produce a normalized query shape even from messy human text
+
+But it still preserves the NOMOS boundary:
+	•	parser confidence is not lawfulness
+	•	completeness is not verification
+	•	extraction is not authorization
+
+That separation is the important part.
+
+⸻
+
+6. Replit instruction
+
+Paste this to Replit:
+
+Add an LLM-assisted NOMOS query parser.
+
+Create:
+- src/query/query_types.ts
+- src/query/llm_query_parser.ts
+
+Optional:
+- rename the existing rule-based parser to src/query/query_parser_rule_based.ts
+- add src/query/query_parser.ts as a hybrid parser wrapper
+
+Requirements:
+- use OpenAI Responses API
+- use Structured Outputs with strict JSON schema
+- read OPENAI_API_KEY from process.env only
+- default OPENAI_MODEL to gpt-5.4
+- parser must extract:
+  - state.description
+  - state.facts
+  - state.constraints
+  - state.uncertainties
+  - candidates[]
+  - objective
+  - parserConfidence
+  - completeness
+  - notes
+- parser must NOT assign LAWFUL / DEGRADED / INVALID
+- parser is extraction only, not authority
+- add fallback to the rule-based parser if the OpenAI call fails
+
+
+⸻
+
+7. Best next move
+
+The best next step after this is wiring the parser into the Query Builder page so the user can:
+	1.	paste natural language
+	2.	hit Parse
+	3.	preview the canonical NomosQuery
+	4.	only then hit Evaluate
+
+That is the correct interaction model for NOMOS.

@@ -4,10 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { formatVector, formatTimestamp, cn } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { useScenario } from "@/context/scenario-context";
+import { useToneMessage } from "@/ui/tone/useToneMessage";
 
 export default function OverviewPage() {
-  const { data: state } = useGetNomosState();
+  const { scenario } = useScenario();
+  const { data: state } = useGetNomosState({ scenario });
   if (!state) return null;
+
+  const tone = useToneMessage(state);
 
   const checks = [
     { label: "FEASIBILITY", ok: state.verification.feasibilityOk },
@@ -24,35 +29,78 @@ export default function OverviewPage() {
     return "text-destructive";
   };
 
+  const toneStatusColor = getStatusColor(state.verificationStatus);
+  const toneAuthColor = getStatusColor(state.authority);
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-8"
     >
-      {/* Hero Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card">
-          <CardHeader className="py-3 px-4"><CardTitle>VERIFICATION STATUS</CardTitle></CardHeader>
-          <CardContent className="p-4 flex items-center justify-center min-h-24">
-            <span className={cn("text-2xl font-mono tracking-widest font-bold", getStatusColor(state.verificationStatus))}>
-              {state.verificationStatus}
-            </span>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card">
-          <CardHeader className="py-3 px-4"><CardTitle>AUTHORITY</CardTitle></CardHeader>
-          <CardContent className="p-4 flex items-center justify-center min-h-24">
-            <span className={cn("text-2xl font-mono tracking-widest font-bold", getStatusColor(state.authority))}>
-              {state.authority}
-            </span>
+      {/* Tone-Aware Status + Authority Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* StatusCard — tone-aware */}
+        <Card className={cn(
+          "bg-card border-l-4",
+          state.verificationStatus === "LAWFUL" ? "border-l-success/60" :
+          state.verificationStatus === "DEGRADED" ? "border-l-warning/60" :
+          "border-l-destructive/60"
+        )}>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-[10px] tracking-widest text-muted-foreground">VERIFICATION STATUS</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            <div className={cn("text-3xl font-mono tracking-widest font-bold", toneStatusColor)}>
+              {tone.verification.title}
+            </div>
+            <p className="text-xs font-mono text-muted-foreground leading-relaxed">
+              {tone.verification.summary}
+            </p>
+            {tone.verification.details && tone.verification.details.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {tone.verification.details.map((d) => (
+                  <li key={d} className="text-[11px] font-mono text-muted-foreground/70 flex gap-2">
+                    <span className="text-primary/40">›</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="pt-1">
+              <span className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-widest">
+                TONE: {tone.toneLevel}
+              </span>
+            </div>
           </CardContent>
         </Card>
 
+        {/* AuthorityCard — tone-aware */}
+        <Card className={cn(
+          "bg-card border-l-4",
+          state.authority === "AUTHORIZED" ? "border-l-success/60" :
+          state.authority === "CONSTRAINED" ? "border-l-warning/60" :
+          "border-l-destructive/60"
+        )}>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-[10px] tracking-widest text-muted-foreground">AUTHORITY</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            <div className={cn("text-3xl font-mono tracking-widest font-bold", toneAuthColor)}>
+              {tone.authority.label}
+            </div>
+            <p className="text-xs font-mono text-muted-foreground leading-relaxed">
+              {tone.authority.summary}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Plan + Outcome Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="bg-card">
           <CardHeader className="py-3 px-4"><CardTitle>SELECTED PLAN</CardTitle></CardHeader>
-          <CardContent className="p-4 flex items-center justify-center min-h-24">
+          <CardContent className="p-4 flex items-center justify-center min-h-16">
             <span className="text-sm font-mono text-primary text-center break-all">
               {state.decision.selectedPlanId || "NONE"}
             </span>
@@ -61,7 +109,7 @@ export default function OverviewPage() {
 
         <Card className="bg-card">
           <CardHeader className="py-3 px-4"><CardTitle>ACTION OUTCOME</CardTitle></CardHeader>
-          <CardContent className="p-4 flex items-center justify-center min-h-24 text-center">
+          <CardContent className="p-4 flex items-center justify-center min-h-16 text-center">
             <span className={cn("text-lg font-mono tracking-widest font-bold", getStatusColor(state.actionOutcome))}>
               {state.actionOutcome.replace(/_/g, " ")}
             </span>
@@ -119,7 +167,7 @@ export default function OverviewPage() {
                 {formatVector(state.belief.xHat)}
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="block text-[10px] font-mono text-muted-foreground uppercase mb-1">IDENTIFIABILITY</span>

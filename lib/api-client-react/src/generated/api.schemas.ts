@@ -117,6 +117,7 @@ export interface NomosDecisionSnapshot {
   rankedCandidateCount: number;
   rejectedCandidateCount: number;
   robustnessEpsilon: number;
+  robustnessEpsilonMin: number;
   topRejectionReason?: string | null;
 }
 
@@ -133,6 +134,7 @@ export interface NomosState {
   runId: string;
   timestamp: number;
   missionId: string;
+  scenario: string;
   verificationStatus: NomosVerificationStatus;
   authority: NomosAuthorityDecision;
   actionOutcome: NomosActionOutcome;
@@ -147,3 +149,18 @@ export interface NomosState {
   decision: NomosDecisionSnapshot;
   audit: NomosAuditSnapshot;
 }
+
+export type GetNomosStateParams = {
+  /**
+   * Demo scenario to run. Defaults to current default scenario.
+   */
+  scenario?: GetNomosStateScenario;
+};
+
+export type GetNomosStateScenario =
+  (typeof GetNomosStateScenario)[keyof typeof GetNomosStateScenario];
+
+export const GetNomosStateScenario = {
+  lawful_baseline: "lawful_baseline",
+  refused_infeasible: "refused_infeasible",
+} as const;

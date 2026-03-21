@@ -29,6 +29,14 @@ paths:
       operationId: getNomosState
       tags: [nomos]
       summary: Run the NOMOS constitutional kernel and return full system state
+      parameters:
+        - name: scenario
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [lawful_baseline, refused_infeasible]
+          description: Demo scenario to run. Defaults to current default scenario.
       responses:
         "200":
           description: Full NOMOS kernel run result
@@ -197,10 +205,12 @@ components:
           type: number
         robustnessEpsilon:
           type: number
+        robustnessEpsilonMin:
+          type: number
         topRejectionReason:
           type: string
           nullable: true
-      required: [selectedPlanId, rankedCandidateCount, rejectedCandidateCount, robustnessEpsilon]
+      required: [selectedPlanId, rankedCandidateCount, rejectedCandidateCount, robustnessEpsilon, robustnessEpsilonMin]
 
     NomosAuditSnapshot:
       type: object
@@ -231,6 +241,8 @@ components:
         timestamp:
           type: number
         missionId:
+          type: string
+        scenario:
           type: string
         verificationStatus:
           $ref: "#/components/schemas/NomosVerificationStatus"
@@ -266,6 +278,7 @@ components:
         - runId
         - timestamp
         - missionId
+        - scenario
         - verificationStatus
         - authority
         - actionOutcome
