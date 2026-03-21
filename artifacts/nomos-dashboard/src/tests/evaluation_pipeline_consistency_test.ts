@@ -229,24 +229,38 @@ describe("mapEvaluationResultToViewModel — sanitization with all-deterministic
     expect(vm.decisiveVariable?.toLowerCase()).not.toContain("constraint interpretation");
   });
 
-  it("footer note says 'No interpretation fallback used' when all deterministic", () => {
+  it("classification note says 'evaluated deterministically' (not 'passed')", () => {
     const vm = mapEvaluationResultToViewModel(
       buildMockResultWithFallback(),
       compiledConstraints
     );
-    const hasDeterministicNote = vm.notes.some((n) =>
-      n.toLowerCase().includes("no interpretation fallback used")
+    const classificationNote = vm.notes.find((n) =>
+      n.toLowerCase().includes("evaluated deterministically")
     );
-    expect(hasDeterministicNote).toBe(true);
+    expect(classificationNote).toBeDefined();
+    expect(classificationNote!.toLowerCase()).not.toContain("passed");
   });
 
-  it("footer note and candidate cards are logically consistent (no fallback text if note claims all deterministic)", () => {
+  it("notes include a separate satisfaction verdict line", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildMockResultWithFallback(),
+      compiledConstraints
+    );
+    const satisfactionNote = vm.notes.find(
+      (n) =>
+        n.toLowerCase().includes("constraint-admissible") ||
+        n.toLowerCase().includes("violations detected")
+    );
+    expect(satisfactionNote).toBeDefined();
+  });
+
+  it("classification note and candidate cards are logically consistent", () => {
     const vm = mapEvaluationResultToViewModel(
       buildMockResultWithFallback(),
       compiledConstraints
     );
     const noteClaimsDeterministic = vm.notes.some((n) =>
-      n.toLowerCase().includes("no interpretation fallback used")
+      n.toLowerCase().includes("evaluated deterministically")
     );
     if (noteClaimsDeterministic) {
       for (const card of vm.candidateCards) {
@@ -389,5 +403,219 @@ describe("regression: template constraints never produce INTERPRETATION_REQUIRED
       expect(c.lhs, `constraint "${c.raw}" has null lhs`).not.toBeNull();
       expect(c.rhs, `constraint "${c.raw}" has null rhs`).not.toBeNull();
     }
+  });
+});
+
+/* =========================================================
+   Regression: classification ≠ satisfaction
+   The UI must distinguish between HOW a constraint was evaluated
+   (deterministic vs interpretation-required) and WHETHER the
+   candidate satisfied it (LAWFUL vs DEGRADED/INVALID).
+
+   The previous bug: "All constraints passed deterministic evaluation."
+   conflated these two concepts. These tests enforce they stay separate.
+   ========================================================= */
+
+describe("regression: classification vs satisfaction — must never be conflated", () => {
+  const compiledConstraints = compileConstraints(NUTRITION_AUDIT_TEMPLATE_CONSTRAINTS);
+
+  /** A result where evaluation was deterministic but a violation was found. */
+  function buildDeterministicViolationResult(): EvaluationResult {
+    return {
+      overallStatus: "DEGRADED",
+      lawfulSet: ["A"],
+      candidateEvaluations: [
+        {
+          id: "A",
+          status: "LAWFUL",
+          reason: "Protein placement unchanged. Structural lock satisfied.",
+          decisiveVariable: "protein placement",
+          adjustments: [],
+          confidence: "high",
+          marginScore: 0.85,
+          marginLabel: "HIGH",
+        },
+        {
+          id: "B",
+          status: "DEGRADED",
+          reason: "Protein placement moved between meals. Structural lock violated.",
+          decisiveVariable: "protein placement violation",
+          adjustments: ["Restore protein to its original meal placement."],
+          confidence: "high",
+          marginScore: 0.35,
+          marginLabel: "LOW",
+        },
+        {
+          id: "C",
+          status: "DEGRADED",
+          reason: "Meal order altered. Structural lock violated.",
+          decisiveVariable: "meal order violation",
+          adjustments: ["Restore the original meal sequence."],
+          confidence: "high",
+          marginScore: 0.28,
+          marginLabel: "LOW",
+        },
+      ],
+      decisiveVariable: "protein placement violation",
+      notes: ["6 constraint(s) evaluated against 3 candidate(s)."],
+      bestCandidateId: "A",
+      strongestMarginScore: 0.85,
+      weakestAdmissibleMarginScore: 0.85,
+    };
+  }
+
+  it("notes never contain 'passed' when there is a violation", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildDeterministicViolationResult(),
+      compiledConstraints
+    );
+    for (const note of vm.notes) {
+      expect(
+        note.toLowerCase(),
+        `Note should not say "passed" when violations exist: "${note}"`
+      ).not.toContain("passed");
+    }
+  });
+
+  it("notes contain 'evaluated deterministically' (classification) when all compiled", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildDeterministicViolationResult(),
+      compiledConstraints
+    );
+    const classNote = vm.notes.find((n) => n.toLowerCase().includes("evaluated deterministically"));
+    expect(classNote).toBeDefined();
+  });
+
+  it("notes contain a satisfaction verdict that mentions violations", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildDeterministicViolationResult(),
+      compiledConstraints
+    );
+    const satisfactionNote = vm.notes.find(
+      (n) =>
+        n.toLowerCase().includes("violations") ||
+        n.toLowerCase().includes("constraint-admissible")
+    );
+    expect(satisfactionNote).toBeDefined();
+  });
+
+  it("classification note and satisfaction note are separate strings", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildDeterministicViolationResult(),
+      compiledConstraints
+    );
+    const classNote = vm.notes.find((n) => n.toLowerCase().includes("evaluated deterministically"));
+    const satNote = vm.notes.find(
+      (n) =>
+        n.toLowerCase().includes("violations") ||
+        n.toLowerCase().includes("constraint-admissible")
+    );
+    expect(classNote).not.toBe(satNote);
+    expect(classNote).toBeDefined();
+    expect(satNote).toBeDefined();
+  });
+
+  it("satisfaction note correctly counts admissible vs violated candidates", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildDeterministicViolationResult(),
+      compiledConstraints
+    );
+    // 1 LAWFUL, 2 DEGRADED → "1 of 3 candidates are constraint-admissible; 2 have violations."
+    const satNote = vm.notes.find((n) => n.toLowerCase().includes("constraint-admissible"));
+    expect(satNote).toBeDefined();
+    expect(satNote).toMatch(/1 of 3/);
+    expect(satNote).toMatch(/2 have violations/);
+  });
+
+  it("when all candidates are violated, note says violations detected across all", () => {
+    const allViolated: EvaluationResult = {
+      overallStatus: "DEGRADED",
+      lawfulSet: [],
+      candidateEvaluations: [
+        {
+          id: "A",
+          status: "DEGRADED",
+          reason: "Protein placement moved.",
+          decisiveVariable: "protein placement violation",
+          adjustments: [],
+          confidence: "high",
+          marginScore: 0.2,
+          marginLabel: "LOW",
+        },
+        {
+          id: "B",
+          status: "DEGRADED",
+          reason: "Meal order altered.",
+          decisiveVariable: "meal order violation",
+          adjustments: [],
+          confidence: "high",
+          marginScore: 0.15,
+          marginLabel: "LOW",
+        },
+      ],
+      decisiveVariable: "protein placement violation",
+      notes: [],
+      bestCandidateId: undefined,
+      strongestMarginScore: 0.2,
+      weakestAdmissibleMarginScore: undefined,
+    };
+
+    const vm = mapEvaluationResultToViewModel(allViolated, compiledConstraints);
+    const satNote = vm.notes.find((n) =>
+      n.toLowerCase().includes("violations detected across all")
+    );
+    expect(satNote).toBeDefined();
+    expect(satNote!.toLowerCase()).not.toContain("passed");
+  });
+
+  it("when all candidates are admissible, note says all are constraint-admissible", () => {
+    const allLawful: EvaluationResult = {
+      overallStatus: "LAWFUL",
+      lawfulSet: ["A", "B"],
+      candidateEvaluations: [
+        {
+          id: "A",
+          status: "LAWFUL",
+          reason: "All structural locks satisfied.",
+          decisiveVariable: "protein placement",
+          adjustments: [],
+          confidence: "high",
+          marginScore: 0.92,
+          marginLabel: "HIGH",
+        },
+        {
+          id: "B",
+          status: "LAWFUL",
+          reason: "All structural locks satisfied.",
+          decisiveVariable: "protein placement",
+          adjustments: [],
+          confidence: "high",
+          marginScore: 0.87,
+          marginLabel: "HIGH",
+        },
+      ],
+      decisiveVariable: "protein placement",
+      notes: [],
+      bestCandidateId: "A",
+      strongestMarginScore: 0.92,
+      weakestAdmissibleMarginScore: 0.87,
+    };
+
+    const vm = mapEvaluationResultToViewModel(allLawful, compiledConstraints);
+    const satNote = vm.notes.find((n) =>
+      n.toLowerCase().includes("all") && n.toLowerCase().includes("constraint-admissible")
+    );
+    expect(satNote).toBeDefined();
+    expect(satNote!.toLowerCase()).not.toContain("violation");
+  });
+
+  it("'protein placement violation' as decisive variable never produces a 'passed' note", () => {
+    const vm = mapEvaluationResultToViewModel(
+      buildDeterministicViolationResult(),
+      compiledConstraints
+    );
+    expect(vm.decisiveVariable).toMatch(/protein placement violation/i);
+    const badNote = vm.notes.find((n) => n.toLowerCase().includes("passed"));
+    expect(badNote).toBeUndefined();
   });
 });

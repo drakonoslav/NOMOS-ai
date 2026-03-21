@@ -102,12 +102,42 @@ export function mapEvaluationResultToViewModel(
       : result.decisiveVariable;
 
   const notes = [...(result.notes ?? [])];
+
+  /* -------------------------------------------------------
+     Classification note (determinism of evaluation method)
+     This note is about HOW constraints were evaluated,
+     NOT whether any constraint was satisfied.
+     ------------------------------------------------------- */
   if (allDeterministic) {
-    notes.push("All constraints evaluated deterministically. No interpretation fallback used.");
+    notes.push("All constraints were evaluated deterministically.");
   } else if (unresolved !== null && unresolved > 0) {
     notes.push(
       `${unresolved} constraint${unresolved > 1 ? "s" : ""} could not be classified deterministically and require manual review.`
     );
+  }
+
+  /* -------------------------------------------------------
+     Satisfaction note (outcome of evaluation — separate concept)
+     LAWFUL = satisfied, DEGRADED/INVALID = violated.
+     ------------------------------------------------------- */
+  const evals = result.candidateEvaluations;
+  const lawfulCount   = evals.filter((e) => e.status === "LAWFUL").length;
+  const violatedCount = evals.filter((e) => e.status !== "LAWFUL").length;
+
+  if (evals.length > 0) {
+    if (violatedCount === 0) {
+      notes.push(
+        `All ${evals.length} candidate${evals.length > 1 ? "s" : ""} are constraint-admissible.`
+      );
+    } else if (lawfulCount === 0) {
+      notes.push(
+        `Constraint violations detected across all ${evals.length} candidate${evals.length > 1 ? "s" : ""}.`
+      );
+    } else {
+      notes.push(
+        `${lawfulCount} of ${evals.length} candidate${evals.length > 1 ? "s" : ""} are constraint-admissible; ${violatedCount} have violations.`
+      );
+    }
   }
 
   const candidateCards = result.candidateEvaluations.map((e) =>
@@ -121,6 +151,23 @@ export function mapEvaluationResultToViewModel(
       compiledConstraints ?? [],
       candidateCards[0]!
     );
+  }
+
+  // Invariant: if a violation drove the verdict, "passed" must never appear in notes
+  const decisiveIsViolation =
+    result.overallStatus !== "LAWFUL" ||
+    globalDecisive.toLowerCase().includes("violation");
+
+  if (decisiveIsViolation) {
+    const badNote = notes.find((n) => n.toLowerCase().includes("passed"));
+    if (badNote) {
+      console.error(
+        "[NOMOS] Invariant violation: a satisfaction-pass note appeared alongside a violation verdict.",
+        "\n  decisiveVariable:", globalDecisive,
+        "\n  overallStatus:", result.overallStatus,
+        "\n  offending note:", badNote
+      );
+    }
   }
 
   // Pipeline consistency invariant check
@@ -250,9 +297,10 @@ function deduplicateReasonString(reason: string, allDeterministic: boolean): str
   }
 
   if (allDeterministic) {
-    // Strip all fallback clauses — they are stale API residue
+    // Strip all fallback clauses — they are stale API residue.
+    // Do NOT say "passed" here — classification ≠ satisfaction.
     if (uniqueTyped.length === 0) {
-      return "All constraints passed deterministic evaluation.";
+      return "Evaluated deterministically. No typed reason produced.";
     }
     return uniqueTyped.join(REASON_SEPARATOR);
   }
