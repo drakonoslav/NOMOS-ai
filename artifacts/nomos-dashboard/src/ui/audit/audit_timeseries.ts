@@ -4,7 +4,7 @@
  * Time-series extraction and drift analysis for NOMOS audit runs.
  *
  * Reads "run_summary" entries from the audit log and produces
- * a structured series for the DecisiveTrendPanel.
+ * a structured series for the DecisiveTrendPanel and ConfidenceTrendPanel.
  */
 
 import type { AuditEntry } from "./audit_log";
@@ -17,6 +17,12 @@ export interface RunSummary {
   modelConfidence?: number;
   robustness?: number;
   feasibility?: boolean;
+
+  /** Raw prediction confidence from the forecast engine. */
+  predictionConfidence?: "low" | "moderate" | "high";
+
+  /** Calibration-adjusted prediction confidence. */
+  calibratedConfidence?: "low" | "moderate" | "high";
 }
 
 export interface DriftAnalysis {
@@ -39,6 +45,8 @@ export function extractRunSummaries(entries: AuditEntry[]): RunSummary[] {
         modelConfidence: p.modelConfidence as number | undefined,
         robustness: p.robustness as number | undefined,
         feasibility: p.feasibility as boolean | undefined,
+        predictionConfidence: p.predictionConfidence as "low" | "moderate" | "high" | undefined,
+        calibratedConfidence: p.calibratedConfidence as "low" | "moderate" | "high" | undefined,
       };
     })
     .sort((a, b) => a.timestamp - b.timestamp);

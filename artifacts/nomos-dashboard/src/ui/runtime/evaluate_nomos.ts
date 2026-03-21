@@ -11,7 +11,7 @@ import type { DashboardScenarioState, DemoScenario } from "../demo/scenario_buil
 import type { ToneResolverInput } from "../tone/tone_types";
 import type { AuditLog } from "../audit/audit_log";
 import { extractRunSummaries } from "../audit/audit_timeseries";
-import { predictNextFailure } from "../audit/failure_prediction";
+import { predictNextFailure, calibratePredictionConfidence } from "../audit/failure_prediction";
 
 export async function runNomosEvaluation(
   query: NomosQuery,
@@ -94,16 +94,25 @@ export async function runNomosEvaluation(
 
   audit.record("evaluation_complete", evaluationPayload);
 
+  // Compute prediction from the existing history (runs 1..N-1) BEFORE
+  // recording the current run_summary, so the forecast is always derived
+  // from prior entries, not the current one.
+  const summaries      = extractRunSummaries(audit.getEntries());
+  const basePrediction = predictNextFailure(summaries);
+  const prediction     = basePrediction
+    ? calibratePredictionConfidence(summaries, basePrediction)
+    : null;
+
   audit.record("run_summary", {
     status: verificationStatus,
     decisiveVariable: toneInput.decisiveVariable,
     modelConfidence: toneInput.modelConfidence,
     robustness: toneInput.robustnessEpsilon,
     feasibility: toneInput.feasibilityOk,
+    predictionConfidence: prediction?.confidence,
+    calibratedConfidence: prediction?.calibratedConfidence,
   });
 
-  const summaries   = extractRunSummaries(audit.getEntries());
-  const prediction  = predictNextFailure(summaries);
   if (prediction) {
     toneInput.prediction = prediction;
   }

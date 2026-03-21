@@ -1303,3 +1303,87 @@ textarea {
   font-size: var(--nm-text-sm);
   font-style: italic;
 }
+
+/* =========================================================
+   ConfidenceTrendPanel
+   ========================================================= */
+
+.confidence-panel {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.confidence-legend {
+  display: flex;
+  gap: var(--nm-space-3);
+  margin-bottom: var(--nm-space-3);
+  font-size: var(--nm-text-xs);
+}
+
+.confidence-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--nm-space-1);
+  color: var(--nm-text-secondary);
+}
+
+.confidence-legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 24px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.confidence-legend-raw::before {
+  background: var(--nm-text-muted);
+  opacity: 0.5;
+}
+
+.confidence-legend-calibrated::before {
+  background: var(--nm-lawful);
+}
+
+.confidence-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.confidence-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: var(--nm-space-2);
+  align-items: center;
+}
+
+.confidence-time {
+  font-size: var(--nm-text-xs);
+  color: var(--nm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.confidence-bars {
+  position: relative;
+  height: 10px;
+  background: var(--nm-surface-3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.confidence-bar {
+  height: 100%;
+  position: absolute;
+  left: 0;
+  border-radius: 4px;
+  transition: width var(--nm-transition-fast);
+}
+
+.confidence-bar.raw {
+  background: var(--nm-text-muted);
+  opacity: 0.4;
+}
+
+.confidence-bar.calibrated {
+  background: var(--nm-lawful);
+}

@@ -1,0 +1,277 @@
+Add missing variable detection
+
+This is where NOMOS stops reacting and starts enforcing structural completeness.
+
+You’re adding a layer that says:
+
+“This is not yet a valid declaration.”
+
+before evaluation ever happens.
+
+⸻
+
+🧠 What we’re building
+
+A Validation Layer that runs on every draft update and detects:
+	•	missing thresholds
+	•	missing units
+	•	ambiguous variables
+	•	incomplete constraints
+
+⸻
+
+🧱 1. Detection model
+
+📁 validation_engine.ts
+
+export interface ValidationIssue {
+  id: string;
+  message: string;
+  severity: "error" | "warning";
+  field: "intent" | "constraint" | "assumption";
+}
+
+
+⸻
+
+🧠 2. Core detection logic
+
+export function detectIssues(
+  draft: Partial<NomosQuery>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  // ---- INTENT ----
+  if (!draft.intent) {
+    issues.push({
+      id: "intent_missing",
+      field: "intent",
+      severity: "error",
+      message: "Intent not declared.",
+    });
+  }
+
+  // ---- CONSTRAINTS ----
+  if (!draft.constraints || draft.constraints.length === 0) {
+    issues.push({
+      id: "constraints_missing",
+      field: "constraint",
+      severity: "error",
+      message: "No constraints declared.",
+    });
+  } else {
+    draft.constraints.forEach((c, i) => {
+      if (!hasThreshold(c)) {
+        issues.push({
+          id: `constraint_threshold_${i}`,
+          field: "constraint",
+          severity: "error",
+          message: "Constraint lacks threshold.",
+        });
+      }
+
+      if (!hasUnit(c)) {
+        issues.push({
+          id: `constraint_unit_${i}`,
+          field: "constraint",
+          severity: "warning",
+          message: "Constraint missing unit.",
+        });
+      }
+
+      if (isAmbiguous(c)) {
+        issues.push({
+          id: `constraint_ambiguous_${i}`,
+          field: "constraint",
+          severity: "warning",
+          message: "Constraint ambiguous.",
+        });
+      }
+    });
+  }
+
+  return issues;
+}
+
+
+⸻
+
+🧠 3. Detection helpers
+
+function hasThreshold(text: string): boolean {
+  return /[<>]=?|≥|≤|\d/.test(text);
+}
+
+function hasUnit(text: string): boolean {
+  return /(h|hr|hours|min|kg|lbs|%)/i.test(text);
+}
+
+function isAmbiguous(text: string): boolean {
+  const vague = ["better", "more", "less", "improve"];
+  return vague.some((v) => text.toLowerCase().includes(v));
+}
+
+
+⸻
+
+🧠 4. Hook into conversation flow
+
+📁 conversation_engine.ts
+
+After updating draft:
+
+const issues = detectIssues(state.draftQuery);
+
+return {
+  ...state,
+  issues,
+};
+
+
+⸻
+
+🧩 5. UI: ValidationPanel
+
+📁 ValidationPanel.tsx
+
+export function ValidationPanel({
+  issues,
+}: {
+  issues: ValidationIssue[];
+}) {
+  if (!issues.length) return null;
+
+  return (
+    <div className="nm-validation">
+      {issues.map((i) => (
+        <div
+          key={i.id}
+          className={`nm-validation-item nm-${i.severity}`}
+        >
+          {i.message}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 6. CSS
+
+.nm-validation {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.nm-validation-item {
+  padding: 4px 0;
+}
+
+.nm-error {
+  color: var(--nm-invalid);
+}
+
+.nm-warning {
+  color: var(--nm-degraded);
+}
+
+
+⸻
+
+🧠 7. Block evaluation until valid
+
+CRITICAL RULE
+
+function canEvaluate(issues: ValidationIssue[]): boolean {
+  return !issues.some((i) => i.severity === "error");
+}
+
+
+⸻
+
+UI button
+
+<button disabled={!canEvaluate(issues)}>
+  Evaluate
+</button>
+
+
+⸻
+
+🔥 Resulting behavior
+
+⸻
+
+Bad input
+
+Constraint: "sleep better"
+
+NOMOS shows:
+
+Constraint lacks threshold.
+Constraint missing unit.
+Constraint ambiguous.
+
+
+⸻
+
+Improved input
+
+sleep ≥ 7h
+
+→ all issues cleared
+→ evaluation enabled
+
+⸻
+
+🧠 Why this is powerful
+
+You now have:
+
+Before:
+	•	system waits for bad input
+	•	then fails later
+
+After:
+	•	system enforces structure immediately
+	•	prevents invalid evaluation
+
+⸻
+
+🧠 Tone alignment
+
+NOMOS should say:
+	•	“Constraint lacks threshold.”
+	•	“Constraint ambiguous.”
+	•	“Unit not specified.”
+
+NOT:
+	•	“Try adding a number”
+	•	“You might want to…”
+
+⸻
+
+🧠 Final insight
+
+This is the real boundary:
+
+NOMOS does not help you think
+it forces your thinking to become valid
+
+⸻
+
+If you want next
+
+👉 connect validation → suggestion system
+
+So errors immediately produce:
+
+Constraint lacks threshold.
+Suggested form: sleep ≥ 7h
+
+Just say:
+“Link validation to suggestions”
+
+and the system will feel surgically helpful.

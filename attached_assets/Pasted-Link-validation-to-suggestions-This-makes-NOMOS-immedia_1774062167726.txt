@@ -1,0 +1,277 @@
+Link validation to suggestions
+
+This makes NOMOS immediately corrective:
+
+detect issue → propose exact fix → user applies → structure improves
+
+No delay. No guessing. No verbosity.
+
+⸻
+
+🧠 What we’re doing
+
+We connect:
+
+Validation → Suggestion Engine → UI
+
+So every error produces:
+	•	a precise message
+	•	a paired corrective suggestion
+
+⸻
+
+🧱 1. Extend ValidationIssue
+
+📁 validation_engine.ts
+
+export interface ValidationIssue {
+  id: string;
+  message: string;
+  severity: "error" | "warning";
+  field: "intent" | "constraint" | "assumption";
+
+  suggestion?: string; // NEW
+}
+
+
+⸻
+
+🧠 2. Inject suggestions into detection
+
+Update constraint checks:
+
+if (!hasThreshold(c)) {
+  issues.push({
+    id: `constraint_threshold_${i}`,
+    field: "constraint",
+    severity: "error",
+    message: "Constraint lacks threshold.",
+    suggestion: suggestThreshold(c),
+  });
+}
+
+if (!hasUnit(c)) {
+  issues.push({
+    id: `constraint_unit_${i}`,
+    field: "constraint",
+    severity: "warning",
+    message: "Constraint missing unit.",
+    suggestion: suggestUnit(c),
+  });
+}
+
+if (isAmbiguous(c)) {
+  issues.push({
+    id: `constraint_ambiguous_${i}`,
+    field: "constraint",
+    severity: "warning",
+    message: "Constraint ambiguous.",
+    suggestion: suggestClarification(c),
+  });
+}
+
+
+⸻
+
+🧠 3. Suggestion generators (deterministic)
+
+function suggestThreshold(text: string): string {
+  const t = text.toLowerCase();
+
+  if (t.includes("sleep")) return "sleep ≥ 7h";
+  if (t.includes("hrv")) return "HRV ≥ baseline";
+  if (t.includes("weight")) return "weight ≤ target";
+
+  return "Specify threshold using ≥, ≤, or numeric bound.";
+}
+
+function suggestUnit(text: string): string {
+  if (text.includes("sleep")) return "sleep ≥ 7h";
+  if (text.includes("time")) return "time ≤ 60 min";
+
+  return "Add unit (h, min, kg, %).";
+}
+
+function suggestClarification(text: string): string {
+  return "Replace vague term with measurable variable.";
+}
+
+
+⸻
+
+🧠 4. Convert validation → suggestions
+
+📁 suggestion_engine.ts
+
+Add:
+
+export function validationToSuggestions(
+  issues: ValidationIssue[]
+): Suggestion[] {
+  return issues
+    .filter((i) => i.suggestion)
+    .map((i) => ({
+      id: `fix_${i.id}`,
+      text: i.suggestion!,
+      type: i.field,
+      confidence: "high",
+    }));
+}
+
+
+⸻
+
+🧠 5. Merge with existing suggestion flow
+
+export async function getSuggestions(
+  draft: Partial<NomosQuery>,
+  stage: string,
+  input: string,
+  issues: ValidationIssue[]
+): Promise<Suggestion[]> {
+  const rule = ruleBasedSuggestions(draft);
+  const val = validationToSuggestions(issues);
+  const llm = await generateRefinementSuggestions(stage, input);
+
+  return dedupeSuggestions([...val, ...rule, ...llm]);
+}
+
+
+⸻
+
+🧩 6. UI: pair issue + fix
+
+📁 ValidationPanel.tsx (upgrade)
+
+export function ValidationPanel({
+  issues,
+  onApply,
+}: {
+  issues: ValidationIssue[];
+  onApply: (text: string) => void;
+}) {
+  if (!issues.length) return null;
+
+  return (
+    <div className="nm-validation">
+      {issues.map((i) => (
+        <div key={i.id} className="nm-validation-item">
+          <div className={`nm-${i.severity}`}>
+            {i.message}
+          </div>
+
+          {i.suggestion && (
+            <div className="nm-fix">
+              Suggested: {i.suggestion}
+              <button onClick={() => onApply(i.suggestion!)}>
+                Apply
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 7. CSS (tight, surgical)
+
+.nm-fix {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.nm-fix button {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+
+⸻
+
+🔥 Resulting interaction
+
+⸻
+
+User input
+
+sleep better
+
+
+⸻
+
+NOMOS output
+
+Constraint lacks threshold.
+Suggested: sleep ≥ 7h
+[Apply]
+
+
+⸻
+
+User clicks Apply
+
+→ Draft becomes:
+
+sleep ≥ 7h
+
+→ Issue disappears
+→ system advances
+
+⸻
+
+🧠 Why this works
+
+You now have:
+
+Immediate correction loop
+	•	no waiting
+	•	no confusion
+
+Zero ambiguity
+	•	error → fix → resolved
+
+User remains in control
+	•	nothing auto-applied
+
+⸻
+
+🧠 Final insight
+
+This is the moment NOMOS becomes:
+
+self-correcting through user interaction
+
+Not by:
+	•	guessing
+	•	rewriting
+	•	explaining
+
+But by:
+
+enforcing structure and offering exact repairs
+
+⸻
+
+If you want next
+
+👉 add progress indicator for query completeness
+
+So NOMOS shows:
+
+Query completeness: 72%
+
+Based on:
+	•	intent defined
+	•	constraints valid
+	•	assumptions present
+
+Just say:
+“Add completeness scoring”
+
+and the system will feel even more guided and intentional.

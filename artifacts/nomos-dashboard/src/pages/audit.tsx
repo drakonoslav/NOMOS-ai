@@ -7,6 +7,7 @@ import { Database } from "lucide-react";
 import { useScenario } from "@/context/scenario-context";
 import { DecisiveTrendPanel } from "@/ui/components/nomos/DecisiveTrendPanel";
 import { FailurePredictionPanel } from "@/ui/components/nomos/FailurePredictionPanel";
+import { ConfidenceTrendPanel } from "@/ui/components/nomos/ConfidenceTrendPanel";
 
 export default function AuditPage() {
   const { scenario } = useScenario();
@@ -85,6 +86,8 @@ export default function AuditPage() {
         <DecisiveTrendPanel />
         <FailurePredictionPanel />
       </div>
+
+      <ConfidenceTrendPanel />
 
       <div className="text-center mt-12 font-mono text-[10px] text-muted-foreground tracking-widest">
         TAMPER-EVIDENT LOGGING ACTIVE. ALL STATE CHANGES RECORDED.

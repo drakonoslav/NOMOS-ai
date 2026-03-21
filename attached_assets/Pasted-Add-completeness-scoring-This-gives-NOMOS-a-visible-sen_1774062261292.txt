@@ -1,0 +1,261 @@
+Add completeness scoring
+
+This gives NOMOS a visible sense of progress without turning it into a gamified toy.
+
+Not: “you’re doing great!”
+But: “structure is incomplete / complete” quantified
+
+⸻
+
+🧠 What we’re building
+
+A deterministic completeness score based on:
+
+Component	Weight
+Intent defined	30%
+Constraints present	25%
+Constraints valid	25%
+Assumptions defined	10%
+No critical errors	10%
+
+Total = 100%
+
+⸻
+
+🧱 1. Scoring engine
+
+📁 completeness_engine.ts
+
+import { ValidationIssue } from "./validation_engine";
+
+export interface CompletenessResult {
+  score: number; // 0–100
+  breakdown: {
+    intent: boolean;
+    constraintsPresent: boolean;
+    constraintsValid: boolean;
+    assumptions: boolean;
+    noErrors: boolean;
+  };
+}
+
+
+⸻
+
+🧠 2. Compute score
+
+export function computeCompleteness(
+  draft: Partial<NomosQuery>,
+  issues: ValidationIssue[]
+): CompletenessResult {
+  const hasIntent = !!draft.intent;
+
+  const constraints = draft.constraints ?? [];
+  const hasConstraints = constraints.length > 0;
+
+  const hasErrors = issues.some((i) => i.severity === "error");
+
+  const constraintsValid =
+    hasConstraints &&
+    !issues.some(
+      (i) =>
+        i.field === "constraint" && i.severity === "error"
+    );
+
+  const hasAssumptions =
+    !!draft.assumptions && draft.assumptions.length > 0;
+
+  const noErrors = !hasErrors;
+
+  let score = 0;
+
+  if (hasIntent) score += 30;
+  if (hasConstraints) score += 25;
+  if (constraintsValid) score += 25;
+  if (hasAssumptions) score += 10;
+  if (noErrors) score += 10;
+
+  return {
+    score,
+    breakdown: {
+      intent: hasIntent,
+      constraintsPresent: hasConstraints,
+      constraintsValid,
+      assumptions: hasAssumptions,
+      noErrors,
+    },
+  };
+}
+
+
+⸻
+
+🧠 3. Hook into conversation engine
+
+📁 conversation_engine.ts
+
+const completeness = computeCompleteness(
+  state.draftQuery,
+  state.issues
+);
+
+return {
+  ...state,
+  completeness,
+};
+
+
+⸻
+
+🧩 4. UI: CompletenessBar
+
+📁 CompletenessBar.tsx
+
+export function CompletenessBar({
+  score,
+}: {
+  score: number;
+}) {
+  return (
+    <div className="nm-completeness">
+      <div className="nm-completeness-label">
+        Query completeness: {score}%
+      </div>
+
+      <div className="nm-completeness-bar">
+        <div
+          className="nm-completeness-fill"
+          style={{ width: `${score}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 5. CSS (clean, restrained)
+
+.nm-completeness {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.nm-completeness-label {
+  color: var(--nm-text-muted);
+  margin-bottom: 4px;
+}
+
+.nm-completeness-bar {
+  height: 6px;
+  background: var(--nm-surface-3);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.nm-completeness-fill {
+  height: 100%;
+  background: var(--nm-accent-strong);
+  transition: width 0.25s ease;
+}
+
+
+⸻
+
+🧠 6. Optional: color modulation (recommended)
+
+function getCompletenessColor(score: number) {
+  if (score < 40) return "var(--nm-invalid)";
+  if (score < 80) return "var(--nm-degraded)";
+  return "var(--nm-accent-strong)";
+}
+
+Apply to fill:
+
+style={{
+  width: `${score}%`,
+  background: getCompletenessColor(score),
+}}
+
+
+⸻
+
+🔥 Resulting behavior
+
+⸻
+
+Early input
+
+Query completeness: 30%
+
+→ only intent defined
+
+⸻
+
+Mid refinement
+
+Query completeness: 70%
+
+→ constraints present but flawed
+
+⸻
+
+Ready state
+
+Query completeness: 100%
+
+→ valid, evaluable
+
+⸻
+
+🧠 Why this works
+
+You now give users:
+	•	a directional signal
+	•	without over-explaining
+	•	without breaking tone
+
+⸻
+
+🧠 Important constraint
+
+Do NOT:
+	•	celebrate completion
+	•	gamify
+	•	animate excessively
+
+This is:
+
+diagnostic feedback, not reward feedback
+
+⸻
+
+🧠 Final insight
+
+This completes the interaction loop:
+
+Step	System role
+Input	user declares
+Validation	system enforces structure
+Suggestion	system proposes repairs
+Completeness	system quantifies readiness
+Evaluation	system executes
+
+
+⸻
+
+If you want next
+
+👉 add stage-aware completeness guidance
+
+So NOMOS can say:
+
+Completeness limited by missing constraint thresholds.
+
+Instead of just showing %
+
+Just say:
+“Add completeness guidance messaging”
+
+and we’ll make the score explain itself.

@@ -129,6 +129,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
         "All constraints satisfied.",
         decisiveVariableLine(input, "Outcome is governed by"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         marginLine(input, true),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
@@ -148,6 +149,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
         "Feasibility satisfied.",
         decisiveVariableLine(input, "Outcome is governed by"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         marginLine(input, true),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
@@ -167,6 +169,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
         "All constraints satisfied.",
         decisiveVariableLine(input, "Outcome is governed by"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         marginLine(input, true),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
         `Model confidence = ${fmt(input.modelConfidence)}.`,
@@ -214,6 +217,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
         "Feasibility holds; margin reduced.",
         decisiveVariableLine(input, "The decisive factor is"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         degradedCauseLine(input),
         admissible ? `Admissible under constraint: ${admissible}.` : undefined,
       ]),
@@ -233,6 +237,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
         "Feasibility holds.",
         decisiveVariableLine(input, "The decisive factor is"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         degradedCauseLine(input),
         admissible ? `Admissible under constraint: ${admissible}.` : undefined,
       ]),
@@ -252,6 +257,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
         "Feasibility holds; robustness or model confidence is below preferred threshold.",
         decisiveVariableLine(input, "The decisive factor is"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         degradedCauseLine(input),
         marginLine(input, false),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
@@ -303,6 +309,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
         invalidReason,
         decisiveVariableLine(input, "Failure is governed by"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
       ]),
@@ -322,6 +329,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
         invalidReason,
         decisiveVariableLine(input, "Failure is governed by"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
       ]),
@@ -341,6 +349,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
         invalidReason,
         decisiveVariableLine(input, "Failure is governed by"),
         predictionLine(input),
+        predictionCalibrationLine(input),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
@@ -452,6 +461,17 @@ function decisiveVariableLine(
   }
 
   return `${prefix} ${clean}.`;
+}
+
+/**
+ * Emit the calibration note when prediction confidence was downgraded.
+ * Surfaces the reason for reduced confidence without editorial commentary.
+ */
+function predictionCalibrationLine(input: ToneResolverInput): string | undefined {
+  const note = input.prediction?.calibrationNote;
+  if (!note) return undefined;
+
+  return sanitizePhrase(note);
 }
 
 /**

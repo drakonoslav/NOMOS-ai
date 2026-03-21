@@ -61,6 +61,8 @@ export interface ToneResolverInput {
     nextFailure: string;
     confidence: "low" | "moderate" | "high";
     driver: string;
+    calibratedConfidence?: "low" | "moderate" | "high";
+    calibrationNote?: string;
   };
 }
 
