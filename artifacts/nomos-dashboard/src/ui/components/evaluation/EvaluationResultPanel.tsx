@@ -3,15 +3,19 @@ import { EvaluationResult } from "../../evaluation/eval_types";
 import { mapEvaluationResultToViewModel } from "../../mappers/evaluation_mapper";
 import { CandidateEvaluationCard } from "./CandidateEvaluationCard";
 import { CompiledConstraint } from "../../../compiler/constraint_compiler";
+import { EvaluationRoutingBadge } from "../audit/EvaluationRoutingBadge";
+import type { EvaluationRoutingDecision } from "../../../audit/policy_routing_types";
 
 export interface EvaluationResultPanelProps {
   result?: EvaluationResult;
   /** Optional compiled constraints — used to resolve decisive variables and
    *  show the unresolved-constraint warning correctly. */
   compiledConstraints?: CompiledConstraint[];
+  /** The domain routing decision resolved before this evaluation ran. */
+  routingDecision?: EvaluationRoutingDecision;
 }
 
-export function EvaluationResultPanel({ result, compiledConstraints }: EvaluationResultPanelProps) {
+export function EvaluationResultPanel({ result, compiledConstraints, routingDecision }: EvaluationResultPanelProps) {
   if (!result) return null;
 
   const vm = mapEvaluationResultToViewModel(result, compiledConstraints);
@@ -19,6 +23,10 @@ export function EvaluationResultPanel({ result, compiledConstraints }: Evaluatio
   return (
     <div className="panel evaluation-result-panel">
       <div className="panel-header">Evaluation Result</div>
+
+      {routingDecision && (
+        <EvaluationRoutingBadge routingDecision={routingDecision} />
+      )}
 
       <div className="evaluation-result-panel__summary-grid">
         <div className="evaluation-result-panel__summary-item">

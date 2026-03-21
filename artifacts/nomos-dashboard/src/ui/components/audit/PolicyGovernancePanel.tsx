@@ -33,6 +33,7 @@ import {
   rollbackPolicy,
   listPromotionHistory,
 } from "../../../audit/policy_governance";
+import { readGovernanceState, writeGovernanceState } from "../../../audit/policy_governance_store";
 
 /* =========================================================
    Helpers
@@ -360,6 +361,7 @@ export function PolicyGovernancePanel({
 
   function handleAction(newState: PolicyGovernanceState) {
     setInternalState(newState);
+    writeGovernanceState(newState);
     onGovernanceAction?.(newState);
   }
 

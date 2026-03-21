@@ -5462,3 +5462,103 @@ textarea {
   padding-top: 4px;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
+
+/* =========================================================
+   Evaluation Routing Badge (.nm-erb)
+   ========================================================= */
+
+.nm-erb {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.02);
+  margin-bottom: 4px;
+}
+
+.nm-erb__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nm-erb__label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-erb__fallback-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(165,106,30,0.2);
+  color: #d4903c;
+}
+
+.nm-erb__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Domain pills */
+.nm-erb__domain-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 9px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.nm-erb__domain--nutrition { background: rgba(46,106,79,0.2);  color: #4caf82; }
+.nm-erb__domain--training  { background: rgba(46,90,165,0.2);  color: #6fa8e0; }
+.nm-erb__domain--schedule  { background: rgba(165,106,30,0.2); color: #d4903c; }
+.nm-erb__domain--generic   { background: rgba(255,255,255,0.07); color: var(--nm-text-muted); }
+
+/* Policy version */
+.nm-erb__policy {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nm-erb__policy-label {
+  font-size: 10px;
+  color: var(--nm-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nm-erb__policy-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--nm-text);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+.nm-erb__policy-none {
+  font-size: 10.5px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+}
+
+/* Routing reason */
+.nm-erb__reason {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  line-height: 1.45;
+}

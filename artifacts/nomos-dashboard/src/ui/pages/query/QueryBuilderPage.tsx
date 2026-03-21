@@ -25,6 +25,9 @@ import { buildSerializedDraftRecord } from "../../../compiler/draft_serializer";
 import { buildAuditId, buildVersionId } from "../../../audit/audit_versioning";
 import { saveAuditRecord, listAuditRecords, deleteAuditRecord, clearAuditRecords } from "../../../audit/audit_store";
 import { AuditRecord } from "../../../audit/audit_types";
+import { readGovernanceState } from "../../../audit/policy_governance_store";
+import { buildEvaluationRoutingDecision, buildPersistedRoutingRecord } from "../../../audit/policy_router";
+import type { EvaluationRoutingDecision } from "../../../audit/policy_routing_types";
 import { AuditHistoryPanel } from "../../components/audit/AuditHistoryPanel";
 
 import "./query-builder.css";
@@ -86,6 +89,8 @@ interface AutoCompileState {
   evaluationError?: string;
   /** Compiled constraint set from the effective draft — populated at evaluation time. */
   compiledConstraints?: CompiledConstraint[];
+  /** Domain routing decision resolved before the most recent evaluation. */
+  routingDecision?: EvaluationRoutingDecision;
 }
 
 function buildEmptyAutoState(): AutoCompileState {
@@ -449,6 +454,7 @@ export function QueryBuilderPage() {
   function buildAutoAuditRecord(params: {
     evaluationResult: AuditRecord["evaluationResult"];
     isConfirmed: boolean;
+    routingDecision?: EvaluationRoutingDecision;
   }): AuditRecord | null {
     if (!effectiveDraft) return null;
     const canonical = buildSerializedDraftRecord(effectiveDraft);
@@ -468,6 +474,9 @@ export function QueryBuilderPage() {
         : null,
       patchedDraft: autoState.patchedDraft,
       evaluationResult: params.evaluationResult,
+      routingRecord: params.routingDecision
+        ? buildPersistedRoutingRecord(params.routingDecision)
+        : null,
     };
   }
 
@@ -511,12 +520,21 @@ export function QueryBuilderPage() {
     // against the typed constraint set rather than falling through to "constraint interpretation".
     const compiledConstraints = compileConstraints(effectiveDraft.constraints);
 
+    // Resolve domain routing before the evaluation runs so the decision is
+    // deterministic and stored alongside the result.
+    const governanceState = readGovernanceState();
+    const routingDecision = buildEvaluationRoutingDecision(
+      governanceState,
+      effectiveDraft.intent
+    );
+
     setAutoState((prev) => ({
       ...prev,
       isEvaluating: true,
       evaluationResult: undefined,
       evaluationError: undefined,
       compiledConstraints,
+      routingDecision,
     }));
 
     try {
@@ -533,6 +551,7 @@ export function QueryBuilderPage() {
       const record = buildAutoAuditRecord({
         evaluationResult: { status: evaluationResult.overallStatus ?? "COMPLETE", payload: evaluationResult },
         isConfirmed: true,
+        routingDecision,
       });
       if (record) persistAuditRecord(record);
     } catch (err) {
@@ -728,6 +747,7 @@ export function QueryBuilderPage() {
             <EvaluationResultPanel
               result={autoState.evaluationResult}
               compiledConstraints={autoState.compiledConstraints}
+              routingDecision={autoState.routingDecision}
             />
           )}
 
