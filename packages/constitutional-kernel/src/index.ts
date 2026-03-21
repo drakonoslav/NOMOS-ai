@@ -137,7 +137,7 @@ export { runAudit } from "./nutrition/audit_engine.js";
 
 export type {
   CorrectionAdjustment, CorrectionResult,
-} from "./nutrition/correction_engine.js";
+} from "./nutrition/correction_result.js";
 export { correctPhase } from "./nutrition/correction_engine.js";
 
 export type {

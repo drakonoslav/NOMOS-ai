@@ -24,45 +24,10 @@ import { getFoodById } from "./food_registry.js";
 import { computePhaseMacros, computePhaseDelta, MacroDelta } from "./macro_engine.js";
 import { MealFoodEntry, MealBlock, PhasePlan } from "./meal_types.js";
 import { CorrectionConstraints, FoodLever } from "./correction_constraints.js";
+import { CorrectionAdjustment, CorrectionResult } from "./correction_result.js";
 
-/* =========================================================
-   Result types
-   ========================================================= */
-
-/**
- * One discrete gram-level adjustment applied during a correction pass.
- */
-export interface CorrectionAdjustment {
-  /** Which food was changed. */
-  foodId:       string;
-  /** Meal where the change was applied (1-indexed). */
-  mealNumber:   number;
-  /** Amount before adjustment (grams or units). */
-  beforeAmount: number;
-  /** Amount after adjustment (grams or units). */
-  afterAmount:  number;
-  unit:         "g" | "unit";
-  /** Why this lever was chosen. */
-  reason:       string;
-  /** Levers that were considered but skipped, and why. */
-  skippedLevers?: string[];
-}
-
-/**
- * Full correction result for one phase plan.
- */
-export interface CorrectionResult {
-  phaseId:       string;
-  originalPlan:  PhasePlan;
-  correctedPlan: PhasePlan;
-  macroBefore:   MacroProfile;
-  macroAfter:    MacroProfile;
-  deltaBefore:   MacroDelta;
-  deltaAfter:    MacroDelta;
-  adjustments:   CorrectionAdjustment[];
-  /** Plain-language notes on what was done and why. */
-  notes:         string[];
-}
+// Re-export so callers can import engine + types from a single location.
+export type { CorrectionAdjustment, CorrectionResult } from "./correction_result.js";
 
 /* =========================================================
    Tolerances
@@ -274,22 +239,40 @@ function increaseFatInPlan(
       const existingEntry = findFoodEntry(plan, "egg");
 
       if (existingEntry) {
-        const before = existingEntry.entry.amount;
-        existingEntry.entry.amount += unitsNeeded;
-        const fatGained             = unitsNeeded * fatPerUnit;
-        remaining                  -= fatGained;
+        // Apply calorie ceiling even when eggs already exist in the plan.
+        const calLimit       = target.calories * (1 + CALORIE_LIMIT_PCT);
+        const currentCal     = computePhaseMacros(plan).totals.calories;
+        const calBudget      = calLimit - currentCal;
+        const maxByCalBudget = egg.macrosPerRef.calories > 0
+          ? Math.floor(calBudget / egg.macrosPerRef.calories)
+          : unitsNeeded;
+        const unitsCapped    = Math.min(unitsNeeded, Math.max(0, maxByCalBudget));
 
-        adjustments.push({
-          foodId:       "egg",
-          mealNumber:   plan.meals[existingEntry.mealIndex].mealNumber,
-          beforeAmount: before,
-          afterAmount:  existingEntry.entry.amount,
-          unit:         "unit",
-          reason:       `Eggs provide ${fatPerUnit}g fat per unit with useful protein co-load ` +
-                        `(${egg.macrosPerRef.protein}g protein, ${egg.macrosPerRef.carbs}g carbs). ` +
-                        `Higher fat-to-volume ratio than flax — chosen as primary fat lever.`,
-        });
-        notes.push(`Egg increased by ${unitsNeeded} unit(s) (+${fatGained.toFixed(1)}g fat). Remaining deficit: ${remaining.toFixed(1)}g.`);
+        if (unitsCapped <= 0) {
+          notes.push(`Egg: adding eggs would breach calorie ceiling — skipped.`);
+        } else {
+          const before = existingEntry.entry.amount;
+          existingEntry.entry.amount += unitsCapped;
+          const fatGained             = unitsCapped * fatPerUnit;
+          remaining                  -= fatGained;
+
+          const ceilingNote = unitsCapped < unitsNeeded
+            ? ` (calorie ceiling reduced from ${unitsNeeded} to ${unitsCapped} units)`
+            : "";
+
+          adjustments.push({
+            foodId:       "egg",
+            mealNumber:   plan.meals[existingEntry.mealIndex].mealNumber,
+            beforeAmount: before,
+            afterAmount:  existingEntry.entry.amount,
+            unit:         "unit",
+            reason:       `Eggs provide ${fatPerUnit}g fat per unit with useful protein co-load ` +
+                          `(${egg.macrosPerRef.protein}g protein, ${egg.macrosPerRef.carbs}g carbs). ` +
+                          `Higher fat-to-volume ratio than flax — chosen as primary fat lever.` +
+                          ceilingNote,
+          });
+          notes.push(`Egg increased by ${unitsCapped} unit(s) (+${fatGained.toFixed(1)}g fat)${ceilingNote}. Remaining deficit: ${remaining.toFixed(1)}g.`);
+        }
       } else {
         // Add egg to the first non-whey meal in the plan
         const targetMeal = findFirstMealWithoutWhey(plan);
