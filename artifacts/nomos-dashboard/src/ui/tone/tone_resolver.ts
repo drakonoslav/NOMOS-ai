@@ -92,6 +92,20 @@ function resolveToneLevel(input: ToneResolverInput): ToneLevel {
   return "CONCISE";
 }
 
+/**
+ * Maximum body lines per tone level.
+ * TERSE:    3  — status + decisive + prediction
+ * CONCISE:  4  — adds cause/margin
+ * EXPLAINED: 5 — adds one metric
+ * EXPANDED:  5 — same ceiling; math belongs in the verification panel
+ */
+const BODY_LIMIT: Record<ToneLevel, number> = {
+  TERSE:    3,
+  CONCISE:  4,
+  EXPLAINED: 5,
+  EXPANDED:  5,
+};
+
 function resolveToneMessage(input: ToneResolverInput): ToneMessage {
   if (!input.decisiveVariable) {
     input = { ...input, decisiveVariable: inferDecisiveVariable(input) };
@@ -99,14 +113,19 @@ function resolveToneMessage(input: ToneResolverInput): ToneMessage {
 
   const tone = resolveToneLevel(input);
 
+  let msg: ToneMessage;
   switch (input.verificationStatus) {
-    case "LAWFUL":
-      return lawfulMessage(input, tone);
-    case "DEGRADED":
-      return degradedMessage(input, tone);
-    case "INVALID":
-      return invalidMessage(input, tone);
+    case "LAWFUL":   msg = lawfulMessage(input, tone);   break;
+    case "DEGRADED": msg = degradedMessage(input, tone); break;
+    default:         msg = invalidMessage(input, tone);  break;
   }
+
+  // Hard output compression — no body may exceed its tone-level line limit.
+  const limit = BODY_LIMIT[tone];
+  if (msg.body.length > limit) {
+    return { ...msg, body: msg.body.slice(0, limit) };
+  }
+  return msg;
 }
 
 /* =========================================================

@@ -1,0 +1,261 @@
+Add completeness guidance messaging
+
+This makes the score explain itself—without turning NOMOS into a narrator.
+
+short → causal → stage-aware
+
+⸻
+
+🧠 What we’re adding
+
+A single-line guidance message derived from:
+	•	completeness breakdown
+	•	validation issues
+	•	current stage
+
+Output example:
+
+Completeness limited by missing constraint thresholds.
+
+
+⸻
+
+🧱 1. Extend result model
+
+📁 completeness_engine.ts
+
+export interface CompletenessResult {
+  score: number;
+  breakdown: {
+    intent: boolean;
+    constraintsPresent: boolean;
+    constraintsValid: boolean;
+    assumptions: boolean;
+    noErrors: boolean;
+  };
+
+  guidance?: string; // NEW
+}
+
+
+⸻
+
+🧠 2. Guidance generator
+
+import { ValidationIssue } from "./validation_engine";
+
+export function generateCompletenessGuidance(
+  draft: Partial<NomosQuery>,
+  issues: ValidationIssue[],
+  breakdown: CompletenessResult["breakdown"]
+): string | undefined {
+  // Priority 1: blocking errors (most specific first)
+  const thresholdErr = issues.find((i) =>
+    i.id.includes("threshold")
+  );
+  if (thresholdErr) {
+    return "Completeness limited by missing constraint thresholds.";
+  }
+
+  const unitWarn = issues.find((i) =>
+    i.id.includes("unit")
+  );
+  if (unitWarn) {
+    return "Completeness limited by missing units.";
+  }
+
+  const ambiguousWarn = issues.find((i) =>
+    i.id.includes("ambiguous")
+  );
+  if (ambiguousWarn) {
+    return "Completeness limited by ambiguous constraints.";
+  }
+
+  // Priority 2: structural gaps
+  if (!breakdown.intent) {
+    return "Completeness limited by undefined intent.";
+  }
+
+  if (!breakdown.constraintsPresent) {
+    return "Completeness limited by missing constraints.";
+  }
+
+  if (!breakdown.constraintsValid) {
+    return "Completeness limited by invalid constraints.";
+  }
+
+  if (!breakdown.assumptions) {
+    return "Completeness limited by missing assumptions.";
+  }
+
+  // Fully complete
+  if (breakdown.noErrors) {
+    return "Submission structurally complete.";
+  }
+
+  return;
+}
+
+
+⸻
+
+🧠 3. Integrate into scoring
+
+Update computeCompleteness
+
+export function computeCompleteness(
+  draft: Partial<NomosQuery>,
+  issues: ValidationIssue[]
+): CompletenessResult {
+  // ...existing logic...
+
+  const result: CompletenessResult = {
+    score,
+    breakdown,
+  };
+
+  result.guidance = generateCompletenessGuidance(
+    draft,
+    issues,
+    breakdown
+  );
+
+  return result;
+}
+
+
+⸻
+
+🧩 4. UI: show guidance under score
+
+📁 CompletenessBar.tsx
+
+export function CompletenessBar({
+  score,
+  guidance,
+}: {
+  score: number;
+  guidance?: string;
+}) {
+  return (
+    <div className="nm-completeness">
+      <div className="nm-completeness-label">
+        Query completeness: {score}%
+      </div>
+
+      <div className="nm-completeness-bar">
+        <div
+          className="nm-completeness-fill"
+          style={{
+            width: `${score}%`,
+            background: getCompletenessColor(score),
+          }}
+        />
+      </div>
+
+      {guidance && (
+        <div className="nm-completeness-guidance">
+          {guidance}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 5. CSS (subtle, diagnostic)
+
+.nm-completeness-guidance {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--nm-text-muted);
+}
+
+
+⸻
+
+🔥 Resulting behavior
+
+⸻
+
+Case: missing threshold
+
+Query completeness: 62%
+Completeness limited by missing constraint thresholds.
+
+
+⸻
+
+Case: vague constraint
+
+Query completeness: 74%
+Completeness limited by ambiguous constraints.
+
+
+⸻
+
+Case: missing assumptions
+
+Query completeness: 90%
+Completeness limited by missing assumptions.
+
+
+⸻
+
+Case: complete
+
+Query completeness: 100%
+Submission structurally complete.
+
+
+⸻
+
+🧠 Why this is correct
+
+You achieve:
+	•	explanation without verbosity
+	•	guidance without suggestion overload
+	•	clarity without breaking tone
+
+⸻
+
+🧠 Design constraints (important)
+
+Guidance must:
+	•	be one line only
+	•	never include “you”
+	•	never suggest actions directly
+	•	always describe what is missing, not what to do
+
+⸻
+
+🧠 Final insight
+
+You now have:
+
+a system that shows progress and explains its limit in one line
+
+That’s extremely high signal.
+
+⸻
+
+If you want next
+
+👉 connect guidance → tone system during conversation
+
+So NOMOS says:
+
+Constraint lacks threshold.
+
+AND completeness says:
+
+Completeness limited by missing constraint thresholds.
+
+→ perfectly aligned messaging
+
+Just say:
+“Unify validation and completeness tone”
+
+and we’ll make every layer speak the same language.
