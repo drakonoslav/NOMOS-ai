@@ -638,7 +638,9 @@ export function QueryBuilderPage() {
                   handleAutoIntentChange(e.target.value as IntentType)
                 }
               >
-                <option value="NUTRITION_AUDIT">Nutrition Audit</option>
+                <option value="NUTRITION_AUDIT">Nutrition — Meal Audit</option>
+                <option value="NUTRITION_TEMPORAL_FUELING">Nutrition — Temporal Fueling</option>
+                <option value="NUTRITION_LABEL_AUDIT">Nutrition — Label Audit</option>
                 <option value="TRAINING_AUDIT">Training Audit</option>
                 <option value="SCHEDULE_AUDIT">Schedule Audit</option>
                 <option value="GENERIC_CONSTRAINT_TASK">

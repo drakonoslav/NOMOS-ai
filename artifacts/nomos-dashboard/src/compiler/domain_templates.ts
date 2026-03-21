@@ -1,5 +1,7 @@
 export type IntentType =
   | "NUTRITION_AUDIT"
+  | "NUTRITION_TEMPORAL_FUELING"
+  | "NUTRITION_LABEL_AUDIT"
   | "TRAINING_AUDIT"
   | "SCHEDULE_AUDIT"
   | "GENERIC_CONSTRAINT_TASK"
@@ -33,7 +35,7 @@ export const DOMAIN_TEMPLATES: Record<
 > = {
   NUTRITION_AUDIT: {
     intent: "NUTRITION_AUDIT",
-    title: "Nutrition Audit",
+    title: "Nutrition Meal Audit",
     description:
       "Use for meal-plan audits, macro verification, food-label grounding, and structure-preserving correction.",
 
@@ -109,6 +111,114 @@ export const DOMAIN_TEMPLATES: Record<
         "State whether the task is audit only, audit plus correction, or audit plus reusable rule derivation.",
       locked_food_placements:
         "State which foods or meal placements must remain fixed.",
+    },
+  },
+
+  NUTRITION_TEMPORAL_FUELING: {
+    intent: "NUTRITION_TEMPORAL_FUELING",
+    title: "Nutrition Temporal Fueling",
+    description:
+      "Use for pre- or post-workout fueling decisions, carb-timing admissibility, protein-window constraints, and candidate ranking by strongest margin.",
+
+    state: [
+      "A nutrition timing decision query is present.",
+      "Candidate fueling actions are declared.",
+      "Temporal nutrient constraints are declared.",
+      "The task is to determine admissibility and strongest margin across candidates.",
+    ],
+
+    constraints: [
+      "Constraints must be explicit temporal threshold rules (e.g., at least Xg of nutrient Y within Z minutes).",
+      "Do not evaluate implied timing rules — only declared thresholds are binding.",
+      "Do not infer food classification (fast vs slow GI) from food name alone without declaration.",
+    ],
+
+    uncertainties: [
+      "Fast vs slow carbohydrate classification should be explicitly declared for each candidate food.",
+      "\"Strongest margin\" is interpreted as the greatest admissible distance from constraint failure.",
+    ],
+
+    candidates: [
+      {
+        id: "A",
+        text: "Fast-digesting carbohydrate source consumed within the declared timing window.",
+      },
+      {
+        id: "B",
+        text: "Slow-digesting carbohydrate source consumed within the declared timing window.",
+      },
+    ],
+
+    objective: [
+      "Determine which candidates are admissible under the declared temporal nutrient constraints.",
+      "Among admissible candidates, identify the candidate with the strongest margin.",
+    ],
+
+    requiredFields: ["hard_constraints", "candidates"],
+
+    optionalFields: ["objective"],
+
+    missingFieldHints: {
+      hard_constraints:
+        "Declare explicit temporal threshold constraints, e.g., 'at least 60g fast-digesting carbs within 90 minutes before lifting'.",
+      candidates:
+        "Declare at least two candidate fueling actions with explicit food, amount, and timing.",
+      objective:
+        "State whether the task is admissibility determination, margin ranking, or both.",
+    },
+  },
+
+  NUTRITION_LABEL_AUDIT: {
+    intent: "NUTRITION_LABEL_AUDIT",
+    title: "Nutrition Label Audit",
+    description:
+      "Use for food-label verification, macro comparison between declared and label-grounded data, source-truth correction, and serving-size interpretation.",
+
+    state: [
+      "A nutrition label audit or food comparison query is present.",
+      "Label-derived macro data is the governing source of truth.",
+      "The task is verification, comparison, or correction against declared label data.",
+    ],
+
+    constraints: [
+      "Use attached food labels or declared label data as source truth.",
+      "Do not infer macro values not supported by label data.",
+      "If correction is requested, prefer the smallest label-faithful change.",
+    ],
+
+    uncertainties: [
+      "Label images or label text may not yet be attached.",
+      "Unit conversion (per serving vs per 100g) may require explicit declaration.",
+      "Serving size interpretation may be ambiguous.",
+    ],
+
+    candidates: [
+      {
+        id: "A",
+        text: "Audit only. Determine whether the declared food data matches the label.",
+      },
+      {
+        id: "B",
+        text: "Audit plus correction. Produce the label-faithful correction.",
+      },
+    ],
+
+    objective: [
+      "Verify food macro data against declared source-truth labels.",
+      "Identify discrepancies and, if requested, produce the smallest label-faithful correction.",
+    ],
+
+    requiredFields: ["food_source_truth_or_labels"],
+
+    optionalFields: ["estimated_food_rules", "fiber_handling_rule"],
+
+    missingFieldHints: {
+      food_source_truth_or_labels:
+        "Attach food labels or declare the source-truth macro data for the foods being audited.",
+      estimated_food_rules:
+        "State which foods are estimated rather than label-grounded.",
+      fiber_handling_rule:
+        "State whether total carbs or net carbs should govern evaluation.",
     },
   },
 

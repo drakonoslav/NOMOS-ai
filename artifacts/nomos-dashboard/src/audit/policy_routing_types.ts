@@ -66,9 +66,11 @@ export const DEFAULT_POLICY_VERSION_ID = "pol-default-v0";
  * Keeps the mapping declarative and easy to extend.
  */
 export const INTENT_DOMAIN_MAP: Record<string, GovernanceDomain> = {
-  NUTRITION_AUDIT: "nutrition",
-  TRAINING_AUDIT: "training",
-  SCHEDULE_AUDIT: "schedule",
-  GENERIC_CONSTRAINT_TASK: "generic",
-  UNKNOWN: "generic",
+  NUTRITION_AUDIT:           "nutrition",
+  NUTRITION_TEMPORAL_FUELING: "nutrition",
+  NUTRITION_LABEL_AUDIT:     "nutrition",
+  TRAINING_AUDIT:            "training",
+  SCHEDULE_AUDIT:            "schedule",
+  GENERIC_CONSTRAINT_TASK:   "generic",
+  UNKNOWN:                   "generic",
 };

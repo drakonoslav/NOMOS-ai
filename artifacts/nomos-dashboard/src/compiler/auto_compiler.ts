@@ -74,6 +74,7 @@ export function buildStructuredDraft(
   const objective = buildObjective(template, extracted);
 
   const detectedStructureNotes = buildDetectedStructureNotes(extracted);
+  const queryFamilyNote = `query_family: ${template.intent}`;
 
   return {
     intent: template.intent,
@@ -88,7 +89,7 @@ export function buildStructuredDraft(
     missingRequiredFields: gaps.missingRequiredFields.map((f) => f.key),
     missingOptionalFields: gaps.missingOptionalFields.map((f) => f.key),
     warnings: gaps.warnings,
-    notes: dedupe([...gaps.notes, ...detectedStructureNotes]),
+    notes: dedupe([queryFamilyNote, ...gaps.notes, ...detectedStructureNotes]),
 
     isEvaluable: gaps.isEvaluable,
   };
@@ -125,6 +126,40 @@ function buildState(
       lines.push("Food-label or source-truth references were detected.");
     } else {
       lines.push("Food-label or source-truth references were not detected.");
+    }
+  }
+
+  if (template.intent === "NUTRITION_TEMPORAL_FUELING") {
+    lines.push("A nutrition timing decision query is present.");
+
+    if (extracted.hasCandidates) {
+      lines.push("Candidate fueling actions are declared.");
+    }
+
+    if (extracted.hasConstraints) {
+      lines.push("Temporal nutrient constraints are declared.");
+    }
+
+    lines.push(
+      "The task is to determine admissibility and strongest margin across candidates."
+    );
+
+    if (extracted.stateLines.length > 0) {
+      lines.push(...dedupe(extracted.stateLines));
+    }
+  }
+
+  if (template.intent === "NUTRITION_LABEL_AUDIT") {
+    lines.push("A nutrition label audit or food comparison query is present.");
+
+    if (extracted.hasLabels) {
+      lines.push("Label-derived macro data is the governing source of truth.");
+    } else {
+      lines.push("Label or source-truth data has not yet been attached.");
+    }
+
+    if (extracted.stateLines.length > 0) {
+      lines.push(...dedupe(extracted.stateLines));
     }
   }
 
@@ -216,6 +251,46 @@ function buildUncertainties(
     }
   }
 
+  if (template.intent === "NUTRITION_TEMPORAL_FUELING") {
+    const lower = extracted.rawInput.toLowerCase();
+
+    const hasExplicitClassification = containsAny(lower, [
+      "fast-digesting",
+      "slow-digesting",
+      "high gi",
+      "low gi",
+      "cyclic dextrin = fast",
+      "oats = slow",
+      "classification",
+    ]);
+
+    if (!hasExplicitClassification) {
+      lines.push(
+        "Fast vs slow carbohydrate classification should be explicitly declared for each candidate food."
+      );
+    }
+
+    if (containsAny(lower, ["strongest margin", "margin", "rank"])) {
+      lines.push(
+        '"Strongest margin" is interpreted as the greatest admissible distance from constraint failure.'
+      );
+    }
+  }
+
+  if (template.intent === "NUTRITION_LABEL_AUDIT") {
+    const lower = extracted.rawInput.toLowerCase();
+
+    if (!containsAny(lower, ["per serving", "per 100g", "serving size"])) {
+      lines.push(
+        "Unit conversion (per serving vs per 100g) may require explicit declaration."
+      );
+    }
+
+    if (!extracted.hasLabels) {
+      lines.push("Label images or label text may not yet be attached.");
+    }
+  }
+
   for (const warning of gaps.warnings) {
     if (!lines.includes(warning)) {
       lines.push(warning);
@@ -263,6 +338,28 @@ function buildObjective(
         "Determine whether the nutrition task is sufficiently declared for valid audit."
       );
     }
+  }
+
+  if (template.intent === "NUTRITION_TEMPORAL_FUELING") {
+    lines.push(
+      "Determine which candidates are admissible under the declared temporal nutrient constraints."
+    );
+
+    const lower = extracted.rawInput.toLowerCase();
+    if (containsAny(lower, ["strongest margin", "margin", "rank"])) {
+      lines.push(
+        "Among admissible candidates, identify the candidate with the strongest margin."
+      );
+    }
+  }
+
+  if (template.intent === "NUTRITION_LABEL_AUDIT") {
+    lines.push(
+      "Verify food macro data against declared source-truth labels."
+    );
+    lines.push(
+      "Identify discrepancies and, if requested, produce the smallest label-faithful correction."
+    );
   }
 
   if (lines.length === 0) {

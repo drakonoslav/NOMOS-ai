@@ -32,6 +32,8 @@ export interface PolicyReplayRequest {
   canonicalDeclaration: string;
   intent:
     | "NUTRITION_AUDIT"
+    | "NUTRITION_TEMPORAL_FUELING"
+    | "NUTRITION_LABEL_AUDIT"
     | "TRAINING_AUDIT"
     | "SCHEDULE_AUDIT"
     | "GENERIC_CONSTRAINT_TASK";
