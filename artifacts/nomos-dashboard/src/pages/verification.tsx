@@ -75,9 +75,9 @@ export default function VerificationPage() {
               <p className="text-xs font-mono text-muted-foreground leading-relaxed">
                 {tone.verification.summary}
               </p>
-              {tone.verification.details && tone.verification.details.length > 0 && (
+              {tone.verification.body && tone.verification.body.length > 0 && (
                 <ul className="space-y-1 border-t border-border/30 pt-3">
-                  {tone.verification.details.map((d) => (
+                  {tone.verification.body.map((d) => (
                     <li key={d} className="text-[11px] font-mono text-muted-foreground/60 flex gap-2">
                       <span className="text-primary/40 shrink-0">›</span>
                       <span>{d}</span>

@@ -8,10 +8,9 @@
 
 import type { NomosState } from "@workspace/api-client-react";
 import { toToneResolverInput } from "./tone_adapter";
-import { resolveToneLevel } from "./tone_resolver";
-import { buildToneMessage, type ToneMessage } from "./tone_templates";
+import { resolveToneMessage } from "./tone_resolver";
 import { buildAuthorityMessage, type AuthorityMessage, type AuthorityState } from "./authority_templates";
-import type { ToneLevel } from "./tone_types";
+import type { ToneLevel, ToneMessage } from "./tone_types";
 
 export interface ToneMessageResult {
   toneLevel: ToneLevel;
@@ -21,11 +20,10 @@ export interface ToneMessageResult {
 
 export function useToneMessage(state: NomosState): ToneMessageResult {
   const input = toToneResolverInput(state);
-  const toneLevel = resolveToneLevel(input);
-  const verification = buildToneMessage(input, toneLevel);
+  const msg = resolveToneMessage(input);
   const authority = buildAuthorityMessage(
     state.authority as AuthorityState,
-    toneLevel
+    msg.tone
   );
-  return { toneLevel, verification, authority };
+  return { toneLevel: msg.tone, verification: msg, authority };
 }
