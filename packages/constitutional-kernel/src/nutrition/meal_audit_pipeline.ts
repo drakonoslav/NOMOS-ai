@@ -19,8 +19,7 @@
  * Output format follows the NOMOS section schema.
  */
 
-import { listLabelFoods, listEstimatedFoods } from "./food_registry.js";
-import { computePhaseMacros, MacroDelta, PhaseMacroResult } from "./macro_engine.js";
+import { MacroDelta } from "./macro_engine.js";
 import { PhasePlan } from "./meal_types.js";
 import { AuditReport, runAudit, PhaseAuditEntry } from "./audit_engine.js";
 import {
@@ -29,6 +28,7 @@ import {
 } from "./correction_constraints.js";
 import { correctPhase, CorrectionResult } from "./correction_engine.js";
 import { MacroProfile } from "./food_primitive.js";
+import { RawPhase, parsePhasePlan } from "./meal_plan_parser.js";
 
 /* =========================================================
    Pipeline input / output types
@@ -40,7 +40,18 @@ export type PipelineMode =
   | "derive_global_bias";
 
 export interface PipelineInput {
-  plans:       PhasePlan[];
+  /**
+   * Pre-validated phase plans (already passed through parsePhasePlan).
+   * Provide either this or rawPlans — not both.
+   */
+  plans?: PhasePlan[];
+  /**
+   * Raw phase declarations to be parsed and validated against the food
+   * registry before the pipeline runs. ParseError will throw if any
+   * foodId is unknown or any unit is mismatched.
+   * Provide either this or plans — not both.
+   */
+  rawPlans?: RawPhase[];
   mode:        PipelineMode;
   constraints?: CorrectionConstraints;
 }
@@ -110,12 +121,27 @@ export interface FindingsBlock {
 
 export interface PhaseAuditBlock {
   entries: {
-    phaseId: string;
-    target:  MacroProfile;
-    actual:  MacroProfile;
-    delta:   MacroDelta;
-    status:  "PASS" | "WARN" | "FAIL";
-    notes:   string[];
+    phaseId:          string;
+    target:           MacroProfile;
+    actual:           MacroProfile;
+    delta:            MacroDelta;
+    /**
+     * Plain-language summary of which macros are outside tolerance and by how much.
+     * "No macro drift outside tolerance." when status is PASS.
+     */
+    driftSummary:     string;
+    /**
+     * true only when every food in this phase has source="label".
+     * false when banana, egg, or any other estimated food is present.
+     */
+    labelFaithful:    boolean;
+    /**
+     * true for WARN and FAIL — signals that a correction pass is warranted.
+     * false for PASS.
+     */
+    correctionNeeded: boolean;
+    status:           "PASS" | "WARN" | "FAIL";
+    notes:            string[];
   }[];
 }
 
@@ -159,16 +185,35 @@ export interface FinalVerdictBlock {
  *
  * Executes exactly the steps required by the selected mode.
  * Does not compute more than requested.
+ *
+ * Pipeline step order:
+ *   1. Food registry is always resident — no I/O at runtime.
+ *   2. If rawPlans provided: parse + validate all foodIds against registry.
+ *      Unknown foodId or unit mismatch throws immediately before any computation.
+ *   3. Compute actual macros per phase.
+ *   4. Compute signed deltas vs. declared targets.
+ *   5. Run truth audit (STATE, CONSTRAINTS, UNCERTAINTIES, FINDINGS, PHASE AUDIT, FINAL VERDICT).
+ *   6. If mode=audit_and_correct: run correction engine per phase.
+ *   7. If mode=derive_global_bias: compute average drift across all phases.
  */
 export function runMealAuditPipeline(input: PipelineInput): PipelineOutput {
-  const { plans, mode, constraints = DEFAULT_CORRECTION_CONSTRAINTS } = input;
+  const { mode, constraints = DEFAULT_CORRECTION_CONSTRAINTS } = input;
   const generatedAt = new Date().toISOString();
 
-  // Step 1 — registry is always loaded (in-process, no I/O)
-  const auditReport: AuditReport = runAudit(plans);
+  // Step 1+2 — registry is always loaded; optionally parse raw declarations.
+  let plans: PhasePlan[];
+  if (input.rawPlans && input.rawPlans.length > 0) {
+    // Parse validates all foodIds and units against the live registry.
+    // Throws on the first phase with errors — no silent fallback.
+    plans = input.rawPlans.map(parsePhasePlan);
+  } else if (input.plans && input.plans.length > 0) {
+    plans = input.plans;
+  } else {
+    throw new Error("runMealAuditPipeline: either plans or rawPlans must be provided and non-empty.");
+  }
 
-  // Step 2–4 — compute all macros
-  const phaseResults: PhaseMacroResult[] = plans.map(computePhaseMacros);
+  // Step 3+4+5 — single macro computation pass; audit reuses the results.
+  const auditReport: AuditReport = runAudit(plans);
 
   // Build standard sections
   const state: StateBlock = {
@@ -198,12 +243,15 @@ export function runMealAuditPipeline(input: PipelineInput): PipelineOutput {
 
   const phaseAuditBlock: PhaseAuditBlock = {
     entries: auditReport.phaseAudit.map(e => ({
-      phaseId: e.phaseId,
-      target:  e.target,
-      actual:  e.actual,
-      delta:   e.delta,
-      status:  e.status,
-      notes:   e.notes,
+      phaseId:          e.phaseId,
+      target:           e.target,
+      actual:           e.actual,
+      delta:            e.delta,
+      driftSummary:     e.driftSummary,
+      labelFaithful:    e.labelFaithful,
+      correctionNeeded: e.correctionNeeded,
+      status:           e.status,
+      notes:            e.notes,
     })),
   };
 
