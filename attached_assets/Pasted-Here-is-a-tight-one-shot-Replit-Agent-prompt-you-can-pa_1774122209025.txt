@@ -1,0 +1,116 @@
+Here is a tight, one-shot Replit Agent prompt you can paste directly.
+It is optimized to remove ambiguity and force correct edits in a single pass.
+
+⸻
+
+Refactor this repo so it runs as a clean PNPM workspace app with a single canonical runtime.
+
+GOAL
+The only runnable app must be:
+	•	frontend: artifacts/nomos-dashboard
+	•	backend: artifacts/api-server
+	•	shared lib: packages/constitutional-kernel
+
+The repo must NOT boot into nomos-core or mockup-sandbox.
+
+⸻
+
+MAKE THESE EXACT CHANGES
+	1.	ROOT PACKAGE.JSON
+
+	•	Replace scripts with:
+
+“scripts”: {
+“dev”: “pnpm –parallel –filter @workspace/api-server –filter @workspace/nomos-dashboard run dev”,
+“start”: “pnpm run dev”,
+“build”: “pnpm run typecheck && pnpm -r –if-present run build”,
+“typecheck:libs”: “tsc –build”,
+“typecheck”: “pnpm run typecheck:libs && pnpm -r –filter "./artifacts/**" –filter "./scripts" –if-present run typecheck”
+}
+	•	Ensure NO script starts nomos-core directly
+
+⸻
+
+	2.	.REPLIT CONFIG
+
+	•	Only include these artifacts:
+
+[[artifacts]]
+id = “artifacts/api-server”
+
+[[artifacts]]
+id = “artifacts/nomos-dashboard”
+	•	REMOVE mockup-sandbox from active artifacts
+	•	Ensure:
+deploymentTarget = “autoscale”
+run button uses workspace dev command (NOT kernel)
+
+⸻
+
+	3.	VITE CONFIG FIX (artifacts/nomos-dashboard/vite.config.ts)
+
+	•	REMOVE hard failure on missing env vars
+	•	Replace with:
+
+const port = Number(process.env.PORT ?? “24280”);
+const basePath = process.env.BASE_PATH ?? “/”;
+	•	Keep:
+host: “0.0.0.0”
+outDir: dist/public
+
+⸻
+
+	4.	FRONTEND ↔ API CONNECTION
+
+	•	Ensure frontend can call backend at /api/*
+	•	Add dev proxy if needed OR confirm relative routing works
+	•	Must support:
+/api/healthz
+/api/nomos/state
+/api/nomos/query/parse
+/api/nomos/query/evaluate
+
+⸻
+
+	5.	PACKAGE ROLES (ENFORCE)
+
+	•	packages/constitutional-kernel = library only
+	•	artifacts/api-server = ONLY place kernel is executed
+	•	artifacts/nomos-dashboard = UI only
+	•	nomos-core MUST NOT be used as app entrypoint anywhere
+
+⸻
+
+	6.	MOCKUP SANDBOX
+
+	•	Remove from runtime OR clearly mark as demo-only
+	•	It must NOT be runnable by default
+
+⸻
+
+SUCCESS CRITERIA (MANDATORY)
+
+After changes:
+	1.	Clicking Run opens the dashboard (NOT CLI, NOT kernel)
+	2.	No environment variables required to start
+	3.	/api/healthz returns OK
+	4.	Dashboard successfully calls /api/nomos/state
+	5.	No root script launches nomos-core
+	6.	App runs with a single command: pnpm run dev
+
+⸻
+
+DO NOT:
+	•	rewrite architecture
+	•	delete constitutional-kernel
+	•	introduce new frameworks
+	•	change API contracts
+
+ONLY fix entrypoints, wiring, and runtime clarity.—
+
+If you want next step after this, I’d strongly recommend a second prompt that forces:
+	•	canonical build map (source-of-truth labeling)
+	•	repo hygiene cleanup (move attached_assets out of main tree)
+	•	runtime diagram generation
+
+That’s what turns this from “working app” → “inspectable system.”

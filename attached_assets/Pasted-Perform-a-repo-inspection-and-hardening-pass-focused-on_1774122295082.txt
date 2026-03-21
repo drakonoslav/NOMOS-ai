@@ -1,0 +1,244 @@
+Perform a repo inspection-and-hardening pass focused on inspectability, canonical ownership, and repo hygiene.
+
+GOAL
+Turn this repo from merely runnable into clearly inspectable.
+I need:
+1) a canonical build map with source-of-truth labeling
+2) repo hygiene cleanup around attached_assets
+3) a generated runtime diagram and inspection docs
+
+Do NOT redesign the product.
+Do NOT change core API contracts.
+Do NOT remove working app behavior.
+This pass is for clarity, ownership, documentation, and cleanup.
+
+==================================================
+PART 1 — CANONICAL BUILD MAP
+==================================================
+
+Create a new file at the repo root:
+
+/CANONICAL_BUILD_MAP.md
+
+This file must explicitly classify every major package/app/folder into one of these roles:
+
+- SOURCE_OF_TRUTH
+- RUNTIME_APP
+- SHARED_LIBRARY
+- ADAPTER
+- UI_LAYER
+- DEMO_ONLY
+- LEGACY
+- GENERATED
+- DOCS_ONLY
+- ASSET_ONLY
+- SCRIPTING
+
+At minimum, classify:
+- artifacts/nomos-dashboard
+- artifacts/api-server
+- artifacts/mockup-sandbox
+- packages/constitutional-kernel
+- lib/
+- scripts/
+- attached_assets/
+- root config/docs files
+
+For each item include:
+- role label
+- whether it is canonical or non-canonical
+- whether it is part of production runtime
+- whether it may be safely edited
+- what depends on it
+- what it depends on
+- whether it should be imported by other packages
+- whether it should be shipped/deployed
+
+Add a final section:
+“Authoritative runtime path”
+
+That section must state, in plain language:
+- the exact frontend entrypoint
+- the exact backend entrypoint
+- the exact shared kernel dependency path
+- which folders are not part of production runtime
+
+Also add a short “Migration Notes” section if any current folder appears to be legacy, duplicated, or confusing.
+
+==================================================
+PART 2 — SOURCE-OF-TRUTH LABELING IN-REPO
+==================================================
+
+Add lightweight README.md files where missing for the major app/package folders so an inspector can open any directory and immediately understand its role.
+
+At minimum ensure these directories have a local README.md:
+- artifacts/nomos-dashboard
+- artifacts/api-server
+- packages/constitutional-kernel
+- artifacts/mockup-sandbox
+- attached_assets
+
+Each local README must state:
+- what this folder is
+- whether it is canonical
+- whether it is runtime-critical
+- whether it is deployable
+- whether it is legacy/demo/supporting only
+- what other folders it is allowed to depend on
+
+For mockup-sandbox, explicitly label it:
+DEMO_ONLY or NON_CANONICAL
+and say it is not the main app.
+
+For constitutional-kernel, explicitly label it:
+SHARED_LIBRARY
+and say it is not a direct root entrypoint.
+
+==================================================
+PART 3 — REPO HYGIENE CLEANUP
+==================================================
+
+The attached_assets folder currently makes the repo harder to inspect.
+Clean this up without deleting useful material.
+
+Create a new structure like this if needed:
+
+/docs
+/docs/assets-reference
+/docs/generated
+/archive
+/archive/attached_assets_raw
+
+Requirements:
+- move bulky non-runtime files out of the main app surface
+- attached_assets must no longer look like core source code
+- if code currently imports from attached_assets, do NOT break those imports without replacing them safely
+- if relocation would break current runtime, then keep a minimal compatible structure and document it clearly
+
+Create an inventory file:
+ /docs/assets-reference/ASSET_INVENTORY.md
+
+This file must summarize:
+- what kinds of files exist in attached_assets
+- which are runtime-used
+- which are documentation-only
+- which are archival only
+- which appear duplicated
+- recommended future storage location for each class
+
+If duplicate zip files or clearly archival binaries exist, move them into:
+ /archive/attached_assets_raw/
+unless doing so would break runtime
+
+If something must remain in place for compatibility, add a note explaining why.
+
+==================================================
+PART 4 — IMPORT AND DEPENDENCY CLARITY
+==================================================
+
+Create a root-level doc:
+
+/DEPENDENCY_RULES.md
+
+This document must define:
+- allowed dependency directions
+- forbidden dependency directions
+- which package is allowed to execute the kernel
+- which package is allowed to render UI
+- which folders are docs/assets only and must not become import roots
+
+Include a simple rule table like:
+- nomos-dashboard may depend on shared libraries and API contracts
+- api-server may depend on constitutional-kernel
+- constitutional-kernel must not depend on UI artifacts
+- mockup-sandbox must not be treated as canonical runtime
+- attached_assets must not become a dumping ground for source-of-truth code
+
+==================================================
+PART 5 — RUNTIME DIAGRAM GENERATION
+==================================================
+
+Generate both of these files:
+
+/docs/generated/runtime-diagram.md
+/docs/generated/runtime-mermaid.md
+
+The runtime diagram must show, at minimum:
+
+User
+  ->
+nomos-dashboard
+  ->
+api-server
+  ->
+constitutional-kernel
+
+And also show supporting flows for:
+- query parse
+- query evaluate
+- nomos state
+- audit/worklog/replay if present in current app structure
+
+The Mermaid file must contain at least one valid Mermaid graph block.
+The markdown diagram file must contain:
+- a plain-English explanation
+- the Mermaid source pasted in
+- a short section called “How to inspect the live runtime path”
+
+Also create:
+ /docs/generated/repo-topology.md
+
+This file must explain the difference between:
+- runtime path
+- build path
+- documentation path
+- archival/non-runtime materials
+
+==================================================
+PART 6 — INSPECTABILITY IMPROVEMENTS
+==================================================
+
+Add or update the root README.md so the first screen of the repo tells an inspector:
+
+1) what the canonical app is
+2) how to run it
+3) what folders matter most
+4) what folders are non-canonical
+5) where to find:
+   - CANONICAL_BUILD_MAP.md
+   - DEPENDENCY_RULES.md
+   - docs/generated/runtime-diagram.md
+
+The root README should make it impossible for a new reviewer to mistake mockup-sandbox or constitutional-kernel for the top-level product entrypoint.
+
+==================================================
+PART 7 — SAFETY / DO-NOT-DO
+==================================================
+
+Do NOT:
+- delete important files casually
+- break imports to get cleanliness
+- change core runtime behavior unnecessarily
+- rename folders unless needed
+- invent a new architecture
+- remove attached_assets blindly if anything still references it
+
+Prefer:
+- classify
+- document
+- isolate
+- archive
+- preserve compatibility
+
+==================================================
+DELIVERABLES REQUIRED
+==================================================
+
+When finished, provide a concise summary of:
+1) files created
+2) files modified
+3) items marked canonical vs non-canonical
+4) anything that could not be moved safely
+5) any remaining ambiguity in repo ownership
+
+Success means the repo becomes easy to inspect in under 3 minutes by a new engineer.

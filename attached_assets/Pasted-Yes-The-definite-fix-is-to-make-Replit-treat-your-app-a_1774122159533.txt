@@ -1,0 +1,194 @@
+Yes. The definite fix is to make Replit treat your app as:
+	•	frontend: artifacts/nomos-dashboard
+	•	backend: artifacts/api-server
+	•	library only: packages/constitutional-kernel
+	•	not the main app: artifacts/mockup-sandbox
+
+Right now the repo’s biggest problem is that the workspace root and Replit entrypoint still point at nomos-core, while the real product is clearly dashboard + API.
+
+Give Replit this exact instruction:
+
+Please refactor this repo so the canonical runnable app is:
+1) artifacts/nomos-dashboard as the frontend
+2) artifacts/api-server as the backend
+3) packages/constitutional-kernel only as a shared library dependency
+
+Do NOT use nomos-core as the root app entrypoint.
+Do NOT use mockup-sandbox as the main artifact.
+
+Make these exact changes:
+
+A) Root package.json
+- remove scripts that make the root app start nomos-core directly
+- add:
+  "dev": "pnpm --parallel --filter @workspace/api-server --filter @workspace/nomos-dashboard run dev"
+  "start": "pnpm run dev"
+  "build": "pnpm run typecheck && pnpm -r --if-present run build"
+- keep typecheck scripts working for the workspace
+
+B) Root .replit
+- register artifacts/nomos-dashboard and artifacts/api-server as the active artifacts
+- remove artifacts/mockup-sandbox from the main artifact list unless it is explicitly marked demo-only
+- keep deploymentTarget = autoscale
+- set the run button to the real app, not nomos-core
+
+C) artifacts/nomos-dashboard/vite.config.ts
+- stop hard-failing if PORT or BASE_PATH are missing
+- use safe defaults:
+  PORT default = 24280
+  BASE_PATH default = "/"
+- keep host 0.0.0.0
+- keep output dir = dist/public
+
+D) Make frontend dev resilient
+- if needed, add a dev proxy from /api to the api-server service
+- otherwise keep relative /api calls working
+
+E) Preserve existing API routes
+- /api/healthz
+- /api/nomos/state
+- /api/nomos/query/parse
+- /api/nomos/query/evaluate
+
+F) Do not delete packages/constitutional-kernel
+- keep it as a dependency of the API server
+- but do not let the workspace root boot into that package directly
+
+G) Mark mockup-sandbox as non-canonical
+- either remove it from .replit artifacts
+- or rename/document it as demo-only so it cannot be confused with the real app
+
+Success criteria:
+1) Replit run opens the dashboard, not the kernel CLI
+2) dashboard loads without requiring manual PORT/BASE_PATH setup
+3) /api/healthz responds
+4) dashboard can call /api/nomos/state successfully
+5) no root-level start command launches nomos-core directly
+
+And these are the concrete file changes I would have them apply.
+
+package.json at repo root:
+
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "dev": "pnpm --parallel --filter @workspace/api-server --filter @workspace/nomos-dashboard run dev",
+    "start": "pnpm run dev",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2",
+    "prettier": "^3.8.1"
+  }
+}
+
+.replit:
+
+modules = ["nodejs-24"]
+
+[[artifacts]]
+id = "artifacts/api-server"
+
+[[artifacts]]
+id = "artifacts/nomos-dashboard"
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+artifacts/nomos-dashboard/vite.config.ts:
+
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+
+const port = Number(process.env.PORT ?? "24280");
+const basePath = process.env.BASE_PATH ?? "/";
+
+export default defineConfig({
+  base: basePath,
+  plugins: [
+    react(),
+    tailwindcss(),
+    runtimeErrorOverlay(),
+    ...(process.env.NODE_ENV !== "production" &&
+    process.env.REPL_ID !== undefined
+      ? [
+          await import("@replit/vite-plugin-cartographer").then((m) =>
+            m.cartographer({
+              root: path.resolve(import.meta.dirname, ".."),
+            }),
+          ),
+          await import("@replit/vite-plugin-dev-banner").then((m) =>
+            m.devBanner(),
+          ),
+        ]
+      : []),
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(import.meta.dirname, "src"),
+      "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+    },
+    dedupe: ["react", "react-dom"],
+  },
+  root: path.resolve(import.meta.dirname),
+  build: {
+    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    emptyOutDir: true,
+  },
+  server: {
+    port,
+    host: "0.0.0.0",
+    allowedHosts: true,
+    fs: {
+      strict: true,
+      deny: ["**/.*"],
+    },
+  },
+  preview: {
+    port,
+    host: "0.0.0.0",
+    allowedHosts: true,
+  },
+});
+
+My blunt diagnosis is this:
+
+Your app is not primarily broken because the architecture is bad. It is broken because the repo entrypoint is wrong.
+
+The system already has a real app:
+	•	dashboard UI
+	•	API server
+	•	shared kernel
+
+But Replit is still partly treating the repo like a kernel package workspace instead of a deployable product.
+
+So the definite solution is:
+
+promote dashboard + API to canonical runtime, demote nomos-core to library role, and remove mockup-sandbox from the main execution path.
+
+If you want, I can also turn this into a tighter one-shot Replit agent prompt optimized for code editing.
