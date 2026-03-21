@@ -1,33 +1,44 @@
 /**
  * nutrition_temporal_fueling_test.ts
  *
- * Regression suite for NUTRITION_TEMPORAL_FUELING query family routing and compilation.
+ * Regression suite for NUTRITION_TEMPORAL_FUELING query family routing,
+ * the new query_family_classifier.ts layer, and end-to-end compilation.
  *
- * Verifies the full invariant set specified in the user brief:
+ * Invariants verified:
  *
- * (1) detectIntent routes the exact carb-timing query to NUTRITION_TEMPORAL_FUELING.
- * (2) The compiled draft classifies as NUTRITION_TEMPORAL_FUELING (intent field).
- * (3) The compiled draft includes the temporal carb constraints verbatim.
- * (4) The compiled draft includes all four candidates A/B/C/D.
- * (5) The compiled draft STATE does NOT include meal-system audit warnings:
- *       - "no computable meal system has been declared"
- *       - "target macro blocks were not detected"
- * (6) The compiled draft UNCERTAINTIES do NOT include meal-audit defaults:
- *       - banana macros
- *       - egg macros
- *       - yogurt unit interpretation
- *       - fiber versus net-carb
- * (7) The compiled draft NOTES include query_family: NUTRITION_TEMPORAL_FUELING.
- * (8) The compiled draft is evaluable (has candidates + constraints).
+ * (1)  detectIntent routes the carb-timing query to NUTRITION_TEMPORAL_FUELING.
+ * (2)  The compiled draft classifies as NUTRITION_TEMPORAL_FUELING (intent field).
+ * (3)  The compiled draft includes the temporal carb constraints verbatim.
+ * (4)  The compiled draft includes all four candidates A/B/C/D.
+ * (5a) The compiled draft STATE does NOT include meal-system audit warnings.
+ * (5b) The compiled draft STATE DOES include nutrition timing framing.
+ * (6)  The compiled draft UNCERTAINTIES do NOT include meal-audit defaults
+ *      (banana macros / egg macros / yogurt unit / fiber vs net-carb).
+ * (7)  The compiled draft NOTES include query_family: NUTRITION_TEMPORAL_FUELING.
+ * (8)  The compiled draft is evaluable (has candidates + constraints).
+ * (9)  A pure meal-plan audit query routes to NUTRITION_MEAL_AUDIT.
+ * (10) A label-verification query routes to NUTRITION_LABEL_TRUTH.
  *
- * Additional:
- * (9)  A pure meal-plan audit query still routes to NUTRITION_AUDIT.
- * (10) A label-verification query routes to NUTRITION_LABEL_AUDIT.
+ * Classifier-specific invariants:
+ * (C1) CARB_TIMING_QUERY classifies to NUTRITION_TEMPORAL_FUELING via classifyQueryFamily().
+ * (C2) MEAL_AUDIT_QUERY classifies to NUTRITION_MEAL_AUDIT via classifyQueryFamily().
+ * (C3) LABEL_AUDIT_QUERY classifies to NUTRITION_LABEL_TRUTH via classifyQueryFamily().
+ * (C4) Classifier is authoritative: autoCompile(CARB_TIMING_QUERY, "NUTRITION_MEAL_AUDIT")
+ *      still resolves to NUTRITION_TEMPORAL_FUELING (overriding the caller-supplied intent).
+ * (C5) Classifier is authoritative: autoCompile(CARB_TIMING_QUERY, "NUTRITION_AUDIT")
+ *      still resolves to NUTRITION_TEMPORAL_FUELING.
  */
 
 import { describe, it, expect } from "vitest";
 import { detectIntent } from "../compiler/intent_detector";
 import { autoCompile } from "../compiler/auto_compiler";
+import {
+  classifyQueryFamily,
+  fromExtractedFields,
+} from "../compiler/query_family_classifier";
+import { extractFields } from "../compiler/field_extractor";
+
+/* ─── Test fixtures ─────────────────────────────────────────────────────────── */
 
 const CARB_TIMING_QUERY = `\
 STATE:
@@ -68,6 +79,8 @@ OBJECTIVE:
 Verify food label data per serving. Compare nutrition facts for per 100g values.
 Use the source truth from the attached nutrition label.`;
 
+/* ─── Banned phrase lists ────────────────────────────────────────────────────── */
+
 const BANNED_STATE_PHRASES = [
   "no computable meal system has been declared",
   "target macro blocks were not detected",
@@ -80,6 +93,8 @@ const BANNED_UNCERTAINTY_PHRASES = [
   "fiber versus net-carb",
 ];
 
+/* ─── Helpers ────────────────────────────────────────────────────────────────── */
+
 function lower(s: string): string {
   return s.toLowerCase();
 }
@@ -88,19 +103,68 @@ function containsAny(text: string, phrases: string[]): boolean {
   return phrases.some((p) => lower(text).includes(lower(p)));
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Routing — intent_detector.ts (display-hint level)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
 describe("NUTRITION_TEMPORAL_FUELING — routing", () => {
   it("(1) carb-timing query routes to NUTRITION_TEMPORAL_FUELING", () => {
     expect(detectIntent(CARB_TIMING_QUERY)).toBe("NUTRITION_TEMPORAL_FUELING");
   });
 
-  it("(9) meal-audit query routes to NUTRITION_AUDIT", () => {
-    expect(detectIntent(MEAL_AUDIT_QUERY)).toBe("NUTRITION_AUDIT");
+  it("(9) meal-audit query routes to NUTRITION_MEAL_AUDIT", () => {
+    expect(detectIntent(MEAL_AUDIT_QUERY)).toBe("NUTRITION_MEAL_AUDIT");
   });
 
-  it("(10) label-audit query routes to NUTRITION_LABEL_AUDIT", () => {
-    expect(detectIntent(LABEL_AUDIT_QUERY)).toBe("NUTRITION_LABEL_AUDIT");
+  it("(10) label-audit query routes to NUTRITION_LABEL_TRUTH", () => {
+    expect(detectIntent(LABEL_AUDIT_QUERY)).toBe("NUTRITION_LABEL_TRUTH");
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Classifier — query_family_classifier.ts (authoritative level)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+describe("query_family_classifier — classifyQueryFamily()", () => {
+  function classify(raw: string, baseIntent: "NUTRITION_AUDIT" | "NUTRITION_MEAL_AUDIT" = "NUTRITION_AUDIT") {
+    const extracted = extractFields(raw, baseIntent);
+    return classifyQueryFamily(fromExtractedFields(extracted));
+  }
+
+  it("(C1) carb-timing query classifies to NUTRITION_TEMPORAL_FUELING", () => {
+    expect(classify(CARB_TIMING_QUERY)).toBe("NUTRITION_TEMPORAL_FUELING");
+  });
+
+  it("(C2) meal-audit query classifies to NUTRITION_MEAL_AUDIT", () => {
+    expect(classify(MEAL_AUDIT_QUERY)).toBe("NUTRITION_MEAL_AUDIT");
+  });
+
+  it("(C3) label-audit query classifies to NUTRITION_LABEL_TRUTH", () => {
+    expect(classify(LABEL_AUDIT_QUERY)).toBe("NUTRITION_LABEL_TRUTH");
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Classifier authority — autoCompile overrides caller-supplied intent
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+describe("query_family_classifier — authoritative override in autoCompile()", () => {
+  it("(C4) autoCompile(CARB_TIMING, NUTRITION_MEAL_AUDIT) → NUTRITION_TEMPORAL_FUELING", () => {
+    const result = autoCompile(CARB_TIMING_QUERY, "NUTRITION_MEAL_AUDIT");
+    expect(result.intent).toBe("NUTRITION_TEMPORAL_FUELING");
+    expect(result.draft?.intent).toBe("NUTRITION_TEMPORAL_FUELING");
+  });
+
+  it("(C5) autoCompile(CARB_TIMING, NUTRITION_AUDIT) → NUTRITION_TEMPORAL_FUELING", () => {
+    const result = autoCompile(CARB_TIMING_QUERY, "NUTRITION_AUDIT");
+    expect(result.intent).toBe("NUTRITION_TEMPORAL_FUELING");
+    expect(result.draft?.intent).toBe("NUTRITION_TEMPORAL_FUELING");
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Compiled draft — correctness assertions
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 describe("NUTRITION_TEMPORAL_FUELING — compiled draft", () => {
   const result = autoCompile(CARB_TIMING_QUERY, "NUTRITION_TEMPORAL_FUELING");
@@ -157,6 +221,10 @@ describe("NUTRITION_TEMPORAL_FUELING — compiled draft", () => {
     expect(draft.isEvaluable).toBe(true);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Cross-route equivalence — auto-detect vs explicit routing
+   ═══════════════════════════════════════════════════════════════════════════════ */
 
 describe("NUTRITION_TEMPORAL_FUELING — via auto-detect route", () => {
   it("detectIntent then autoCompile produces same result as explicit routing", () => {

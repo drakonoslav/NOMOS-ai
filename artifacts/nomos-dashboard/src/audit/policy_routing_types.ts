@@ -69,6 +69,8 @@ export const INTENT_DOMAIN_MAP: Record<string, GovernanceDomain> = {
   NUTRITION_AUDIT:           "nutrition",
   NUTRITION_TEMPORAL_FUELING: "nutrition",
   NUTRITION_LABEL_AUDIT:     "nutrition",
+  NUTRITION_MEAL_AUDIT:      "nutrition",
+  NUTRITION_LABEL_TRUTH:     "nutrition",
   TRAINING_AUDIT:            "training",
   SCHEDULE_AUDIT:            "schedule",
   GENERIC_CONSTRAINT_TASK:   "generic",

@@ -1,7 +1,9 @@
 export type IntentType =
   | "NUTRITION_AUDIT"
+  | "NUTRITION_MEAL_AUDIT"
   | "NUTRITION_TEMPORAL_FUELING"
   | "NUTRITION_LABEL_AUDIT"
+  | "NUTRITION_LABEL_TRUTH"
   | "TRAINING_AUDIT"
   | "SCHEDULE_AUDIT"
   | "GENERIC_CONSTRAINT_TASK"
@@ -29,89 +31,112 @@ export interface DomainTemplate {
   missingFieldHints: Record<string, string>;
 }
 
+// ─── Shared template bodies ────────────────────────────────────────────────────
+//
+// NUTRITION_MEAL_AUDIT and NUTRITION_AUDIT share the same semantic template.
+// NUTRITION_LABEL_TRUTH and NUTRITION_LABEL_AUDIT share the same semantic template.
+// Defined once, referenced twice — avoids copy-paste drift.
+
+const _NUTRITION_MEAL_AUDIT_BODY = {
+  title: "Nutrition Meal Audit",
+  description:
+    "Use for meal-plan audits, macro verification, food-label grounding, and structure-preserving correction.",
+  state: [
+    "User is requesting a nutrition system audit or correction.",
+    "Meal structure may already exist but must be declared explicitly.",
+    "Food-label images or food macro sources may be required as source truth.",
+    "The task is not freeform nutrition advice; it is verification and correction against declared targets.",
+  ],
+  constraints: [
+    "Preserve meal order unless explicitly allowed otherwise.",
+    "Preserve meal count unless explicitly allowed otherwise.",
+    "Preserve protein placement by meal unless explicitly allowed otherwise.",
+    "Use attached food labels as source truth where provided.",
+    "Do not infer food behavior that is not supported by declared labels or source data.",
+    "If correction is requested, prefer the smallest structure-preserving change.",
+  ],
+  uncertainties: [
+    "Meal plan may not yet be attached.",
+    "Food-label truth may not yet be attached.",
+    "Estimated foods may be present without explicit source labels.",
+    "Fiber handling versus net-carb handling may not yet be specified.",
+  ],
+  candidates: [
+    { id: "A", text: "Audit only. Determine whether the nutrition system is faithful to the declared food data." },
+    { id: "B", text: "Audit plus minimal correction. Preserve meal structure and protein placement while correcting drift." },
+    { id: "C", text: "Audit plus derive reusable system rule. Identify recurring drift and express it as a correction rule." },
+  ],
+  objective: [
+    "Determine whether the nutrition system is accurate against the declared source truth.",
+    "Identify macro drift, structural drift, or unsupported reasoning.",
+    "If correction is requested, produce the smallest structure-preserving adjustment pattern.",
+  ],
+  requiredFields: ["meal_system_or_phase_plan", "target_macros_or_goal", "food_source_truth_or_labels"],
+  optionalFields: ["estimated_food_rules", "fiber_handling_rule", "correction_mode", "locked_food_placements"],
+  missingFieldHints: {
+    meal_system_or_phase_plan:       "Add the current meal system or phase plan in declared form.",
+    target_macros_or_goal:           "Add target calories and/or macro targets for the system being audited.",
+    food_source_truth_or_labels:     "Attach food labels or declare the source-truth macro data for the foods in the system.",
+    estimated_food_rules:            "State which foods are estimated rather than label-grounded, such as banana or eggs.",
+    fiber_handling_rule:             "State whether total carbs or net carbs should govern evaluation.",
+    correction_mode:                 "State whether the task is audit only, audit plus correction, or audit plus reusable rule derivation.",
+    locked_food_placements:          "State which foods or meal placements must remain fixed.",
+  },
+};
+
+const _NUTRITION_LABEL_TRUTH_BODY = {
+  title: "Nutrition Label Truth",
+  description:
+    "Use for food-label verification, macro comparison between declared and label-grounded data, source-truth correction, and serving-size interpretation.",
+  state: [
+    "A nutrition label audit or food comparison query is present.",
+    "Label-derived macro data is the governing source of truth.",
+    "The task is verification, comparison, or correction against declared label data.",
+  ],
+  constraints: [
+    "Use attached food labels or declared label data as source truth.",
+    "Do not infer macro values not supported by label data.",
+    "If correction is requested, prefer the smallest label-faithful change.",
+  ],
+  uncertainties: [
+    "Label images or label text may not yet be attached.",
+    "Unit conversion (per serving vs per 100g) may require explicit declaration.",
+    "Serving size interpretation may be ambiguous.",
+  ],
+  candidates: [
+    { id: "A", text: "Audit only. Determine whether the declared food data matches the label." },
+    { id: "B", text: "Audit plus correction. Produce the label-faithful correction." },
+  ],
+  objective: [
+    "Verify food macro data against declared source-truth labels.",
+    "Identify discrepancies and, if requested, produce the smallest label-faithful correction.",
+  ],
+  requiredFields: ["food_source_truth_or_labels"],
+  optionalFields: ["estimated_food_rules", "fiber_handling_rule"],
+  missingFieldHints: {
+    food_source_truth_or_labels: "Attach food labels or declare the source-truth macro data for the foods being audited.",
+    estimated_food_rules:        "State which foods are estimated rather than label-grounded.",
+    fiber_handling_rule:         "State whether total carbs or net carbs should govern evaluation.",
+  },
+};
+
+// ─── Template registry ─────────────────────────────────────────────────────────
+
 export const DOMAIN_TEMPLATES: Record<
   Exclude<IntentType, "UNKNOWN">,
   DomainTemplate
 > = {
+  // NUTRITION_AUDIT and NUTRITION_MEAL_AUDIT share the same template body.
+  // NUTRITION_AUDIT is the legacy key; NUTRITION_MEAL_AUDIT is the canonical classifier output.
   NUTRITION_AUDIT: {
     intent: "NUTRITION_AUDIT",
+    ..._NUTRITION_MEAL_AUDIT_BODY,
+  },
+
+  NUTRITION_MEAL_AUDIT: {
+    intent: "NUTRITION_MEAL_AUDIT",
+    ..._NUTRITION_MEAL_AUDIT_BODY,
     title: "Nutrition Meal Audit",
-    description:
-      "Use for meal-plan audits, macro verification, food-label grounding, and structure-preserving correction.",
-
-    state: [
-      "User is requesting a nutrition system audit or correction.",
-      "Meal structure may already exist but must be declared explicitly.",
-      "Food-label images or food macro sources may be required as source truth.",
-      "The task is not freeform nutrition advice; it is verification and correction against declared targets.",
-    ],
-
-    constraints: [
-      "Preserve meal order unless explicitly allowed otherwise.",
-      "Preserve meal count unless explicitly allowed otherwise.",
-      "Preserve protein placement by meal unless explicitly allowed otherwise.",
-      "Use attached food labels as source truth where provided.",
-      "Do not infer food behavior that is not supported by declared labels or source data.",
-      "If correction is requested, prefer the smallest structure-preserving change.",
-    ],
-
-    uncertainties: [
-      "Meal plan may not yet be attached.",
-      "Food-label truth may not yet be attached.",
-      "Estimated foods may be present without explicit source labels.",
-      "Fiber handling versus net-carb handling may not yet be specified.",
-    ],
-
-    candidates: [
-      {
-        id: "A",
-        text: "Audit only. Determine whether the nutrition system is faithful to the declared food data.",
-      },
-      {
-        id: "B",
-        text: "Audit plus minimal correction. Preserve meal structure and protein placement while correcting drift.",
-      },
-      {
-        id: "C",
-        text: "Audit plus derive reusable system rule. Identify recurring drift and express it as a correction rule.",
-      },
-    ],
-
-    objective: [
-      "Determine whether the nutrition system is accurate against the declared source truth.",
-      "Identify macro drift, structural drift, or unsupported reasoning.",
-      "If correction is requested, produce the smallest structure-preserving adjustment pattern.",
-    ],
-
-    requiredFields: [
-      "meal_system_or_phase_plan",
-      "target_macros_or_goal",
-      "food_source_truth_or_labels",
-    ],
-
-    optionalFields: [
-      "estimated_food_rules",
-      "fiber_handling_rule",
-      "correction_mode",
-      "locked_food_placements",
-    ],
-
-    missingFieldHints: {
-      meal_system_or_phase_plan:
-        "Add the current meal system or phase plan in declared form.",
-      target_macros_or_goal:
-        "Add target calories and/or macro targets for the system being audited.",
-      food_source_truth_or_labels:
-        "Attach food labels or declare the source-truth macro data for the foods in the system.",
-      estimated_food_rules:
-        "State which foods are estimated rather than label-grounded, such as banana or eggs.",
-      fiber_handling_rule:
-        "State whether total carbs or net carbs should govern evaluation.",
-      correction_mode:
-        "State whether the task is audit only, audit plus correction, or audit plus reusable rule derivation.",
-      locked_food_placements:
-        "State which foods or meal placements must remain fixed.",
-    },
   },
 
   NUTRITION_TEMPORAL_FUELING: {
@@ -220,6 +245,13 @@ export const DOMAIN_TEMPLATES: Record<
       fiber_handling_rule:
         "State whether total carbs or net carbs should govern evaluation.",
     },
+  },
+
+  // NUTRITION_LABEL_TRUTH — canonical classifier output key.
+  // Semantically identical to NUTRITION_LABEL_AUDIT (legacy key).
+  NUTRITION_LABEL_TRUTH: {
+    intent: "NUTRITION_LABEL_TRUTH",
+    ..._NUTRITION_LABEL_TRUTH_BODY,
   },
 
   TRAINING_AUDIT: {

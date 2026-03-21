@@ -1,0 +1,83 @@
+Build a master measurement and relation grammar for NOMOS.
+
+Goal:
+NOMOS must parse measurable entities and bind them through temporal, spatial, and quantitative relation words.
+
+This is not a nutrition-only parser.
+This is a general measurement + relation layer that runs before domain routing.
+
+Create:
+- src/compiler/unit_registry.ts
+- src/compiler/relation_lexicon.ts
+- src/compiler/anchor_registry.ts
+- src/compiler/measured_entity_types.ts
+- src/compiler/measured_entity_extractor.ts
+- src/compiler/relation_binder.ts
+- src/tests/relation_binder_test.ts
+
+Requirements:
+
+1. Unit registry:
+Support mass, volume, count, time, distance, training, and extensible generic units.
+
+At minimum include:
+Mass:
+- mcg, mg, g, kg, oz, lb, lbs
+
+Volume:
+- ml, mL, l, L, tsp, tbsp, cup, cups, pint, quart, gallon
+
+Count:
+- unit, units, item, items, piece, pieces, serving, servings, scoop, scoops, container, containers, capsule, capsules, tablet, tablets, bottle, bottles
+
+Time:
+- second, seconds, minute, minutes, hour, hours, day, days, week, weeks, month, months, year, years, decade, decades, century, centuries, millennium, millennia, era, eras, eon, eons
+
+Distance:
+- mm, cm, m, meter, meters, km, inch, inches, foot, feet, yard, yards, mile, miles
+
+Training:
+- rep, reps, set, sets, lap, laps, step, steps
+
+2. Relation lexicon:
+Support at minimum:
+Temporal:
+- before, after, within, during, until, since, by, for, from, to, between, around, near, pre, post
+
+Spatial:
+- above, below, under, over, inside, outside, near, around, between, beside, behind, in front of
+
+Quantitative threshold:
+- at least, at most, no more than, no less than, greater than, less than, equal to, exactly, approximately
+
+3. Measured entity extraction:
+If text contains amount + unit + nearby noun phrase, extract a MeasuredEntity.
+Do not require closed-vocabulary nouns.
+Known vocabularies can assist category tagging, but must not be required.
+
+4. Relation binding:
+If a relation word appears, bind the relevant measured entity relative to another entity or anchor.
+
+Examples that must bind correctly:
+- 80g cyclic dextrin 30 minutes before lifting
+- 5mg melatonin 2 hours before bed
+- 3 miles after work
+- 2 capsules magnesium with dinner
+- 40 lb dumbbell for 12 reps
+- 2 months after promotion
+- 1 decade before the merger
+- 3 meters from the wall
+
+5. Add canonical types for:
+- MeasuredEntity
+- RelationBinding
+- AnchorReference
+
+6. Open-vocabulary rule:
+Odd measurable nouns must still be preserved structurally if quantity + unit are present.
+
+7. Keep this layer domain-agnostic and deterministic.
+8. This must run before domain-family routing.
+
+Success condition:
+NOMOS can parse general measurable entities and bind them through temporal/spatial/quantitative relation words into a reusable reasoning graph.

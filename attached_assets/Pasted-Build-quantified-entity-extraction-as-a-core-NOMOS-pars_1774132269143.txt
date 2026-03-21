@@ -1,0 +1,145 @@
+Build quantified entity extraction as a core NOMOS parser layer.
+
+Goal:
+If text contains a number + unit + nearby measurable noun phrase, NOMOS should extract it as a quantified entity, even if the sentence is messy.
+
+This is not a food-only parser.
+This is a general measurable-object parser that must work before domain routing.
+
+Create:
+- src/compiler/quantified_entity_types.ts
+- src/compiler/quantified_entity_extractor.ts
+- src/compiler/unit_registry.ts
+- src/tests/quantified_entity_extractor_test.ts
+
+Requirements:
+
+1. Add canonical types.
+
+interface QuantifiedEntity {
+  id: string;
+
+  rawText: string;
+  normalizedText: string;
+
+  amount: number;
+  unit: string;
+  normalizedUnit: string;
+
+  entityLabel: string;
+  normalizedEntityLabel: string;
+
+  category:
+    | "food"
+    | "supplement"
+    | "fluid"
+    | "load"
+    | "duration"
+    | "countable_item"
+    | "unknown";
+
+  role:
+    | "candidate_item"
+    | "constraint_operand"
+    | "state_fact"
+    | "objective_operand"
+    | "unknown";
+
+  modifiers?: string[];
+  tags?: string[];
+
+  confidence: "low" | "moderate" | "high";
+}
+
+2. Add a unit registry covering at minimum:
+Mass:
+- g, gram, grams
+- kg
+- mg
+- lb, lbs
+- oz
+
+Volume:
+- ml, mL
+- l, L
+- cup, cups
+- tbsp, tsp
+- scoop, scoops
+- container, containers
+
+Count:
+- unit, units
+- capsule, capsules
+- tablet, tablets
+- serving, servings
+- piece, pieces
+- egg, eggs
+- banana, bananas
+
+Time:
+- second, seconds
+- minute, minutes
+- hour, hours
+- day, days
+
+Training:
+- rep, reps
+- set, sets
+
+3. Extraction rule:
+If a valid quantity + unit pattern is detected, bind the nearest compatible noun phrase as the measurable entity.
+
+Examples that must parse:
+- 30g oats
+- 80g cyclic dextrin
+- 1 banana
+- 2 eggs
+- 1 container yogurt
+- 500 mL water
+- 40 lb dumbbell
+- 3 hours sleep
+- 12 reps curls
+- 2 capsules magnesium
+
+4. Robustness rule:
+If the phrase is syntactically odd but still clearly quantity-bearing, preserve it rather than dropping it.
+Example:
+- 9 grams wishes
+
+This is a robustness fallback, not a target domain assumption.
+
+5. The extractor must tolerate:
+- messy syntax
+- missing punctuation
+- unit before/after noun in common patterns
+- multiple quantified entities in one sentence
+
+6. Add category inference heuristics:
+- food-like nouns -> food
+- supplement-like nouns -> supplement
+- water / liquid nouns -> fluid
+- lb/kg attached to equipment nouns -> load
+- hour/minute/day attached to activity/rest/sleep nouns -> duration
+- count nouns like eggs / bananas / capsules -> countable_item
+- otherwise unknown
+
+7. Add role inference heuristics:
+- candidate sentence -> candidate_item
+- threshold/constraint section -> constraint_operand
+- state section -> state_fact
+- objective section -> objective_operand
+- else unknown
+
+8. This layer must run before domain-family routing.
+Domain routing should use quantified entities as evidence.
+
+9. Add tests for:
+- nutrition examples
+- supplement examples
+- training load examples
+- duration examples
+- malformed but quantity-bearing examples
+- multi-entity candidate strings
+
+Success condition:
+Any measurable noun phrase with a quantity and unit can be captured as a quantified entity and made available to later compiler stages.

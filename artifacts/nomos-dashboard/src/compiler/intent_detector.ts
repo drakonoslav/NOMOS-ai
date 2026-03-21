@@ -154,9 +154,13 @@ export function detectIntent(rawInput: string): IntentType {
  *   1. NUTRITION_TEMPORAL_FUELING — timed candidate-action query with threshold
  *      constraints. Recognized by temporal timing phrases plus admissibility
  *      or margin language.
- *   2. NUTRITION_LABEL_AUDIT — label verification or food-source-truth audit.
+ *   2. NUTRITION_LABEL_TRUTH — label verification or food-source-truth audit.
  *      Recognized by label-reference phrases.
- *   3. NUTRITION_AUDIT (meal audit) — default fallback for the nutrition family.
+ *   3. NUTRITION_MEAL_AUDIT (meal audit) — default fallback for the nutrition family.
+ *
+ * NOTE: This function is a display-hint only (used to pre-populate the dropdown).
+ * Authoritative sub-family routing is done by query_family_classifier.ts inside
+ * autoCompile(), which operates on extracted fields, not raw text signals.
  */
 function routeNutritionSubFamily(lower: string): IntentType {
   const temporalScore   = countSignals(lower, TEMPORAL_FUELING_SIGNALS);
@@ -167,10 +171,10 @@ function routeNutritionSubFamily(lower: string): IntentType {
   }
 
   if (labelAuditScore >= LABEL_AUDIT_THRESHOLD) {
-    return "NUTRITION_LABEL_AUDIT";
+    return "NUTRITION_LABEL_TRUTH";
   }
 
-  return "NUTRITION_AUDIT";
+  return "NUTRITION_MEAL_AUDIT";
 }
 
 function countSignals(lower: string, signals: string[]): number {

@@ -1,6 +1,7 @@
 import { DomainTemplate, IntentType, getDomainTemplate } from "./domain_templates";
 import { ExtractedFields, extractFields } from "./field_extractor";
 import { GapDetectionResult, detectGaps } from "./gap_detector";
+import { classifyQueryFamily, fromExtractedFields } from "./query_family_classifier";
 
 export interface CompiledCandidate {
   id: string;
@@ -33,33 +34,54 @@ export interface AutoCompileResult {
   draft: StructuredDraft | null;
 }
 
+/**
+ * NUTRITION_INTENTS — all IntentType values in the nutrition domain.
+ * When the caller supplies any of these, the query family classifier runs
+ * for authoritative sub-family routing before template selection.
+ */
+const NUTRITION_INTENTS = new Set<IntentType>([
+  "NUTRITION_AUDIT",
+  "NUTRITION_MEAL_AUDIT",
+  "NUTRITION_TEMPORAL_FUELING",
+  "NUTRITION_LABEL_AUDIT",
+  "NUTRITION_LABEL_TRUTH",
+]);
+
 export function autoCompile(
   rawInput: string,
   intent: IntentType
 ): AutoCompileResult {
-  const template = getDomainTemplate(intent);
+  // ── Phase 1: extract fields using the caller-supplied intent ────────────────
+  // (for nutrition, this is a pre-pass; the effective intent may change)
+  const preExtracted = extractFields(rawInput, intent);
 
-  if (!template) {
-    return {
-      intent,
-      template: null,
-      extracted: null,
-      gaps: null,
-      draft: null,
-    };
+  // ── Phase 2: query family classifier (nutrition only) ──────────────────────
+  // The classifier operates on extracted fields (structured), not raw text.
+  // Its output is the authoritative template key for all nutrition queries.
+  let effectiveIntent: IntentType = intent;
+  if (NUTRITION_INTENTS.has(intent)) {
+    const family = classifyQueryFamily(fromExtractedFields(preExtracted));
+    effectiveIntent = family as IntentType;
   }
 
-  const extracted = extractFields(rawInput, intent);
-  const gaps = detectGaps(template, extracted);
+  // ── Phase 3: template selection ────────────────────────────────────────────
+  const template = getDomainTemplate(effectiveIntent);
+
+  if (!template) {
+    return { intent: effectiveIntent, template: null, extracted: null, gaps: null, draft: null };
+  }
+
+  // ── Phase 4: re-extract with effective intent if routing changed ────────────
+  // The structured nutrition parser inside extractFields() gates on the intent;
+  // re-running with the classified intent ensures correct field extraction.
+  const extracted = effectiveIntent !== intent
+    ? extractFields(rawInput, effectiveIntent)
+    : preExtracted;
+
+  const gaps  = detectGaps(template, extracted);
   const draft = buildStructuredDraft(template, extracted, gaps);
 
-  return {
-    intent,
-    template,
-    extracted,
-    gaps,
-    draft,
-  };
+  return { intent: effectiveIntent, template, extracted, gaps, draft };
 }
 
 export function buildStructuredDraft(
@@ -101,7 +123,10 @@ function buildState(
 ): string[] {
   const lines: string[] = [];
 
-  if (template.intent === "NUTRITION_AUDIT") {
+  if (
+    template.intent === "NUTRITION_AUDIT" ||
+    template.intent === "NUTRITION_MEAL_AUDIT"
+  ) {
     if (extracted.hasMealSystem) {
       lines.push(
         "A declared multi-meal or multi-phase nutrition system is present."
@@ -149,7 +174,10 @@ function buildState(
     }
   }
 
-  if (template.intent === "NUTRITION_LABEL_AUDIT") {
+  if (
+    template.intent === "NUTRITION_LABEL_AUDIT" ||
+    template.intent === "NUTRITION_LABEL_TRUTH"
+  ) {
     lines.push("A nutrition label audit or food comparison query is present.");
 
     if (extracted.hasLabels) {
@@ -222,7 +250,10 @@ function buildUncertainties(
     lines.push(...dedupe(extracted.uncertainties));
   }
 
-  if (template.intent === "NUTRITION_AUDIT") {
+  if (
+    template.intent === "NUTRITION_AUDIT" ||
+    template.intent === "NUTRITION_MEAL_AUDIT"
+  ) {
     const lower = extracted.rawInput.toLowerCase();
 
     if (
@@ -277,7 +308,10 @@ function buildUncertainties(
     }
   }
 
-  if (template.intent === "NUTRITION_LABEL_AUDIT") {
+  if (
+    template.intent === "NUTRITION_LABEL_AUDIT" ||
+    template.intent === "NUTRITION_LABEL_TRUTH"
+  ) {
     const lower = extracted.rawInput.toLowerCase();
 
     if (!containsAny(lower, ["per serving", "per 100g", "serving size"])) {
@@ -328,7 +362,10 @@ function buildObjective(
     lines.push(extracted.objective);
   }
 
-  if (template.intent === "NUTRITION_AUDIT") {
+  if (
+    template.intent === "NUTRITION_AUDIT" ||
+    template.intent === "NUTRITION_MEAL_AUDIT"
+  ) {
     if (extracted.hasMealSystem && extracted.hasLabels) {
       lines.push(
         "Determine whether the declared nutrition system is faithful to source-truth food data."
@@ -353,7 +390,10 @@ function buildObjective(
     }
   }
 
-  if (template.intent === "NUTRITION_LABEL_AUDIT") {
+  if (
+    template.intent === "NUTRITION_LABEL_AUDIT" ||
+    template.intent === "NUTRITION_LABEL_TRUTH"
+  ) {
     lines.push(
       "Verify food macro data against declared source-truth labels."
     );

@@ -1,0 +1,427 @@
+Yes — that is the right abstraction.
+
+You want NOMOS to have a general measurement-and-relation grammar, not a handful of food/time hacks.
+
+The rule is not:
+	•	“detect minutes before lifting”
+
+The rule is:
+	•	detect measurable entities
+	•	detect relation words
+	•	bind those entities into a temporal / spatial / quantitative graph
+
+So words like:
+	•	before
+	•	after
+	•	within
+	•	during
+	•	until
+	•	since
+	•	by
+	•	for
+	•	from
+	•	to
+	•	between
+	•	around
+	•	near
+	•	inside
+	•	outside
+	•	under
+	•	over
+
+should not be treated as decoration. They should trigger relational binding.
+
+The real model you want
+
+NOMOS should parse things as:
+	•	entity
+	•	measure
+	•	unit
+	•	anchor
+	•	relation
+	•	scope/window
+
+Example:
+
+80g cyclic dextrin 30 minutes before lifting
+
+becomes:
+	•	entity: cyclic dextrin
+	•	quantity: 80
+	•	unit: g
+	•	anchor entity: lifting
+	•	relation: before
+	•	offset quantity: 30
+	•	offset unit: minutes
+
+That is the right structure.
+
+⸻
+
+The master list idea
+
+Yes — you should build a definitive master registry, but split it into separate registries so it stays sane.
+
+1. Unit registry
+
+All measurable units.
+
+Mass
+	•	mcg
+	•	mg
+	•	g
+	•	kg
+	•	oz
+	•	lb
+	•	ton
+
+Volume
+	•	mL
+	•	L
+	•	tsp
+	•	tbsp
+	•	cup
+	•	pint
+	•	quart
+	•	gallon
+
+Count / discrete
+	•	unit
+	•	item
+	•	piece
+	•	serving
+	•	scoop
+	•	container
+	•	capsule
+	•	tablet
+	•	drop
+	•	packet
+	•	bottle
+	•	can
+
+Time
+	•	second
+	•	minute
+	•	hour
+	•	day
+	•	week
+	•	month
+	•	year
+	•	decade
+	•	century
+	•	millennium
+	•	era
+	•	eon
+
+Distance / space
+	•	mm
+	•	cm
+	•	m
+	•	km
+	•	inch
+	•	foot
+	•	yard
+	•	mile
+
+Training / motion
+	•	rep
+	•	set
+	•	step
+	•	lap
+
+Energy / power / temperature if you later need them
+	•	kcal
+	•	cal
+	•	joule
+	•	watt
+	•	bpm
+	•	°C
+	•	°F
+
+⸻
+
+2. Relation lexicon
+
+Words that create structure.
+
+Temporal ordering
+	•	before
+	•	after
+	•	since
+	•	until
+	•	by
+	•	during
+	•	while
+	•	when
+	•	as
+
+Temporal windows
+	•	within
+	•	over
+	•	across
+	•	between
+	•	from
+	•	to
+	•	around
+	•	near
+
+Temporal prefixes
+	•	pre
+	•	post
+
+Spatial / positional
+	•	above
+	•	below
+	•	under
+	•	over
+	•	inside
+	•	outside
+	•	near
+	•	around
+	•	between
+	•	beside
+	•	behind
+	•	in front of
+
+Quantitative comparison
+	•	at least
+	•	at most
+	•	no more than
+	•	no less than
+	•	greater than
+	•	less than
+	•	equal to
+	•	exactly
+	•	approximately
+
+⸻
+
+3. Anchor lexicon
+
+Things other things can be measured relative to.
+
+Examples:
+	•	lifting
+	•	workout
+	•	meal
+	•	bedtime
+	•	waking
+	•	sleep
+	•	cardio
+	•	commute
+	•	meeting
+	•	dose
+	•	event
+	•	session
+	•	deadline
+
+This should be open-vocabulary too, but anchors are important enough to model explicitly.
+
+⸻
+
+The correct parser idea
+
+You need a layer like:
+
+relation_binder.ts
+
+It should take extracted quantified entities and bind them into relations.
+
+Canonical idea:
+
+interface MeasuredEntity {
+  id: string;
+  label: string;
+  amount: number | null;
+  unit: string | null;
+}
+
+interface RelationBinding {
+  id: string;
+  subjectId: string;
+  relation:
+    | "before"
+    | "after"
+    | "within"
+    | "during"
+    | "until"
+    | "since"
+    | "between"
+    | "around"
+    | "near"
+    | "inside"
+    | "outside"
+    | "under"
+    | "over";
+
+  objectId: string | null;
+
+  offsetAmount?: number | null;
+  offsetUnit?: string | null;
+
+  rawText: string;
+}
+
+Example:
+
+30 minutes before lifting
+
+becomes a RelationBinding:
+	•	subject: some intake event
+	•	relation: before
+	•	object: lifting
+	•	offsetAmount: 30
+	•	offsetUnit: minute
+
+⸻
+
+The deep principle
+
+You are not really building:
+	•	a food parser
+	•	a time parser
+	•	a workout parser
+
+You are building:
+
+a measurable-entity + relation parser
+
+That is much more powerful.
+
+Because then NOMOS can understand all of these with the same machinery:
+	•	80g dextrin 30 minutes before lifting
+	•	5mg melatonin 2 hours before bed
+	•	3 miles after work
+	•	2 capsules magnesium with dinner
+	•	40 lb dumbbell for 12 reps
+	•	2 months after promotion
+	•	1 decade before the merger
+	•	3 meters from the wall
+
+Same grammar spine.
+
+⸻
+
+What to tell Replit
+
+Build a master measurement and relation grammar for NOMOS.
+
+Goal:
+NOMOS must parse measurable entities and bind them through temporal, spatial, and quantitative relation words.
+
+This is not a nutrition-only parser.
+This is a general measurement + relation layer that runs before domain routing.
+
+Create:
+- src/compiler/unit_registry.ts
+- src/compiler/relation_lexicon.ts
+- src/compiler/anchor_registry.ts
+- src/compiler/measured_entity_types.ts
+- src/compiler/measured_entity_extractor.ts
+- src/compiler/relation_binder.ts
+- src/tests/relation_binder_test.ts
+
+Requirements:
+
+1. Unit registry:
+Support mass, volume, count, time, distance, training, and extensible generic units.
+
+At minimum include:
+Mass:
+- mcg, mg, g, kg, oz, lb, lbs
+
+Volume:
+- ml, mL, l, L, tsp, tbsp, cup, cups, pint, quart, gallon
+
+Count:
+- unit, units, item, items, piece, pieces, serving, servings, scoop, scoops, container, containers, capsule, capsules, tablet, tablets, bottle, bottles
+
+Time:
+- second, seconds, minute, minutes, hour, hours, day, days, week, weeks, month, months, year, years, decade, decades, century, centuries, millennium, millennia, era, eras, eon, eons
+
+Distance:
+- mm, cm, m, meter, meters, km, inch, inches, foot, feet, yard, yards, mile, miles
+
+Training:
+- rep, reps, set, sets, lap, laps, step, steps
+
+2. Relation lexicon:
+Support at minimum:
+Temporal:
+- before, after, within, during, until, since, by, for, from, to, between, around, near, pre, post
+
+Spatial:
+- above, below, under, over, inside, outside, near, around, between, beside, behind, in front of
+
+Quantitative threshold:
+- at least, at most, no more than, no less than, greater than, less than, equal to, exactly, approximately
+
+3. Measured entity extraction:
+If text contains amount + unit + nearby noun phrase, extract a MeasuredEntity.
+Do not require closed-vocabulary nouns.
+Known vocabularies can assist category tagging, but must not be required.
+
+4. Relation binding:
+If a relation word appears, bind the relevant measured entity relative to another entity or anchor.
+
+Examples that must bind correctly:
+- 80g cyclic dextrin 30 minutes before lifting
+- 5mg melatonin 2 hours before bed
+- 3 miles after work
+- 2 capsules magnesium with dinner
+- 40 lb dumbbell for 12 reps
+- 2 months after promotion
+- 1 decade before the merger
+- 3 meters from the wall
+
+5. Add canonical types for:
+- MeasuredEntity
+- RelationBinding
+- AnchorReference
+
+6. Open-vocabulary rule:
+Odd measurable nouns must still be preserved structurally if quantity + unit are present.
+
+7. Keep this layer domain-agnostic and deterministic.
+8. This must run before domain-family routing.
+
+Success condition:
+NOMOS can parse general measurable entities and bind them through temporal/spatial/quantitative relation words into a reusable reasoning graph.
+
+
+⸻
+
+One important caution
+
+Do not try to make a literally complete “master list of all nouns.”
+
+That will fail.
+
+Do make:
+	•	a strong unit registry
+	•	a strong relation lexicon
+	•	a modest anchor vocabulary
+	•	open-vocabulary noun capture
+
+So the closed lists are for:
+	•	units
+	•	relations
+	•	common anchors
+
+Not for all possible objects.
+
+⸻
+
+The best next abstraction after this
+
+After this, the strongest next step is:
+
+operand graph / relation graph
+
+So NOMOS can store:
+	•	entity A measured in g
+	•	entity B measured in minutes
+	•	A occurs before anchor C by B
+	•	constraint applies to A-class entities inside a given window
+
+That is where parsing becomes true symbolic reasoning.
