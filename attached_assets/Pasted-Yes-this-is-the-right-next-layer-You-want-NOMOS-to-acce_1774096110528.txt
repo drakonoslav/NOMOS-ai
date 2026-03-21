@@ -1,0 +1,256 @@
+Yes — this is the right next layer.
+
+You want NOMOS to accept messy human input, but not evaluate it directly.
+It should:
+
+messy request → compiler → structured declaration → confirmation → evaluation
+
+That is the correct architecture.
+
+⸻
+
+What the auto-compiler should do
+
+If the user types:
+
+fix my meal plan
+
+NOMOS should not guess a solution.
+
+It should compile that into something like:
+
+STATE:
+- User wants a meal-plan audit/correction task.
+- Meal structure is likely already defined but not yet parsed.
+- Nutrition labels and phase targets may be relevant.
+
+CONSTRAINTS:
+- Unknown until clarified.
+- Common likely constraints: preserve meal timing, preserve protein placement, keep calories close to target.
+
+UNCERTAINTIES:
+- No meal plan attached yet.
+- No food label truth attached yet.
+- No correction mode selected.
+
+CANDIDATES:
+A:
+- Audit only.
+
+B:
+- Audit + minimal correction.
+
+OBJECTIVE:
+- Determine whether the meal system is accurate and whether correction is needed.
+
+Then NOMOS should say:
+
+Submission incomplete. Meal plan and source labels required.
+Add the current meal system and attached food labels.
+
+That’s the move.
+
+⸻
+
+The auto-compiler architecture
+
+You want 5 stages:
+
+1. Intent detector
+
+Classify the raw input:
+	•	meal audit
+	•	schedule audit
+	•	training audit
+	•	freeform unknown
+
+2. Domain template selector
+
+Pick a skeleton:
+	•	nutrition_audit_template
+	•	training_audit_template
+	•	schedule_template
+
+3. Field extractor
+
+Pull out what’s already present:
+	•	meal plan?
+	•	labels?
+	•	targets?
+	•	constraints?
+	•	requested correction mode?
+
+4. Gap detector
+
+Mark what’s missing.
+
+5. Structured prompt emitter
+
+Generate:
+	•	STATE
+	•	CONSTRAINTS
+	•	UNCERTAINTIES
+	•	CANDIDATES
+	•	OBJECTIVE
+
+with blanks or inferred placeholders clearly marked
+
+⸻
+
+What to tell Replit
+
+Paste this:
+
+Build the NOMOS auto-compiler layer.
+
+Goal:
+Allow messy user requests to be converted into structured NOMOS declarations before evaluation.
+
+Create:
+- src/compiler/intent_types.ts
+- src/compiler/intent_detector.ts
+- src/compiler/domain_templates.ts
+- src/compiler/field_extractor.ts
+- src/compiler/gap_detector.ts
+- src/compiler/auto_compiler.ts
+
+Requirements:
+
+1. Intent detector
+Classify raw user input into one of:
+- NUTRITION_AUDIT
+- TRAINING_AUDIT
+- SCHEDULE_AUDIT
+- GENERIC_CONSTRAINT_TASK
+- UNKNOWN
+
+2. Domain templates
+Define reusable structured shells for each domain with sections:
+- STATE
+- CONSTRAINTS
+- UNCERTAINTIES
+- CANDIDATES
+- OBJECTIVE
+
+3. Field extractor
+Detect whether the raw input already contains:
+- meal plan / phase plan
+- label references
+- targets
+- explicit constraints
+- explicit candidates
+- explicit objective
+
+4. Gap detector
+Identify which required structured fields are missing.
+
+5. Auto-compiler
+Transform messy input into a structured declaration draft.
+
+Example:
+Input:
+"fix my meal plan"
+
+Output draft:
+STATE:
+- User requests a nutrition system audit/correction.
+- Current meal structure not yet provided.
+
+CONSTRAINTS:
+- Preserve structure if possible.
+- Keep conclusions grounded in label truth.
+
+UNCERTAINTIES:
+- Meal plan not yet attached.
+- Food labels not yet attached.
+- Targets not yet attached.
+
+CANDIDATES:
+A:
+- Audit only.
+
+B:
+- Audit + minimal correction.
+
+OBJECTIVE:
+- Determine whether the meal system is accurate and whether correction is needed.
+
+6. Do not evaluate from the raw request directly.
+7. Always compile first, then ask for confirmation or missing fields.
+
+Success condition:
+Messy user input can be converted into a NOMOS-compatible structured declaration draft before evaluation.
+
+
+⸻
+
+Recommended behavior in UI
+
+Your page should become:
+
+User types:
+
+fix my meal plan
+
+NOMOS shows:
+	•	compiled draft
+	•	missing inputs
+	•	“confirm structure” checkbox
+	•	evaluate button disabled until required fields are present
+
+That makes the system feel intelligent without letting it become sloppy.
+
+⸻
+
+Minimal compiler types
+
+If you want the core types first, here’s the shape:
+
+type IntentType =
+  | "NUTRITION_AUDIT"
+  | "TRAINING_AUDIT"
+  | "SCHEDULE_AUDIT"
+  | "GENERIC_CONSTRAINT_TASK"
+  | "UNKNOWN";
+
+type StructuredDraft = {
+  state: string[];
+  constraints: string[];
+  uncertainties: string[];
+  candidates: { id: string; text: string }[];
+  objective: string[];
+  missingFields: string[];
+  intent: IntentType;
+};
+
+
+⸻
+
+Important design rule
+
+The compiler is allowed to:
+	•	infer structure
+	•	infer likely domain
+	•	infer likely missing sections
+
+The compiler is not allowed to:
+	•	invent facts
+	•	fabricate labels
+	•	silently assume constraints are satisfied
+	•	evaluate before confirmation
+
+That line is everything.
+
+⸻
+
+The real power
+
+Once this exists, NOMOS becomes:
+	•	easy to use for humans
+	•	strict internally
+	•	hard to fool
+	•	extensible across domains
+
+That’s when it stops feeling like a rigid form and starts feeling like a system with discipline.
+
+If you want, I can also draft the exact domain_templates.ts content for nutrition, training, and scheduling so Replit has almost no ambiguity.

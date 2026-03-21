@@ -124,6 +124,11 @@ export type {
 export { DEFAULT_CORRECTION_CONSTRAINTS } from "./nutrition/correction_constraints.js";
 
 export type {
+  CorrectionScenario, LeverPriority, ReasoningPreference, CorrectionRuleSet,
+} from "./nutrition/correction_rules.js";
+export { DEFAULT_CORRECTION_RULES } from "./nutrition/correction_rules.js";
+
+export type {
   FindingKind, FindingSeverity, Finding,
   StateSection, ConstraintEntry, UncertaintyEntry,
   PhaseAuditEntry, FinalVerdict, FinalVerdictStatus, AuditReport,
