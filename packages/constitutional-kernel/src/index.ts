@@ -87,6 +87,17 @@ export {
   deriveNutritionWindowVariables,
 } from "./evaluation/windowed_aggregator.js";
 
+export type { MacroProfile, MacrosPerGram, FoodPrimitive } from "./nutrition/food_primitive.js";
+export type { NutritionLabelEntry } from "./nutrition/label_parser.js";
+export { parseLabelEntry, parseLabelEntries } from "./nutrition/label_parser.js";
+export {
+  FOOD_REGISTRY,
+  getFoodById,
+  listFoods,
+  listLabelFoods,
+  listEstimatedFoods,
+} from "./nutrition/food_registry.js";
+
 export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
 export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";
 export { normalizeCandidate } from "./evaluation/candidate_normalizer.js";
