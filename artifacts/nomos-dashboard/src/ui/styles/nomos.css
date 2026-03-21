@@ -830,6 +830,57 @@ textarea {
   line-height: var(--nm-line-loose);
 }
 
+/* =========================================================
+   Margin score display — per candidate card
+   ========================================================= */
+
+.candidate-evaluation-card__margin {
+  margin-top: var(--nm-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.candidate-evaluation-card__margin-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--nm-space-3);
+}
+
+.candidate-evaluation-card__score {
+  font-family: var(--nm-font-mono);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.candidate-evaluation-card__margin-label {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Margin label color tokens */
+.margin-label--high     { color: #4ade80; }
+.margin-label--moderate { color: #facc15; }
+.margin-label--low      { color: #fb923c; }
+.margin-label--failed   { color: #f87171; }
+
+/* Summary panel sub-label */
+.evaluation-result-panel__summary-value--mono {
+  font-family: var(--nm-font-mono);
+}
+
+.evaluation-result-panel__summary-sub {
+  font-size: var(--nm-text-sm);
+  font-weight: 400;
+  color: var(--nm-text-muted);
+  letter-spacing: 0;
+}
+
 .evaluation-result-panel__notes {
   margin-top: var(--nm-space-5);
   padding-top: var(--nm-space-4);

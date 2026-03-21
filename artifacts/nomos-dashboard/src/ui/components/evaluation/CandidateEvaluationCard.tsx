@@ -24,6 +24,18 @@ export function CandidateEvaluationCard({ card }: CandidateEvaluationCardProps) 
         </div>
       )}
 
+      <div className="candidate-evaluation-card__margin">
+        <div className="candidate-evaluation-card__label">Margin Score</div>
+        <div className="candidate-evaluation-card__margin-row">
+          <span className={`candidate-evaluation-card__score margin-label--${card.marginLabelDisplay.toLowerCase()}`}>
+            {card.marginScoreDisplay}
+          </span>
+          <span className={`candidate-evaluation-card__margin-label margin-label--${card.marginLabelDisplay.toLowerCase()}`}>
+            {card.marginLabelDisplay}
+          </span>
+        </div>
+      </div>
+
       <div className="candidate-evaluation-card__reason">{card.reason}</div>
 
       {card.adjustments.length > 0 && (

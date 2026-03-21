@@ -1,0 +1,360 @@
+Implement the exact margin scoring model and UI field layout below.
+
+==================================================
+1. SCORING MODEL
+==================================================
+
+Goal:
+Add a continuous margin score on top of the current categorical evaluation.
+
+Each candidate must now return:
+- status
+- reason
+- decisiveVariable
+- adjustments
+- confidence
+- marginScore
+- marginLabel
+
+Types to add/update:
+
+type MarginLabel = "HIGH" | "MODERATE" | "LOW" | "FAILED";
+
+interface CandidateEvaluation {
+  id: string;
+  status: "LAWFUL" | "DEGRADED" | "INVALID";
+  reason: string;
+  decisiveVariable: string;
+  adjustments?: string[];
+  confidence: "high" | "moderate" | "low";
+  marginScore: number;   // 0.00 to 1.00
+  marginLabel: MarginLabel;
+}
+
+interface EvaluationResult {
+  overallStatus: "LAWFUL" | "DEGRADED" | "INVALID";
+  lawfulSet: string[];
+  candidateEvaluations: CandidateEvaluation[];
+  decisiveVariable: string;
+  bestCandidateId?: string;
+  strongestMarginScore?: number;
+  weakestAdmissibleMarginScore?: number;
+  notes: string[];
+}
+
+--------------------------------------------------
+2. EXACT NO-DROP SCORING MODEL
+--------------------------------------------------
+
+Constraint kind:
+NO_DROP
+
+Risk model:
+- hard violation (release/toss/throw) => score = 0.00, label = FAILED, status = INVALID
+- reduced control (slide) => low score, label = LOW, status = DEGRADED
+- controlled carry => strong score, label = HIGH, status = LAWFUL
+- secure cart => strongest score, label = HIGH, status = LAWFUL
+
+Use this exact deterministic scoring function:
+
+function scoreNoDropCandidate(candidate: NormalizedCandidate): {
+  marginScore: number;
+  marginLabel: MarginLabel;
+  status: "LAWFUL" | "DEGRADED" | "INVALID";
+} {
+  const text = candidate.raw.toLowerCase();
+
+  // hard failure
+  if (
+    candidate.riskFlags.includes("release_control") ||
+    text.includes("toss") ||
+    text.includes("throw")
+  ) {
+    return {
+      marginScore: 0.0,
+      marginLabel: "FAILED",
+      status: "INVALID",
+    };
+  }
+
+  // degraded / low margin
+  if (
+    candidate.riskFlags.includes("reduced_control") ||
+    text.includes("slide")
+  ) {
+    return {
+      marginScore: 0.4,
+      marginLabel: "LOW",
+      status: "DEGRADED",
+    };
+  }
+
+  // strongest lawful
+  if (
+    text.includes("cart") &&
+    (text.includes("secure") || text.includes("securely"))
+  ) {
+    return {
+      marginScore: 0.92,
+      marginLabel: "HIGH",
+      status: "LAWFUL",
+    };
+  }
+
+  // normal lawful
+  if (
+    text.includes("carry") &&
+    (text.includes("both hands") || text.includes("carefully"))
+  ) {
+    return {
+      marginScore: 0.85,
+      marginLabel: "HIGH",
+      status: "LAWFUL",
+    };
+  }
+
+  // fallback admissible but moderate
+  return {
+    marginScore: 0.6,
+    marginLabel: "MODERATE",
+    status: "LAWFUL",
+  };
+}
+
+--------------------------------------------------
+3. LABEL MAPPING RULE
+--------------------------------------------------
+
+Use this exact helper too for future domains:
+
+function marginLabelFromScore(score: number): MarginLabel {
+  if (score <= 0) return "FAILED";
+  if (score < 0.5) return "LOW";
+  if (score < 0.75) return "MODERATE";
+  return "HIGH";
+}
+
+--------------------------------------------------
+4. EXPECTED OUTPUT FOR CURRENT TRANSPORT DEMO
+--------------------------------------------------
+
+A. Carry the object carefully using both hands.
+- status: LAWFUL
+- marginScore: 0.85
+- marginLabel: HIGH
+- decisiveVariable: control continuity
+
+B. Toss the object to the destination.
+- status: INVALID
+- marginScore: 0.00
+- marginLabel: FAILED
+- decisiveVariable: drop risk
+
+C. Use a cart to transport the object securely.
+- status: LAWFUL
+- marginScore: 0.92
+- marginLabel: HIGH
+- decisiveVariable: control continuity
+
+D. Slide the object along the ground.
+- status: DEGRADED
+- marginScore: 0.40
+- marginLabel: LOW
+- decisiveVariable: control margin
+
+Overall:
+- overallStatus: LAWFUL
+- lawfulSet: A, C
+- bestCandidateId: C
+- strongestMarginScore: 0.92
+- weakestAdmissibleMarginScore: 0.85
+
+Note:
+Do NOT include DEGRADED candidates in lawfulSet.
+Do NOT treat invalid candidates as admissible.
+
+--------------------------------------------------
+5. RESULT AGGREGATION RULES
+--------------------------------------------------
+
+Add these helpers:
+
+function resolveBestCandidate(
+  evaluations: CandidateEvaluation[]
+): string | undefined {
+  const admissible = evaluations.filter(
+    (e) => e.status === "LAWFUL"
+  );
+  if (admissible.length === 0) return undefined;
+
+  admissible.sort((a, b) => b.marginScore - a.marginScore);
+  return admissible[0].id;
+}
+
+function resolveStrongestMarginScore(
+  evaluations: CandidateEvaluation[]
+): number | undefined {
+  if (evaluations.length === 0) return undefined;
+  return Math.max(...evaluations.map((e) => e.marginScore));
+}
+
+function resolveWeakestAdmissibleMarginScore(
+  evaluations: CandidateEvaluation[]
+): number | undefined {
+  const admissible = evaluations.filter((e) => e.status === "LAWFUL");
+  if (admissible.length === 0) return undefined;
+  return Math.min(...admissible.map((e) => e.marginScore));
+}
+
+--------------------------------------------------
+6. UI FIELD LAYOUT
+==================================================
+
+Keep current card layout style, but reorder fields exactly like this:
+
+Candidate Card Layout:
+
+--------------------------------------------------
+CANDIDATE A
+[LAWFUL]
+
+DECISIVE FACTOR
+control continuity.
+
+MARGIN
+0.85  HIGH
+
+Controlled transport. Constraint satisfied.
+
+ADJUSTMENTS
+(optional, only if present)
+--------------------------------------------------
+
+Rules:
+1. Status badge stays near the top.
+2. Decisive factor comes immediately after status.
+3. Margin is shown immediately after decisive factor.
+4. Reason comes after margin.
+5. Adjustments last and only if present.
+
+--------------------------------------------------
+7. EXACT VIEW MODEL TO ADD
+--------------------------------------------------
+
+interface CandidateEvaluationCardViewModel {
+  id: string;
+  title: string;
+  status: "LAWFUL" | "DEGRADED" | "INVALID";
+  statusLabel: string;
+  toneClassName: string;
+
+  decisiveVariable?: string;
+
+  marginScore: string;   // formatted like "0.85"
+  marginLabel: "HIGH" | "MODERATE" | "LOW" | "FAILED";
+
+  reason: string;
+  adjustments: string[];
+}
+
+interface EvaluationResultViewModel {
+  overallStatus: "LAWFUL" | "DEGRADED" | "INVALID";
+  overallStatusLabel: string;
+  overallToneClassName: string;
+
+  lawfulSetLabel: string;
+  decisiveVariable?: string;
+
+  bestCandidateId?: string;
+  strongestMarginScore?: string;
+  weakestAdmissibleMarginScore?: string;
+
+  candidateCards: CandidateEvaluationCardViewModel[];
+  notes: string[];
+}
+
+Mapper rules:
+- marginScore must be formatted with toFixed(2)
+- strongestMarginScore and weakestAdmissibleMarginScore too
+- preserve current concise phrasing
+
+--------------------------------------------------
+8. OVERALL SUMMARY PANEL LAYOUT
+--------------------------------------------------
+
+Top summary section should render:
+
+OVERALL STATUS
+LAWFUL
+
+LAWFUL CANDIDATE SET
+A, C
+
+DECISIVE VARIABLE
+drop risk.
+
+BEST CANDIDATE
+C
+
+STRONGEST MARGIN
+0.92
+
+WEAKEST ADMISSIBLE MARGIN
+0.85
+
+If a value is missing, omit that block entirely.
+
+--------------------------------------------------
+9. CSS / VISUAL RULES
+--------------------------------------------------
+
+Add a compact margin row to each candidate card:
+
+Label:
+MARGIN
+
+Value format:
+0.85  HIGH
+
+Visual treatment:
+- score in monospace or stronger numeric styling
+- label beside it, smaller but still clear
+- HIGH in green
+- MODERATE in muted/neutral
+- LOW in amber
+- FAILED in red
+
+Suggested class names:
+- candidate-evaluation-card__margin
+- candidate-evaluation-card__margin-label
+- candidate-evaluation-card__margin-value
+- candidate-evaluation-card__margin-score
+- candidate-evaluation-card__margin-band
+
+Suggested status classes:
+- is-lawful
+- is-degraded
+- is-invalid
+
+Suggested margin band classes:
+- margin-high
+- margin-moderate
+- margin-low
+- margin-failed
+
+--------------------------------------------------
+10. DO NOT CHANGE
+--------------------------------------------------
+
+Do not change:
+- parser behavior
+- section extraction
+- current deterministic categorical logic except to add scoring
+- tone style
+- candidate reasons already working
+
+This is an additive scoring + presentation pass only.
+
+Desired effect:
+NOMOS should now show not just whether a candidate survives,
+but how far it stands from failure.

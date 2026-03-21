@@ -1,0 +1,81 @@
+Add a margin scoring layer to the current working NOMOS evaluation engine.
+
+Goal:
+Move from purely categorical output (LAWFUL / DEGRADED / INVALID) to continuous scoring that measures how far each candidate is from the relevant constraint boundary.
+
+Do NOT remove categorical output.
+Instead, add a numeric margin score underneath it.
+
+Required behavior:
+
+1. Each candidate evaluation must now include:
+   - status: LAWFUL | DEGRADED | INVALID
+   - reason
+   - decisiveVariable
+   - adjustments
+   - marginScore: number from 0.00 to 1.00
+   - marginLabel: HIGH | MODERATE | LOW | FAILED
+
+2. Interpretation:
+   - 1.00 = maximal safety / distance from failure
+   - 0.00 = direct failure / violated constraint
+   - FAILED = invalid candidates
+   - LOW = barely admissible / degraded
+   - MODERATE = acceptable but not strong
+   - HIGH = strong margin
+
+3. For the current transport example:
+   - A (carry carefully using both hands) should score high, e.g. 0.85
+   - B (toss the object) should score 0.00 and FAILED
+   - C (use a cart securely) should score very high, e.g. 0.92
+   - D (slide the object along the ground) should score low, e.g. 0.40
+
+4. Add a deterministic scoring function for the no-drop domain.
+Example approach:
+   - start from a base score
+   - subtract for risk flags
+   - set to 0 if hard violation
+   - map score to label:
+     >= 0.75 => HIGH
+     >= 0.50 => MODERATE
+     > 0.00 => LOW
+     == 0.00 => FAILED
+
+5. Create or update types so candidate evaluation includes:
+{
+  id,
+  status,
+  reason,
+  decisiveVariable,
+  adjustments,
+  confidence,
+  marginScore,
+  marginLabel
+}
+
+6. Add overall summary fields:
+   - bestCandidateId
+   - strongestMarginScore
+   - weakestAdmissibleMarginScore
+
+7. Update the UI so each candidate card shows:
+   - DECISIVE FACTOR
+   - MARGIN SCORE
+   - MARGIN LABEL
+   - reason
+   - adjustments
+
+8. Presentation rules:
+   - Keep current categorical badge
+   - Add margin below decisive factor
+   - Show score as fixed decimal, e.g. 0.85
+   - Show label beside it, e.g. HIGH
+   - Invalid candidates should display 0.00 / FAILED
+
+9. Do not change parser behavior.
+10. Do not remove existing deterministic evaluation logic.
+11. This is an additive scoring layer on top of the current engine.
+
+Desired effect:
+NOMOS should not only say whether a candidate survives the constraint.
+It should show how much room that candidate has before failure.

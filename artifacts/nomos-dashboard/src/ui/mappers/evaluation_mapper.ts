@@ -7,6 +7,7 @@
  * - Pure functions — no side effects.
  * - cleanPhrase normalizes trailing punctuation for consistent display.
  * - toToneClassName maps CandidateStatus to a CSS class modifier.
+ * - formatScore formats a margin score to a fixed-decimal string.
  * - No component logic lives here.
  */
 
@@ -32,6 +33,12 @@ export function mapEvaluationResultToViewModel(
     decisiveVariable: cleanPhrase(result.decisiveVariable),
     candidateCards: result.candidateEvaluations.map(mapCandidateEvaluation),
     notes: result.notes ?? [],
+    bestCandidateId: result.bestCandidateId ?? null,
+    strongestMarginDisplay: formatScore(result.strongestMarginScore),
+    weakestAdmissibleMarginDisplay:
+      result.weakestAdmissibleMarginScore !== null
+        ? formatScore(result.weakestAdmissibleMarginScore)
+        : null,
   };
 }
 
@@ -47,6 +54,8 @@ export function mapCandidateEvaluation(
     reason: cleanPhrase(evaluation.reason) ?? "",
     decisiveVariable: cleanPhrase(evaluation.decisiveVariable),
     adjustments: (evaluation.adjustments ?? []).map((a) => cleanPhrase(a) ?? a),
+    marginScoreDisplay: formatScore(evaluation.marginScore),
+    marginLabelDisplay: evaluation.marginLabel,
   };
 }
 
@@ -63,4 +72,8 @@ function cleanPhrase(value?: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   return trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+}
+
+function formatScore(score: number): string {
+  return score.toFixed(2);
 }

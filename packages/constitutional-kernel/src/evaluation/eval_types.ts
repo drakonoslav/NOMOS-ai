@@ -5,12 +5,14 @@
  *
  * Constitutional role:
  * - Defines the typed contract between each pipeline stage.
- * - CandidateStatus is the only output the kernel produces — LAWFUL, DEGRADED, or INVALID.
+ * - CandidateStatus is the only categorical output — LAWFUL, DEGRADED, or INVALID.
+ * - marginScore is a continuous [0, 1] measure of distance from constraint failure.
+ * - marginLabel is a presentation-safe bucket derived from marginScore.
  * - Confidence describes matcher certainty, not constitutional authority.
- * - decisiveVariable is the named factor that determined the result.
  */
 
 export type CandidateStatus = "LAWFUL" | "DEGRADED" | "INVALID";
+export type MarginLabel = "HIGH" | "MODERATE" | "LOW" | "FAILED";
 
 export interface NormalizedConstraint {
   raw: string;
@@ -35,7 +37,12 @@ export interface NormalizedCandidate {
   riskFlags: string[];
 }
 
-export interface CandidateEvaluation {
+/**
+ * CandidateEvaluationDraft
+ * Produced by the deterministic matcher and LLM evaluator — before margin scoring.
+ * The margin scorer promotes this to CandidateEvaluation.
+ */
+export interface CandidateEvaluationDraft {
   id: string;
   status: CandidateStatus;
   reason: string;
@@ -44,10 +51,18 @@ export interface CandidateEvaluation {
   confidence: "high" | "moderate" | "low";
 }
 
+export interface CandidateEvaluation extends CandidateEvaluationDraft {
+  marginScore: number;
+  marginLabel: MarginLabel;
+}
+
 export interface EvaluationResult {
   overallStatus: CandidateStatus;
   lawfulSet: string[];
   candidateEvaluations: CandidateEvaluation[];
   decisiveVariable: string;
   notes: string[];
+  bestCandidateId: string | null;
+  strongestMarginScore: number;
+  weakestAdmissibleMarginScore: number | null;
 }

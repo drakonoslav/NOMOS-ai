@@ -11,7 +11,7 @@
  */
 
 import OpenAI from "openai";
-import { CandidateEvaluation, NormalizedCandidate, NormalizedConstraint } from "./eval_types.js";
+import { CandidateEvaluationDraft, NormalizedCandidate, NormalizedConstraint } from "./eval_types.js";
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4.1";
 
@@ -26,7 +26,7 @@ function getClient(): OpenAI | null {
   return cachedClient;
 }
 
-const LLM_FALLBACK_RESULT = (id: string, constraint: string): CandidateEvaluation => ({
+const LLM_FALLBACK_RESULT = (id: string, constraint: string): CandidateEvaluationDraft => ({
   id,
   status: "DEGRADED",
   reason: "Constraint type could not be deterministically classified; evaluation requires manual review.",
@@ -38,7 +38,7 @@ const LLM_FALLBACK_RESULT = (id: string, constraint: string): CandidateEvaluatio
 export async function evaluateSemantically(
   constraint: NormalizedConstraint,
   candidate: NormalizedCandidate
-): Promise<CandidateEvaluation> {
+): Promise<CandidateEvaluationDraft> {
   const client = getClient();
 
   if (!client) {

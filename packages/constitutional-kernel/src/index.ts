@@ -59,10 +59,13 @@ export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
 export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";
 export { normalizeCandidate } from "./evaluation/candidate_normalizer.js";
 export { evaluateDeterministically } from "./evaluation/deterministic_matcher.js";
+export { computeMarginScore, toMarginLabel } from "./evaluation/margin_scorer.js";
 export type {
   CandidateStatus,
+  MarginLabel,
   NormalizedConstraint,
   NormalizedCandidate,
+  CandidateEvaluationDraft,
   CandidateEvaluation,
   EvaluationResult,
 } from "./evaluation/eval_types.js";

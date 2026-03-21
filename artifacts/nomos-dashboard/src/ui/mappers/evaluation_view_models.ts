@@ -7,6 +7,8 @@
  * - All strings are already label-safe and presentation-ready.
  * - toneClassName is the CSS modifier class for the card's status tone.
  * - statusLabel is the exact displayed string.
+ * - marginScoreDisplay is pre-formatted (e.g. "0.85").
+ * - marginLabelDisplay is uppercase (e.g. "HIGH").
  * - No backend field names leak into components.
  */
 
@@ -21,6 +23,8 @@ export interface CandidateEvaluationCardViewModel {
   reason: string;
   decisiveVariable?: string;
   adjustments: string[];
+  marginScoreDisplay: string;
+  marginLabelDisplay: string;
 }
 
 export interface EvaluationResultViewModel {
@@ -31,4 +35,7 @@ export interface EvaluationResultViewModel {
   decisiveVariable?: string;
   candidateCards: CandidateEvaluationCardViewModel[];
   notes: string[];
+  bestCandidateId: string | null;
+  strongestMarginDisplay: string;
+  weakestAdmissibleMarginDisplay: string | null;
 }

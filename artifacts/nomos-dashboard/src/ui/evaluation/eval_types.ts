@@ -7,6 +7,7 @@
  */
 
 export type CandidateStatus = "LAWFUL" | "DEGRADED" | "INVALID";
+export type MarginLabel = "HIGH" | "MODERATE" | "LOW" | "FAILED";
 
 export interface CandidateEvaluation {
   id: string;
@@ -15,6 +16,8 @@ export interface CandidateEvaluation {
   decisiveVariable: string;
   adjustments?: string[];
   confidence: "high" | "moderate" | "low";
+  marginScore: number;
+  marginLabel: MarginLabel;
 }
 
 export interface EvaluationResult {
@@ -23,4 +26,7 @@ export interface EvaluationResult {
   candidateEvaluations: CandidateEvaluation[];
   decisiveVariable: string;
   notes: string[];
+  bestCandidateId: string | null;
+  strongestMarginScore: number;
+  weakestAdmissibleMarginScore: number | null;
 }

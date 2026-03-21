@@ -14,7 +14,7 @@
  */
 
 import {
-  CandidateEvaluation,
+  CandidateEvaluationDraft,
   NormalizedCandidate,
   NormalizedConstraint,
 } from "./eval_types.js";
@@ -22,7 +22,7 @@ import {
 export function evaluateDeterministically(
   constraint: NormalizedConstraint,
   candidate: NormalizedCandidate
-): CandidateEvaluation | null {
+): CandidateEvaluationDraft | null {
   switch (constraint.kind) {
     case "NO_DROP":
       return evalNoDrop(candidate);
@@ -52,7 +52,7 @@ export function evaluateDeterministically(
    NO_DROP — object must not be dropped at any point
    ========================================================= */
 
-function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluation {
+function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluationDraft {
   if (candidate.riskFlags.includes("release_control")) {
     return {
       id: candidate.id,
@@ -88,7 +88,7 @@ function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluation {
    NO_RELEASE — must maintain control at all times
    ========================================================= */
 
-function evalNoRelease(candidate: NormalizedCandidate): CandidateEvaluation {
+function evalNoRelease(candidate: NormalizedCandidate): CandidateEvaluationDraft {
   if (candidate.riskFlags.includes("release_control")) {
     return {
       id: candidate.id,
@@ -124,7 +124,7 @@ function evalNoRelease(candidate: NormalizedCandidate): CandidateEvaluation {
    NO_TURNOVER — soil must not be turned over or disturbed
    ========================================================= */
 
-function evalNoTurnover(candidate: NormalizedCandidate): CandidateEvaluation {
+function evalNoTurnover(candidate: NormalizedCandidate): CandidateEvaluationDraft {
   if (candidate.riskFlags.includes("soil_disturbance")) {
     return {
       id: candidate.id,
@@ -161,7 +161,7 @@ function evalNoTurnover(candidate: NormalizedCandidate): CandidateEvaluation {
    PRESERVE_STRUCTURE — structural integrity must be maintained
    ========================================================= */
 
-function evalPreserveStructure(candidate: NormalizedCandidate): CandidateEvaluation {
+function evalPreserveStructure(candidate: NormalizedCandidate): CandidateEvaluationDraft {
   if (candidate.riskFlags.includes("structural_alteration")) {
     return {
       id: candidate.id,
@@ -200,7 +200,7 @@ function evalPreserveStructure(candidate: NormalizedCandidate): CandidateEvaluat
 function evalBoundedTime(
   candidate: NormalizedCandidate,
   constraint: NormalizedConstraint
-): CandidateEvaluation {
+): CandidateEvaluationDraft {
   const lower = candidate.raw.toLowerCase();
 
   if (lower.includes("delay") || lower.includes("postpone") || lower.includes("later")) {
@@ -241,7 +241,7 @@ function evalBoundedTime(
 function evalBoundedResource(
   candidate: NormalizedCandidate,
   constraint: NormalizedConstraint
-): CandidateEvaluation {
+): CandidateEvaluationDraft {
   if (candidate.riskFlags.includes("resource_intensity")) {
     return {
       id: candidate.id,
