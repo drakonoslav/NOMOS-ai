@@ -5,12 +5,12 @@
  * The scenario is a function of user intent, not epistemic state —
  * it selects WHICH constitutional path to demonstrate.
  *
- * Scenarios: lawful_baseline | refused_infeasible
+ * Scenarios: lawful_baseline | degraded_low_margin | refused_infeasible
  */
 
 import React, { createContext, useContext, useState } from "react";
 
-export type DemoScenario = "lawful_baseline" | "refused_infeasible";
+export type DemoScenario = "lawful_baseline" | "degraded_low_margin" | "refused_infeasible";
 
 interface ScenarioContextValue {
   scenario: DemoScenario;

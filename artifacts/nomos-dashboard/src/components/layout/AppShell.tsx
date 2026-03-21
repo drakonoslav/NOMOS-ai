@@ -23,6 +23,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const SCENARIOS: { value: DemoScenario; label: string; short: string }[] = [
   { value: "lawful_baseline", label: "LAWFUL BASELINE", short: "LAWFUL" },
+  { value: "degraded_low_margin", label: "DEGRADED — LOW MARGIN", short: "DEGRADED" },
   { value: "refused_infeasible", label: "REFUSED — INFEASIBLE", short: "REFUSED" },
 ];
 
@@ -176,6 +177,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       scenario === s.value
                         ? s.value === "refused_infeasible"
                           ? "bg-destructive/20 text-destructive border border-destructive/40"
+                          : s.value === "degraded_low_margin"
+                          ? "bg-warning/20 text-warning border border-warning/40"
                           : "bg-success/20 text-success border border-success/40"
                         : "text-muted-foreground hover:text-primary hover:bg-secondary/50 border border-transparent"
                     )}

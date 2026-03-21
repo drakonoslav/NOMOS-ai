@@ -1,0 +1,303 @@
+Exactly.
+
+That is the moment the dashboard stops being a styled interface and becomes a demonstration of constitutional behavior.
+
+Right now, without fixed scenarios, the UI can still look like:
+	•	a shell
+	•	a control panel
+	•	a nice frontend
+
+But once you wire in deterministic scenarios, it becomes:
+
+proof that NOMOS governs different reality states differently
+
+And that is the whole point.
+
+Why deterministic scenarios matter
+
+If the system only runs one unstable demo path, then:
+	•	the user doesn’t know what NOMOS is supposed to do
+	•	the UI feels contingent
+	•	tone feels cosmetic
+	•	verification feels abstract
+
+Deterministic scenarios solve that.
+
+They give you three repeatable truths:
+
+1. LAWFUL
+
+NOMOS permits action.
+
+2. DEGRADED
+
+NOMOS constrains action.
+
+3. INVALID
+
+NOMOS refuses action.
+
+That is the full behavioral grammar of the system.
+
+⸻
+
+Why this makes the dashboard feel alive
+
+Because now every page has contrast.
+
+Overview
+
+Instead of “here is some status data,” it becomes:
+	•	one scenario with calm authorization
+	•	one with controlled limitation
+	•	one with final refusal
+
+Verification
+
+Instead of just pass/fail boxes, it becomes:
+	•	“this is what success looks like”
+	•	“this is what stress looks like”
+	•	“this is what hard illegality looks like”
+
+Tone system
+
+Instead of sounding like UI copy, it becomes visibly state-dependent:
+	•	compressed in LAWFUL
+	•	more qualified in DEGRADED
+	•	final in INVALID
+
+Audit
+
+Instead of just logs, it becomes a record of:
+	•	permission
+	•	constrained permission
+	•	denial
+
+That’s why it starts to feel alive.
+
+Not because it is “personality-rich,” but because it shows:
+
+different lawful reactions to different declared realities
+
+⸻
+
+The correct scenario set
+
+You want exactly these three:
+
+Scenario A — lawful_baseline
+
+Target:
+	•	verification.status = "LAWFUL"
+	•	authority = AUTHORIZED
+	•	action outcome = APPLIED
+
+Use:
+	•	low epsilon
+	•	full identifiability
+	•	high model confidence
+	•	robust candidate survives comfortably
+
+⸻
+
+Scenario B — degraded_low_margin
+
+Target:
+	•	verification.status = "DEGRADED"
+	•	authority = CONSTRAINED
+	•	action outcome = DEGRADED_ACTION_APPLIED
+
+Use:
+	•	feasibility still true
+	•	robustness just above or near threshold
+	•	moderate uncertainty
+	•	lower model confidence
+	•	partial identifiability
+
+This is the most important one.
+
+⸻
+
+Scenario C — refused_infeasible
+
+Target:
+	•	verification.status = "INVALID"
+	•	authority = REFUSED
+	•	action outcome = REFUSED
+
+Use:
+	•	hard feasibility failure
+	•	no candidate survives screening
+	•	or verification sees broken legality at the lowest layer
+
+⸻
+
+Where to wire it in the dashboard
+
+Best UX pattern
+
+Put scenario selection in two places:
+
+1. Top bar
+
+Compact selector:
+	•	Lawful
+	•	Degraded
+	•	Invalid
+
+2. Overview page
+
+More descriptive scenario cards:
+	•	Lawful Baseline
+	•	Degraded Low Margin
+	•	Refused Infeasible
+
+That gives you:
+	•	quick switching
+	•	explanatory selection
+
+⸻
+
+Recommended state shape
+
+Add an app-level scenario type:
+
+export type DemoScenario =
+  | "lawful_baseline"
+  | "degraded_low_margin"
+  | "refused_infeasible";
+
+And a state container:
+
+interface ScenarioRuntimeState {
+  scenario: DemoScenario;
+  dashboardState: DashboardState;
+}
+
+Then build:
+
+function buildScenarioRuntime(scenario: DemoScenario): DashboardState
+
+That function should return:
+	•	belief
+	•	observer result
+	•	model confidence
+	•	proposals
+	•	decision
+	•	verification
+	•	authority
+	•	audit records
+
+all in a deterministic way.
+
+⸻
+
+Best implementation strategy
+
+Do not make the UI itself invent scenarios.
+
+Instead:
+
+Build a scenario adapter layer
+
+Suggested files:
+
+src/demo/
+  scenario_types.ts
+  scenario_builder.ts
+  lawful_baseline.ts
+  degraded_low_margin.ts
+  refused_infeasible.ts
+
+Each scenario file returns a complete runtime snapshot.
+
+Then the dashboard just renders the selected snapshot.
+
+That keeps the UI clean and the system architecture honest.
+
+⸻
+
+What each scenario should teach
+
+LAWFUL teaches:
+
+NOMOS can permit cleanly.
+
+DEGRADED teaches:
+
+NOMOS can continue under stress without pretending all is well.
+
+INVALID teaches:
+
+NOMOS can refuse decisively.
+
+Those three together make the system intelligible immediately.
+
+⸻
+
+Why DEGRADED is the star
+
+LAWFUL is satisfying.
+INVALID is clear.
+
+But DEGRADED is where NOMOS shows wisdom.
+
+Because that is where it says:
+
+“Reality still permits action, but not full authority.”
+
+That is the most advanced behavior in the whole system.
+
+⸻
+
+What to tell Replit
+
+Paste this exactly:
+
+Build three deterministic NOMOS runtime scenarios directly into the dashboard.
+
+Required scenarios:
+1. lawful_baseline
+   - verification.status = LAWFUL
+   - authority = AUTHORIZED
+   - action outcome = APPLIED
+
+2. degraded_low_margin
+   - verification.status = DEGRADED
+   - authority = CONSTRAINED
+   - action outcome = DEGRADED_ACTION_APPLIED
+
+3. refused_infeasible
+   - verification.status = INVALID
+   - authority = REFUSED
+   - action outcome = REFUSED
+
+Implementation requirements:
+- add a DemoScenario type
+- add a scenario builder layer separate from the UI
+- create deterministic runtime snapshots for each scenario
+- do not randomize
+- do not bypass the NOMOS chain conceptually
+- each scenario should populate the dashboard state so all pages render meaningfully
+
+UI requirements:
+- add a scenario selector in the top bar and Overview page
+- allow instant switching between the three states
+- make the tone resolver visibly different across all three
+- ensure Overview, Verification, and Audit clearly demonstrate the distinctions
+
+
+⸻
+
+Final reason this is the right step
+
+Because once those three scenarios exist, NOMOS stops being:
+	•	code
+	•	theory
+	•	interface
+
+and becomes:
+
+a system with a visible decision space
+
+That is when it truly starts to feel real.
