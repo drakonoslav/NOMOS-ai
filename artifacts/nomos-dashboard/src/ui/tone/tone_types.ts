@@ -52,6 +52,16 @@ export interface ToneResolverInput {
    * Optional recovery adjustments computed elsewhere.
    */
   adjustments?: string[];
+
+  /**
+   * Optional failure forecast from the prediction engine.
+   * Injected into body only when confidence is moderate or high.
+   */
+  prediction?: {
+    nextFailure: string;
+    confidence: "low" | "moderate" | "high";
+    driver: string;
+  };
 }
 
 export interface ToneMessage {

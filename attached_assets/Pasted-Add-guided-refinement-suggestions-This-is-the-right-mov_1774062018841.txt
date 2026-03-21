@@ -1,0 +1,309 @@
+Add guided refinement suggestions
+
+This is the right move—done correctly, it makes NOMOS feel sharp and helpful without ever taking control of the declaration.
+
+⸻
+
+🧠 Core principle (do not break)
+
+NOMOS never rewrites the user’s intent
+It only:
+
+	•	detects gaps
+	•	enforces structure
+	•	proposes optional refinements
+
+⸻
+
+🧱 What we’re building
+
+A Suggestion Layer that sits inside the conversation flow:
+
+User input
+→ parse (stage-aware)
+→ validate completeness
+→ generate suggestions (LLM + rules)
+→ display suggestions (non-authoritative)
+
+
+⸻
+
+🧩 1. Suggestion data model
+
+📁 suggestion_engine.ts
+
+export interface Suggestion {
+  id: string;
+  text: string;
+  type: "constraint" | "intent" | "assumption";
+  confidence: "low" | "moderate" | "high";
+}
+
+
+⸻
+
+🧠 2. Rule-first suggestions (fast, deterministic)
+
+export function ruleBasedSuggestions(
+  draft: Partial<NomosQuery>
+): Suggestion[] {
+  const suggestions: Suggestion[] = [];
+
+  if (!draft.constraints?.length) {
+    suggestions.push({
+      id: "sleep_constraint",
+      type: "constraint",
+      confidence: "high",
+      text: "sleep ≥ 7h",
+    });
+  }
+
+  if (!draft.intent) {
+    suggestions.push({
+      id: "intent_clarity",
+      type: "intent",
+      confidence: "moderate",
+      text: "Define objective with measurable change.",
+    });
+  }
+
+  return suggestions;
+}
+
+
+⸻
+
+🧠 3. LLM-assisted suggestions (scoped + safe)
+
+📁 llm_refiner.ts
+
+import OpenAI from "openai";
+
+export async function generateRefinementSuggestions(
+  stage: string,
+  input: string
+): Promise<Suggestion[]> {
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY!,
+  });
+
+  const prompt = `
+You are assisting a structured decision system.
+
+Your role:
+- Suggest improvements ONLY
+- Do NOT rewrite user input
+- Do NOT assume intent
+- Return short, formal suggestions
+
+Stage: ${stage}
+Input: "${input}"
+
+Output JSON:
+[{ "text": "...", "type": "...", "confidence": "..." }]
+`;
+
+  const res = await client.responses.create({
+    model: process.env.OPENAI_MODEL ?? "gpt-5.4",
+    input: prompt,
+  });
+
+  try {
+    return JSON.parse(res.output_text);
+  } catch {
+    return [];
+  }
+}
+
+
+⸻
+
+🧠 4. Combine rule + LLM suggestions
+
+export async function getSuggestions(
+  draft: Partial<NomosQuery>,
+  stage: string,
+  input: string
+): Promise<Suggestion[]> {
+  const rule = ruleBasedSuggestions(draft);
+  const llm = await generateRefinementSuggestions(stage, input);
+
+  return dedupeSuggestions([...rule, ...llm]);
+}
+
+
+⸻
+
+🧠 5. Deduplication
+
+function dedupeSuggestions(list: Suggestion[]): Suggestion[] {
+  const seen = new Set<string>();
+
+  return list.filter((s) => {
+    const key = s.text.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+
+⸻
+
+🧩 6. UI Component
+
+📁 SuggestionPanel.tsx
+
+export function SuggestionPanel({
+  suggestions,
+  onApply,
+}: {
+  suggestions: Suggestion[];
+  onApply: (s: Suggestion) => void;
+}) {
+  if (!suggestions.length) return null;
+
+  return (
+    <div className="nm-suggestions">
+      <div className="nm-suggestions-title">
+        Suggested refinements
+      </div>
+
+      {suggestions.map((s) => (
+        <div key={s.id} className="nm-suggestion">
+          <span>{s.text}</span>
+
+          <button onClick={() => onApply(s)}>
+            Apply
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 7. CSS (minimal, non-intrusive)
+
+.nm-suggestions {
+  margin-top: 10px;
+  border-top: 1px solid var(--nm-border);
+  padding-top: 8px;
+}
+
+.nm-suggestions-title {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  margin-bottom: 6px;
+}
+
+.nm-suggestion {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.nm-suggestion button {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+
+⸻
+
+🧠 8. Apply behavior (IMPORTANT)
+
+When user clicks:
+
+function applySuggestion(
+  draft: Partial<NomosQuery>,
+  suggestion: Suggestion
+): Partial<NomosQuery> {
+  if (suggestion.type === "constraint") {
+    return {
+      ...draft,
+      constraints: [...(draft.constraints ?? []), suggestion.text],
+    };
+  }
+
+  return draft;
+}
+
+
+⸻
+
+🔥 Resulting interaction
+
+User: increase training volume
+
+NOMOS:
+State the objective precisely.
+
+Suggestions:
+• increase weekly volume by 10–20%
+• define time horizon
+
+---
+
+User clicks:
+"sleep ≥ 7h"
+
+Draft updates.
+
+---
+
+NOMOS:
+Declare constraints.
+
+
+⸻
+
+🧠 Why this works
+
+You achieve:
+
+1. Guidance without control
+	•	user remains author
+	•	system improves structure
+
+2. Precision without verbosity
+	•	suggestions are short
+	•	no explanations unless needed
+
+3. Intelligence without guessing
+	•	no assumption injection
+	•	no rewriting user intent
+
+⸻
+
+🧠 Final insight
+
+This is the key shift:
+
+NOMOS does not answer questions
+It refines declarations until they are valid
+
+That’s what makes it feel:
+	•	sharp
+	•	disciplined
+	•	trustworthy
+
+⸻
+
+If you want next
+
+👉 add auto-detection of missing variables
+
+So NOMOS says:
+
+“Constraint lacks threshold.”
+
+instead of waiting for user error.
+
+Just say:
+“Add missing variable detection”
+
+and we’ll make it proactively enforce structure.

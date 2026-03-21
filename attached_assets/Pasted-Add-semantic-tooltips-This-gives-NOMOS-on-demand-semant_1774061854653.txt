@@ -1,0 +1,271 @@
+Add semantic tooltips
+
+This gives NOMOS on-demand semantic depth without polluting the interface.
+
+visible layer = minimal
+hover layer = precise meaning
+
+⸻
+
+🧠 What we’re building
+
+When user hovers:
+	•	robustness margin → definition + current value context
+	•	feasibility constraint → exact violated rule
+	•	model confidence → what it represents
+	•	observability → why it matters
+
+⸻
+
+🧱 1. Create semantic dictionary
+
+📁 src/ui/semantic/semantic_map.ts
+
+export interface SemanticEntry {
+  label: string;
+  description: string;
+  dynamic?: (ctx: any) => string;
+}
+
+export const SEMANTIC_MAP: Record<string, SemanticEntry> = {
+  "robustness margin": {
+    label: "Robustness Margin",
+    description:
+      "Distance between current operating point and failure threshold.",
+    dynamic: (ctx) =>
+      ctx?.robustnessEpsilon !== undefined
+        ? `ε = ${ctx.robustnessEpsilon} (min ${ctx.robustnessEpsilonMin})`
+        : "",
+  },
+
+  "feasibility constraint": {
+    label: "Feasibility Constraint",
+    description:
+      "A required condition that must be satisfied for any valid action.",
+    dynamic: (ctx) =>
+      ctx?.activeConstraint
+        ? `Violated: ${ctx.activeConstraint}`
+        : "",
+  },
+
+  "model confidence": {
+    label: "Model Confidence",
+    description:
+      "Estimated reliability of the system model under current conditions.",
+    dynamic: (ctx) =>
+      ctx?.modelConfidence !== undefined
+        ? `Confidence: ${ctx.modelConfidence.toFixed(2)}`
+        : "",
+  },
+
+  observability: {
+    label: "Observability",
+    description:
+      "Ability to infer internal system state from available measurements.",
+  },
+
+  identifiability: {
+    label: "Identifiability",
+    description:
+      "Ability to uniquely determine system parameters from data.",
+  },
+};
+
+
+⸻
+
+🧩 2. Tooltip component
+
+📁 SemanticTooltip.tsx
+
+import React, { useState } from "react";
+import { SEMANTIC_MAP } from "../semantic/semantic_map";
+
+export function SemanticTooltip({
+  term,
+  context,
+  children,
+}: {
+  term: string;
+  context?: any;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+
+  const entry = SEMANTIC_MAP[term.toLowerCase()];
+  if (!entry) return <>{children}</>;
+
+  return (
+    <span
+      className="nm-tooltip-wrapper"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {children}
+
+      {hover && (
+        <div className="nm-tooltip">
+          <div className="nm-tooltip-title">{entry.label}</div>
+          <div className="nm-tooltip-desc">
+            {entry.description}
+          </div>
+
+          {entry.dynamic && (
+            <div className="nm-tooltip-dynamic">
+              {entry.dynamic(context)}
+            </div>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
+
+⸻
+
+🧠 3. Integrate into highlighting system
+
+📁 StatusCard.tsx
+
+Modify splitAndWrap:
+
+import { SemanticTooltip } from "../SemanticTooltip";
+
+
+⸻
+
+Replace span wrapper:
+
+return (
+  <SemanticTooltip
+    key={`${i}-${j}`}
+    term={keyword}
+    context={toneInput}
+  >
+    <span className={cls}>{part}</span>
+  </SemanticTooltip>
+);
+
+
+⸻
+
+🎨 4. Tooltip styling
+
+📁 nomos.css
+
+.nm-tooltip-wrapper {
+  position: relative;
+  cursor: help;
+}
+
+.nm-tooltip {
+  position: absolute;
+  bottom: 125%;
+  left: 0;
+  min-width: 220px;
+  max-width: 280px;
+
+  background: #0f1115;
+  border: 1px solid var(--nm-border);
+  border-radius: 6px;
+  padding: 8px;
+
+  font-size: 12px;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.nm-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--nm-accent-strong);
+}
+
+.nm-tooltip-desc {
+  color: var(--nm-text-secondary);
+  margin-bottom: 4px;
+}
+
+.nm-tooltip-dynamic {
+  font-family: var(--nm-font-mono);
+  font-size: 11px;
+  color: var(--nm-text-muted);
+}
+
+
+⸻
+
+🔥 Resulting UX
+
+Hover: robustness margin
+
+Robustness Margin
+Distance between current operating point and failure threshold.
+
+ε = 0.042 (min 0.030)
+
+
+⸻
+
+Hover: feasibility constraint
+
+Feasibility Constraint
+A required condition that must be satisfied for any valid action.
+
+Violated: resource_availability ≥ demand
+
+
+⸻
+
+🧠 Why this is powerful
+
+Without tooltips:
+	•	system feels rigid
+	•	terms feel opaque
+
+With tooltips:
+	•	system remains minimal
+	•	depth is available only when needed
+
+⸻
+
+🧠 Design integrity preserved
+
+You did NOT:
+	•	add labels everywhere
+	•	clutter UI
+	•	break flow
+
+You DID:
+	•	attach meaning to structure
+	•	keep interaction optional
+	•	preserve system tone
+
+⸻
+
+🧠 Final insight
+
+Now NOMOS operates on two layers:
+
+Layer	Function
+Visible	Decision
+Hover	Explanation
+
+That’s exactly how a serious system should behave.
+
+⸻
+
+If you want next
+
+👉 add click-to-expand deep trace per term
+
+So clicking “robustness margin” opens:
+	•	full calculation
+	•	historical values
+	•	threshold derivation
+
+Just say:
+“Add deep trace panel”
+
+and we’ll connect UI → math layer directly.

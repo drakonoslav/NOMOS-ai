@@ -1,0 +1,263 @@
+Highlight constraint violations in UI
+
+This completes the visual language:
+
+success → green emphasis
+degradation → amber emphasis
+violation → red emphasis
+
+Clean, consistent, and tied to epistemic meaning.
+
+⸻
+
+🧠 What we’re adding
+
+We will:
+	1.	Detect violation + degradation phrases
+	2.	Highlight:
+	•	violated constraints (INVALID)
+	•	reduced margins / limiting factors (DEGRADED)
+	3.	Keep:
+	•	subtle
+	•	consistent with decisive styling
+	•	non-noisy
+
+⸻
+
+🧱 1. Extend render logic (StatusCard)
+
+📁 StatusCard.tsx
+
+Replace renderLine with multi-pass highlighting:
+
+function renderLine(
+  line: string,
+  decisive?: string,
+  status?: "LAWFUL" | "DEGRADED" | "INVALID"
+) {
+  let segments: React.ReactNode[] = [line];
+
+  // 1. Decisive variable highlight (already exists)
+  if (decisive) {
+    segments = splitAndWrap(
+      segments,
+      decisive,
+      "nm-decisive"
+    );
+  }
+
+  // 2. Constraint violation (INVALID)
+  if (status === "INVALID") {
+    segments = splitAndWrapMulti(segments, [
+      { key: "feasibility", cls: "nm-violation" },
+      { key: "violation", cls: "nm-violation" },
+      { key: "constraint", cls: "nm-violation" },
+    ]);
+  }
+
+  // 3. Margin degradation (DEGRADED)
+  if (status === "DEGRADED") {
+    segments = splitAndWrapMulti(segments, [
+      { key: "reduced", cls: "nm-degraded-highlight" },
+      { key: "insufficient", cls: "nm-degraded-highlight" },
+      { key: "degraded", cls: "nm-degraded-highlight" },
+      { key: "margin", cls: "nm-degraded-highlight" },
+    ]);
+  }
+
+  return segments;
+}
+
+
+⸻
+
+🧠 2. Utility split functions
+
+function splitAndWrap(
+  nodes: React.ReactNode[],
+  keyword: string,
+  cls: string
+): React.ReactNode[] {
+  const regex = new RegExp(`(${keyword})`, "i");
+
+  return nodes.flatMap((node, i) => {
+    if (typeof node !== "string") return [node];
+
+    const parts = node.split(regex);
+
+    return parts.map((part, j) => {
+      if (part.toLowerCase() === keyword.toLowerCase()) {
+        return (
+          <span key={`${i}-${j}`} className={cls}>
+            {part}
+          </span>
+        );
+      }
+      return <span key={`${i}-${j}`}>{part}</span>;
+    });
+  });
+}
+
+
+⸻
+
+
+function splitAndWrapMulti(
+  nodes: React.ReactNode[],
+  rules: { key: string; cls: string }[]
+): React.ReactNode[] {
+  let result = nodes;
+
+  for (const rule of rules) {
+    result = splitAndWrap(result, rule.key, rule.cls);
+  }
+
+  return result;
+}
+
+
+⸻
+
+🧩 3. Pass status into renderer
+
+Update usage:
+
+{message.lines.map((line, i) => (
+  <div key={i} className="nm-line">
+    {renderLine(line, message.decisiveVariable, message.status)}
+  </div>
+))}
+
+
+⸻
+
+🎨 4. CSS: Visual hierarchy
+
+Add to nomos.css
+
+/* DECISIVE (green emphasis) */
+.nm-decisive {
+  font-weight: 600;
+  color: var(--nm-accent-strong);
+}
+
+/* DEGRADED (amber emphasis) */
+.nm-degraded-highlight {
+  color: var(--nm-degraded);
+  font-weight: 500;
+}
+
+/* VIOLATION (red emphasis) */
+.nm-violation {
+  color: var(--nm-invalid);
+  font-weight: 600;
+}
+
+
+⸻
+
+🧠 5. Color variables (ensure defined)
+
+:root {
+  --nm-accent-strong: #7df9aa;  /* green */
+  --nm-degraded: #ffb84d;       /* amber */
+  --nm-invalid: #ff5c5c;        /* red */
+}
+
+
+⸻
+
+🔥 Resulting behavior
+
+⸻
+
+INVALID
+
+Feasibility violation detected.
+Failure is governed by feasibility constraint.
+
+Visual:
+	•	feasibility → red
+	•	violation → red
+	•	constraint → red
+
+→ instantly clear failure locus
+
+⸻
+
+DEGRADED
+
+Feasibility holds; robustness margin is reduced.
+Observability insufficient.
+
+Visual:
+	•	reduced → amber
+	•	margin → amber
+	•	insufficient → amber
+
+→ instantly clear limitation
+
+⸻
+
+LAWFUL
+
+All constraints satisfied; robustness margin governs outcome.
+
+Visual:
+	•	robustness margin → green
+
+→ instantly clear driver
+
+⸻
+
+🧠 Design principle achieved
+
+You now have:
+
+Meaning	Color	Weight
+Decisive	Green	Strong
+Degraded	Amber	Medium
+Violated	Red	Strong
+
+
+⸻
+
+🧠 Why this is correct
+
+You did NOT:
+	•	add icons
+	•	add clutter
+	•	add extra text
+
+You DID:
+	•	make meaning visible
+	•	align color with system state
+	•	preserve minimalism
+
+⸻
+
+🧠 Final insight
+
+Now the UI answers visually:
+
+What matters? → green
+What’s weakening? → amber
+What breaks it? → red
+
+Without reading everything.
+
+That’s a real system interface.
+
+⸻
+
+If you want next
+
+👉 add hover tooltips for highlighted terms
+so:
+	•	“robustness margin” → definition
+	•	“feasibility constraint” → exact violated rule
+
+Just say:
+“Add semantic tooltips”
+
+and we’ll give every term meaning on demand without clutter.

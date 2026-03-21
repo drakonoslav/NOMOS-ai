@@ -1,0 +1,272 @@
+Good—this is the right evolution.
+
+What you have now is:
+
+a constitutional decision system with a visual shell
+
+What you’re asking for is:
+
+a constitutional reasoning partner with controlled dialogue
+
+That’s a different interface layer—but the same core.
+
+⸻
+
+🧠 The key principle (don’t break this)
+
+NOMOS should NOT become a chatbot.
+
+It should become:
+
+a guided conversational interface that produces explicit, verifiable submissions
+
+So instead of:
+	•	freeform chat → fuzzy interpretation
+
+You want:
+	•	dialogue → refined declaration → confirmed query → evaluated result
+
+⸻
+
+🔥 The correct model
+
+NOT:
+
+User: what should I do?
+NOMOS: maybe try this...
+
+BUT:
+
+User: I want to increase training volume
+
+NOMOS:
+State objective more precisely.
+
+User:
+Increase weekly volume by 20% without exceeding recovery capacity.
+
+NOMOS:
+Declare constraints.
+
+User:
+Sleep ≥ 7h, HRV not decreasing, no joint pain.
+
+NOMOS:
+Submission ready. Confirm?
+
+User:
+Confirm.
+
+→ THEN evaluation runs
+
+
+⸻
+
+🧱 What to build (exactly)
+
+A Conversational Query Constructor
+
+Not chat. Not assistant.
+
+A structured dialogue engine
+
+⸻
+
+🧩 1. Conversation State Machine
+
+📁 conversation_engine.ts
+
+type Stage =
+  | "INTENT"
+  | "CONSTRAINTS"
+  | "MODEL_ASSUMPTIONS"
+  | "CONFIRMATION"
+  | "EVALUATION";
+
+interface ConversationState {
+  stage: Stage;
+  draftQuery: Partial<NomosQuery>;
+}
+
+
+⸻
+
+🧠 2. Controlled prompts per stage
+
+function getPrompt(state: ConversationState): string {
+  switch (state.stage) {
+    case "INTENT":
+      return "State the objective precisely.";
+
+    case "CONSTRAINTS":
+      return "Declare constraints that must not be violated.";
+
+    case "MODEL_ASSUMPTIONS":
+      return "Specify assumptions or unknowns.";
+
+    case "CONFIRMATION":
+      return "Confirm submission or revise.";
+
+    default:
+      return "";
+  }
+}
+
+
+⸻
+
+🧠 3. User input → structured extraction
+
+Use your existing LLM parser, but scoped:
+
+function updateDraft(
+  state: ConversationState,
+  input: string
+): ConversationState {
+  // call parser with stage context
+  const parsed = parseByStage(input, state.stage);
+
+  return {
+    ...state,
+    draftQuery: {
+      ...state.draftQuery,
+      ...parsed,
+    },
+  };
+}
+
+
+⸻
+
+🧠 4. Stage progression logic
+
+function nextStage(state: ConversationState): Stage {
+  if (!state.draftQuery.intent) return "INTENT";
+  if (!state.draftQuery.constraints) return "CONSTRAINTS";
+  if (!state.draftQuery.assumptions) return "MODEL_ASSUMPTIONS";
+  return "CONFIRMATION";
+}
+
+
+⸻
+
+🧠 5. UI: Conversation Panel (not chat bubble chaos)
+
+Layout:
+
+[ SYSTEM PROMPT ]
+State the objective precisely.
+
+[ USER INPUT ]
+
+[ STRUCTURED PREVIEW ]
+Intent: ...
+Constraints: ...
+Assumptions: ...
+
+
+⸻
+
+🧩 6. Key UI components
+
+ConversationPanel.tsx
+	•	shows current stage
+	•	shows system prompt
+	•	accepts input
+	•	shows structured preview
+
+⸻
+
+QueryPreviewCard.tsx
+
+Displays:
+
+Intent
+Constraints
+Assumptions
+
+
+⸻
+
+ConfirmButton
+
+Only enabled when:
+
+isQueryComplete(draftQuery)
+
+
+⸻
+
+🧠 7. Critical rule
+
+NOMOS never evaluates unconfirmed input
+
+This is your line:
+
+“It should not evaluate what the user might have meant.”
+
+So:
+
+if (!confirmed) return;
+runNomosEvaluation(query);
+
+
+⸻
+
+🔥 What this unlocks
+
+Now you get:
+
+1. Dialogue
+	•	feels interactive
+	•	but remains structured
+
+2. Precision
+	•	user is guided into clarity
+
+3. Integrity
+	•	system never guesses intent
+
+⸻
+
+🧠 Tone behavior in conversation
+
+NOMOS should say:
+	•	“Clarify constraint.”
+	•	“Insufficient definition.”
+	•	“State threshold explicitly.”
+	•	“Ambiguity detected.”
+
+NOT:
+	•	“I think you mean…”
+	•	“Maybe you want…”
+	•	“It sounds like…”
+
+⸻
+
+🧠 Final insight
+
+You’re not adding chat.
+
+You’re adding:
+
+iterative declaration refinement under constraint
+
+That is radically different.
+
+⸻
+
+If you want next (high impact)
+
+👉 integrate LLM-assisted refinement suggestions
+
+So NOMOS can say:
+
+“Constraint incomplete. Suggested form: sleep ≥ 7h.”
+
+Without taking control.
+
+Just say:
+“Add guided refinement suggestions”
+
+and we’ll make the system feel intelligent without losing discipline.

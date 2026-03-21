@@ -5,6 +5,8 @@ import { formatVector, formatTimestamp, cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Database } from "lucide-react";
 import { useScenario } from "@/context/scenario-context";
+import { DecisiveTrendPanel } from "@/ui/components/nomos/DecisiveTrendPanel";
+import { FailurePredictionPanel } from "@/ui/components/nomos/FailurePredictionPanel";
 
 export default function AuditPage() {
   const { scenario } = useScenario();
@@ -78,6 +80,11 @@ export default function AuditPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <DecisiveTrendPanel />
+        <FailurePredictionPanel />
+      </div>
 
       <div className="text-center mt-12 font-mono text-[10px] text-muted-foreground tracking-widest">
         TAMPER-EVIDENT LOGGING ACTIVE. ALL STATE CHANGES RECORDED.

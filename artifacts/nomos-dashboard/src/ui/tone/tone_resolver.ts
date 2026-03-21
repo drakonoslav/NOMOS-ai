@@ -128,6 +128,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
       body: compactBody([
         "All constraints satisfied.",
         decisiveVariableLine(input, "Outcome is governed by"),
+        predictionLine(input),
         marginLine(input, true),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
@@ -146,6 +147,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
       body: compactBody([
         "Feasibility satisfied.",
         decisiveVariableLine(input, "Outcome is governed by"),
+        predictionLine(input),
         marginLine(input, true),
         admissible ? `Admissible candidates: ${admissible}.` : undefined,
       ]),
@@ -164,6 +166,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
       body: compactBody([
         "All constraints satisfied.",
         decisiveVariableLine(input, "Outcome is governed by"),
+        predictionLine(input),
         marginLine(input, true),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
         `Model confidence = ${fmt(input.modelConfidence)}.`,
@@ -183,6 +186,7 @@ function lawfulMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage {
     body: compactBody([
       "All constraints satisfied.",
       decisiveVariableLine(input, "Outcome is governed by"),
+      predictionLine(input),
       marginLine(input, true),
       `State tolerance εx = ${fmt(input.epsilonX)}.`,
       `Identifiability = ${input.identifiability}.`,
@@ -209,6 +213,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       body: compactBody([
         "Feasibility holds; margin reduced.",
         decisiveVariableLine(input, "The decisive factor is"),
+        predictionLine(input),
         degradedCauseLine(input),
         admissible ? `Admissible under constraint: ${admissible}.` : undefined,
       ]),
@@ -227,6 +232,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       body: compactBody([
         "Feasibility holds.",
         decisiveVariableLine(input, "The decisive factor is"),
+        predictionLine(input),
         degradedCauseLine(input),
         admissible ? `Admissible under constraint: ${admissible}.` : undefined,
       ]),
@@ -245,6 +251,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
       body: compactBody([
         "Feasibility holds; robustness or model confidence is below preferred threshold.",
         decisiveVariableLine(input, "The decisive factor is"),
+        predictionLine(input),
         degradedCauseLine(input),
         marginLine(input, false),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
@@ -266,6 +273,7 @@ function degradedMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage
     body: compactBody([
       "Feasibility holds, but operation is constrained.",
       decisiveVariableLine(input, "The decisive factor is"),
+      predictionLine(input),
       degradedCauseLine(input),
       marginLine(input, false),
       `State tolerance εx = ${fmt(input.epsilonX)}.`,
@@ -294,6 +302,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       body: compactBody([
         invalidReason,
         decisiveVariableLine(input, "Failure is governed by"),
+        predictionLine(input),
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
       ]),
@@ -312,6 +321,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       body: compactBody([
         invalidReason,
         decisiveVariableLine(input, "Failure is governed by"),
+        predictionLine(input),
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
       ]),
@@ -330,6 +340,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
       body: compactBody([
         invalidReason,
         decisiveVariableLine(input, "Failure is governed by"),
+        predictionLine(input),
         `State tolerance εx = ${fmt(input.epsilonX)}.`,
         rejected ? `Excluded candidates: ${rejected}.` : undefined,
         "No admissible candidates remain.",
@@ -349,6 +360,7 @@ function invalidMessage(input: ToneResolverInput, tone: ToneLevel): ToneMessage 
     body: compactBody([
       invalidReason,
       decisiveVariableLine(input, "Failure is governed by"),
+      predictionLine(input),
       `State tolerance εx = ${fmt(input.epsilonX)}.`,
       `Identifiability = ${input.identifiability}.`,
       `Model confidence = ${fmt(input.modelConfidence)}.`,
@@ -440,6 +452,24 @@ function decisiveVariableLine(
   }
 
   return `${prefix} ${clean}.`;
+}
+
+/**
+ * Emit the failure prediction line.
+ * Only surfaced when confidence is moderate or high.
+ * Low-confidence predictions are suppressed to avoid speculative framing.
+ */
+function predictionLine(input: ToneResolverInput): string | undefined {
+  if (!input.prediction) return undefined;
+
+  const { nextFailure, confidence } = input.prediction;
+
+  if (!nextFailure || confidence === "low") return undefined;
+
+  const clean = sanitizePhrase(nextFailure);
+  if (!clean) return undefined;
+
+  return `Given current drift, ${clean} is next.`;
 }
 
 /**

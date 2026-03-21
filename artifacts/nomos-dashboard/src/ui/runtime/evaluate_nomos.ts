@@ -10,6 +10,8 @@ import type { NomosQuery, NomosQueryResponse } from "@/query/query_types";
 import type { DashboardScenarioState, DemoScenario } from "../demo/scenario_builder";
 import type { ToneResolverInput } from "../tone/tone_types";
 import type { AuditLog } from "../audit/audit_log";
+import { extractRunSummaries } from "../audit/audit_timeseries";
+import { predictNextFailure } from "../audit/failure_prediction";
 
 export async function runNomosEvaluation(
   query: NomosQuery,
@@ -99,6 +101,12 @@ export async function runNomosEvaluation(
     robustness: toneInput.robustnessEpsilon,
     feasibility: toneInput.feasibilityOk,
   });
+
+  const summaries   = extractRunSummaries(audit.getEntries());
+  const prediction  = predictNextFailure(summaries);
+  if (prediction) {
+    toneInput.prediction = prediction;
+  }
 
   return {
     scenario: mapScenarioKey(verificationStatus),

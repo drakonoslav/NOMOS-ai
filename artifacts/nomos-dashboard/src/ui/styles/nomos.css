@@ -1255,3 +1255,51 @@ textarea {
   background: color-mix(in srgb, var(--nm-invalid) 24%, transparent);
   border: 1px solid var(--nm-invalid);
 }
+
+/* =========================================================
+   FailurePredictionPanel
+   ========================================================= */
+
+.prediction-panel {
+  border: 1px solid var(--nm-border-strong);
+}
+
+.prediction-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.prediction-main {
+  font-size: var(--nm-text-lg);
+  font-weight: 700;
+  color: var(--nm-text-primary);
+}
+
+.prediction-driver {
+  color: var(--nm-text-secondary);
+  font-size: var(--nm-text-sm);
+}
+
+.prediction-confidence {
+  font-size: var(--nm-text-sm);
+  font-weight: 600;
+}
+
+.prediction-high {
+  color: #f0d6d6;
+}
+
+.prediction-moderate {
+  color: #f5e7d0;
+}
+
+.prediction-low {
+  color: var(--nm-text-muted);
+}
+
+.prediction-empty {
+  color: var(--nm-text-muted);
+  font-size: var(--nm-text-sm);
+  font-style: italic;
+}
