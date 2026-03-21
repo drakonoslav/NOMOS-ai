@@ -5053,3 +5053,412 @@ textarea {
   font-style: italic;
   padding: 8px 0;
 }
+
+/* =========================================================
+   Policy Governance Panel (.nm-gov)
+   ========================================================= */
+
+.nm-gov {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--nm-text);
+}
+
+.nm-gov__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.nm-gov__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__meta {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+/* Domain grid */
+.nm-gov__domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.nm-gov__domain-card {
+  padding: 10px 12px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nm-gov__domain--nutrition { border-color: rgba(46,106,79,0.3);  background: rgba(46,106,79,0.05); }
+.nm-gov__domain--training  { border-color: rgba(46,90,165,0.3);  background: rgba(46,90,165,0.05); }
+.nm-gov__domain--schedule  { border-color: rgba(165,106,30,0.3); background: rgba(165,106,30,0.05); }
+.nm-gov__domain--generic   { border-color: rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); }
+
+.nm-gov__domain-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__domain-version {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nm-text);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 6px;
+  border-radius: 2px;
+  align-self: flex-start;
+}
+
+.nm-gov__domain-meta {
+  font-size: 10px;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__domain-reason {
+  font-size: 10.5px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.nm-gov__domain-none {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+}
+
+/* Action form */
+.nm-gov__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+}
+
+.nm-gov__form-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.nm-gov__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nm-gov__form-group--grow { flex: 1 1 180px; }
+
+.nm-gov__form-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nm-text-muted);
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.nm-gov__required {
+  font-size: 9px;
+  background: rgba(165,106,30,0.2);
+  color: #d4903c;
+  padding: 0 5px;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* Toggle pair (promote / rollback) */
+.nm-gov__toggle-pair {
+  display: flex;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.nm-gov__toggle-btn {
+  background: none;
+  border: none;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--nm-text-muted);
+  cursor: pointer;
+  flex: 1;
+}
+
+.nm-gov__toggle-btn + .nm-gov__toggle-btn {
+  border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.nm-gov__toggle-btn:hover { color: var(--nm-text); }
+
+.nm-gov__toggle-btn--active {
+  background: rgba(255,255,255,0.07);
+  color: var(--nm-text);
+  font-weight: 700;
+}
+
+/* Select + input */
+.nm-gov__select,
+.nm-gov__input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 5px 9px;
+  font-size: 12px;
+  color: var(--nm-text);
+  width: 100%;
+  box-sizing: border-box;
+  appearance: none;
+}
+
+.nm-gov__select:focus,
+.nm-gov__input:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.2);
+}
+
+.nm-gov__select--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.nm-gov__no-versions {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+  padding: 5px 0;
+}
+
+/* Feedback */
+.nm-gov__form-error {
+  font-size: 11.5px;
+  color: #e05050;
+  background: rgba(122,46,46,0.12);
+  border: 1px solid rgba(122,46,46,0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.nm-gov__form-success {
+  font-size: 11.5px;
+  color: #4caf82;
+  background: rgba(46,106,79,0.1);
+  border: 1px solid rgba(46,106,79,0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+/* Submit button */
+.nm-gov__submit {
+  background: rgba(46,106,79,0.2);
+  border: 1px solid rgba(46,106,79,0.35);
+  border-radius: 4px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4caf82;
+  cursor: pointer;
+  text-align: left;
+  align-self: flex-start;
+}
+
+.nm-gov__submit:hover {
+  background: rgba(46,106,79,0.3);
+}
+
+.nm-gov__submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nm-gov__submit--rollback {
+  background: rgba(165,106,30,0.15);
+  border-color: rgba(165,106,30,0.3);
+  color: #d4903c;
+}
+
+.nm-gov__submit--rollback:hover {
+  background: rgba(165,106,30,0.25);
+}
+
+/* History log */
+.nm-gov__history {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nm-gov__history-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nm-gov__filter-row {
+  display: flex;
+  gap: 4px;
+}
+
+.nm-gov__filter-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--nm-text-muted);
+  cursor: pointer;
+}
+
+.nm-gov__filter-btn:hover { color: var(--nm-text); }
+
+.nm-gov__filter-btn--active {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.15);
+  color: var(--nm-text);
+  font-weight: 700;
+}
+
+.nm-gov__history-empty {
+  font-size: 12px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+}
+
+.nm-gov__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nm-gov__history-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 5px;
+  background: rgba(255,255,255,0.02);
+}
+
+.nm-gov__history-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nm-gov__action-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.nm-gov__action-badge--promote {
+  background: rgba(46,106,79,0.2);
+  color: #4caf82;
+}
+
+.nm-gov__action-badge--rollback {
+  background: rgba(165,106,30,0.2);
+  color: #d4903c;
+}
+
+.nm-gov__history-domain {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--nm-text);
+}
+
+.nm-gov__history-time {
+  font-size: 10.5px;
+  color: var(--nm-text-muted);
+  margin-left: auto;
+}
+
+.nm-gov__history-versions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nm-gov__history-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: rgba(255,255,255,0.05);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+
+.nm-gov__history-id--from { color: var(--nm-text-muted); }
+.nm-gov__history-id--to   { color: var(--nm-text); font-weight: 600; }
+
+.nm-gov__history-arrow {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+}
+
+.nm-gov__history-first {
+  font-size: 10px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+}
+
+.nm-gov__history-reason {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+}
+
+/* Notice */
+.nm-gov__notice {
+  font-size: 11px;
+  color: var(--nm-text-muted);
+  font-style: italic;
+  line-height: 1.5;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
