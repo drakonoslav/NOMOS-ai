@@ -5,22 +5,32 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
 import type {
+  ApiError,
+  ConversationSuggestRequest,
+  ConversationSuggestResponse,
+  EvaluateQueryRequest,
+  EvaluationResult,
   GetNomosStateParams,
   HealthStatus,
+  NomosQuery,
   NomosState,
+  ParseQueryRequest,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -196,3 +206,268 @@ export function useGetNomosState<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Extract a structured NomosQuery from natural language input. Does NOT assign lawfulness — extraction only.
+
+ */
+export const getParseNomosQueryUrl = () => {
+  return `/api/nomos/query/parse`;
+};
+
+export const parseNomosQuery = async (
+  parseQueryRequest: ParseQueryRequest,
+  options?: RequestInit,
+): Promise<NomosQuery> => {
+  return customFetch<NomosQuery>(getParseNomosQueryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(parseQueryRequest),
+  });
+};
+
+export const getParseNomosQueryMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof parseNomosQuery>>,
+    TError,
+    { data: BodyType<ParseQueryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof parseNomosQuery>>,
+  TError,
+  { data: BodyType<ParseQueryRequest> },
+  TContext
+> => {
+  const mutationKey = ["parseNomosQuery"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof parseNomosQuery>>,
+    { data: BodyType<ParseQueryRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return parseNomosQuery(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ParseNomosQueryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof parseNomosQuery>>
+>;
+export type ParseNomosQueryMutationBody = BodyType<ParseQueryRequest>;
+export type ParseNomosQueryMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Extract a structured NomosQuery from natural language input. Does NOT assign lawfulness — extraction only.
+
+ */
+export const useParseNomosQuery = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof parseNomosQuery>>,
+    TError,
+    { data: BodyType<ParseQueryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof parseNomosQuery>>,
+  TError,
+  { data: BodyType<ParseQueryRequest> },
+  TContext
+> => {
+  return useMutation(getParseNomosQueryMutationOptions(options));
+};
+
+/**
+ * @summary Evaluate a NomosQuery through the full constitutional pipeline. Deterministic matcher runs first; LLM semantic evaluator is a fallback for UNKNOWN constraint kinds only. LAWFUL / DEGRADED / INVALID is the authoritative machine verdict.
+
+ */
+export const getEvaluateNomosQueryUrl = () => {
+  return `/api/nomos/query/evaluate`;
+};
+
+export const evaluateNomosQuery = async (
+  evaluateQueryRequest: EvaluateQueryRequest,
+  options?: RequestInit,
+): Promise<EvaluationResult> => {
+  return customFetch<EvaluationResult>(getEvaluateNomosQueryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(evaluateQueryRequest),
+  });
+};
+
+export const getEvaluateNomosQueryMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof evaluateNomosQuery>>,
+    TError,
+    { data: BodyType<EvaluateQueryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof evaluateNomosQuery>>,
+  TError,
+  { data: BodyType<EvaluateQueryRequest> },
+  TContext
+> => {
+  const mutationKey = ["evaluateNomosQuery"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof evaluateNomosQuery>>,
+    { data: BodyType<EvaluateQueryRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return evaluateNomosQuery(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type EvaluateNomosQueryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof evaluateNomosQuery>>
+>;
+export type EvaluateNomosQueryMutationBody = BodyType<EvaluateQueryRequest>;
+export type EvaluateNomosQueryMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Evaluate a NomosQuery through the full constitutional pipeline. Deterministic matcher runs first; LLM semantic evaluator is a fallback for UNKNOWN constraint kinds only. LAWFUL / DEGRADED / INVALID is the authoritative machine verdict.
+
+ */
+export const useEvaluateNomosQuery = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof evaluateNomosQuery>>,
+    TError,
+    { data: BodyType<EvaluateQueryRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof evaluateNomosQuery>>,
+  TError,
+  { data: BodyType<EvaluateQueryRequest> },
+  TContext
+> => {
+  return useMutation(getEvaluateNomosQueryMutationOptions(options));
+};
+
+/**
+ * @summary LLM-assisted refinement suggestions for the conversation engine. ADVISORY ONLY — suggestions do not carry authority and are never used as ground truth for evaluation. Returns empty array when OPENAI_API_KEY is absent (rule-based fallback).
+
+ */
+export const getConversationSuggestUrl = () => {
+  return `/api/nomos/conversation/suggest`;
+};
+
+export const conversationSuggest = async (
+  conversationSuggestRequest: ConversationSuggestRequest,
+  options?: RequestInit,
+): Promise<ConversationSuggestResponse> => {
+  return customFetch<ConversationSuggestResponse>(getConversationSuggestUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(conversationSuggestRequest),
+  });
+};
+
+export const getConversationSuggestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof conversationSuggest>>,
+    TError,
+    { data: BodyType<ConversationSuggestRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof conversationSuggest>>,
+  TError,
+  { data: BodyType<ConversationSuggestRequest> },
+  TContext
+> => {
+  const mutationKey = ["conversationSuggest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof conversationSuggest>>,
+    { data: BodyType<ConversationSuggestRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return conversationSuggest(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConversationSuggestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof conversationSuggest>>
+>;
+export type ConversationSuggestMutationBody =
+  BodyType<ConversationSuggestRequest>;
+export type ConversationSuggestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary LLM-assisted refinement suggestions for the conversation engine. ADVISORY ONLY — suggestions do not carry authority and are never used as ground truth for evaluation. Returns empty array when OPENAI_API_KEY is absent (rule-based fallback).
+
+ */
+export const useConversationSuggest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof conversationSuggest>>,
+    TError,
+    { data: BodyType<ConversationSuggestRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof conversationSuggest>>,
+  TError,
+  { data: BodyType<ConversationSuggestRequest> },
+  TContext
+> => {
+  return useMutation(getConversationSuggestMutationOptions(options));
+};

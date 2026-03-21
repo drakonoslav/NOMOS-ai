@@ -11,6 +11,10 @@ tags:
     description: Health operations
   - name: nomos
     description: NOMOS constitutional kernel state
+  - name: query
+    description: NOMOS query parse and evaluation
+  - name: conversation
+    description: NOMOS conversation suggestion (LLM-assisted, advisory only)
 paths:
   /healthz:
     get:
@@ -24,6 +28,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
   /nomos/state:
     get:
       operationId: getNomosState
@@ -44,14 +49,319 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NomosState"
+
+  /nomos/query/parse:
+    post:
+      operationId: parseNomosQuery
+      tags: [query]
+      summary: >
+        Extract a structured NomosQuery from natural language input.
+        Does NOT assign lawfulness — extraction only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParseQueryRequest"
+      responses:
+        "200":
+          description: Structured NomosQuery extracted from input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NomosQuery"
+        "400":
+          description: rawInput missing or empty
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Parser failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /nomos/query/evaluate:
+    post:
+      operationId: evaluateNomosQuery
+      tags: [query]
+      summary: >
+        Evaluate a NomosQuery through the full constitutional pipeline.
+        Deterministic matcher runs first; LLM semantic evaluator is a fallback
+        for UNKNOWN constraint kinds only.
+        LAWFUL / DEGRADED / INVALID is the authoritative machine verdict.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluateQueryRequest"
+      responses:
+        "200":
+          description: Evaluation result with per-candidate verdicts and margin scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationResult"
+        "400":
+          description: query object missing or invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Evaluation failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /nomos/conversation/suggest:
+    post:
+      operationId: conversationSuggest
+      tags: [conversation]
+      summary: >
+        LLM-assisted refinement suggestions for the conversation engine.
+        ADVISORY ONLY — suggestions do not carry authority and are never
+        used as ground truth for evaluation.
+        Returns empty array when OPENAI_API_KEY is absent (rule-based fallback).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationSuggestRequest"
+      responses:
+        "200":
+          description: Suggestion list (may be empty)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationSuggestResponse"
+
 components:
   schemas:
+
+    # ── Shared primitives ────────────────────────────────────────────────────
+
     HealthStatus:
       type: object
       properties:
         status:
           type: string
       required: [status]
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error, message]
+
+    # ── Query types (mirrors packages/constitutional-kernel/src/query/query_types.ts) ──
+
+    SubmissionCompleteness:
+      type: string
+      enum: [COMPLETE, PARTIAL, INSUFFICIENT]
+
+    ParserConfidence:
+      type: string
+      enum: [HIGH, MEDIUM, LOW]
+
+    NomosStateBlock:
+      type: object
+      properties:
+        description:
+          type: string
+        facts:
+          type: array
+          items:
+            type: string
+        constraints:
+          type: array
+          items:
+            type: string
+        uncertainties:
+          type: array
+          items:
+            type: string
+      required: [description, facts, constraints, uncertainties]
+
+    NomosCandidateBlock:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+      required: [id, description]
+
+    NomosObjectiveBlock:
+      type: object
+      properties:
+        description:
+          type: string
+      required: [description]
+
+    NomosQuery:
+      type: object
+      properties:
+        rawInput:
+          type: string
+        state:
+          $ref: "#/components/schemas/NomosStateBlock"
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/NomosCandidateBlock"
+        objective:
+          $ref: "#/components/schemas/NomosObjectiveBlock"
+          nullable: true
+        parserConfidence:
+          $ref: "#/components/schemas/ParserConfidence"
+        completeness:
+          $ref: "#/components/schemas/SubmissionCompleteness"
+        notes:
+          type: array
+          items:
+            type: string
+      required: [rawInput, state, candidates, parserConfidence, completeness, notes]
+
+    ParseQueryRequest:
+      type: object
+      properties:
+        rawInput:
+          type: string
+        operatorHints:
+          type: array
+          items:
+            type: string
+        allowFallback:
+          type: boolean
+      required: [rawInput]
+
+    EvaluateQueryRequest:
+      type: object
+      properties:
+        query:
+          $ref: "#/components/schemas/NomosQuery"
+      required: [query]
+
+    # ── Evaluation types (mirrors packages/constitutional-kernel/src/evaluation/eval_types.ts) ──
+
+    CandidateStatus:
+      type: string
+      enum: [LAWFUL, DEGRADED, INVALID]
+
+    MarginLabel:
+      type: string
+      enum: [HIGH, MODERATE, LOW, FAILED]
+
+    EvaluatorConfidence:
+      type: string
+      enum: [high, moderate, low]
+
+    CandidateEvaluation:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/CandidateStatus"
+        reason:
+          type: string
+        decisiveVariable:
+          type: string
+        adjustments:
+          type: array
+          nullable: true
+          items:
+            type: string
+        confidence:
+          $ref: "#/components/schemas/EvaluatorConfidence"
+        marginScore:
+          type: number
+          minimum: 0
+          maximum: 1
+        marginLabel:
+          $ref: "#/components/schemas/MarginLabel"
+      required: [id, status, reason, decisiveVariable, confidence, marginScore, marginLabel]
+
+    EvaluationResult:
+      type: object
+      properties:
+        overallStatus:
+          $ref: "#/components/schemas/CandidateStatus"
+        lawfulSet:
+          type: array
+          items:
+            type: string
+        candidateEvaluations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateEvaluation"
+        decisiveVariable:
+          type: string
+        notes:
+          type: array
+          items:
+            type: string
+        bestCandidateId:
+          type: string
+          nullable: true
+        strongestMarginScore:
+          type: number
+          nullable: true
+        weakestAdmissibleMarginScore:
+          type: number
+          nullable: true
+      required: [overallStatus, lawfulSet, candidateEvaluations, decisiveVariable, notes]
+
+    # ── Conversation types ────────────────────────────────────────────────────
+
+    ConversationSuggestionType:
+      type: string
+      enum: [constraint, intent, assumption]
+
+    ConversationSuggestionConfidence:
+      type: string
+      enum: [low, moderate, high]
+
+    ConversationSuggestion:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        type:
+          $ref: "#/components/schemas/ConversationSuggestionType"
+        confidence:
+          $ref: "#/components/schemas/ConversationSuggestionConfidence"
+      required: [id, text, type, confidence]
+
+    ConversationSuggestRequest:
+      type: object
+      properties:
+        stage:
+          type: string
+        input:
+          type: string
+
+    ConversationSuggestResponse:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationSuggestion"
+      required: [suggestions]
+
+    # ── Kernel state types (existing — retained) ─────────────────────────────
 
     NomosVerificationStatus:
       type: string

@@ -9,6 +9,152 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface ApiError {
+  error: string;
+  message: string;
+}
+
+export type SubmissionCompleteness =
+  (typeof SubmissionCompleteness)[keyof typeof SubmissionCompleteness];
+
+export const SubmissionCompleteness = {
+  COMPLETE: "COMPLETE",
+  PARTIAL: "PARTIAL",
+  INSUFFICIENT: "INSUFFICIENT",
+} as const;
+
+export type ParserConfidence =
+  (typeof ParserConfidence)[keyof typeof ParserConfidence];
+
+export const ParserConfidence = {
+  HIGH: "HIGH",
+  MEDIUM: "MEDIUM",
+  LOW: "LOW",
+} as const;
+
+export interface NomosStateBlock {
+  description: string;
+  facts: string[];
+  constraints: string[];
+  uncertainties: string[];
+}
+
+export interface NomosCandidateBlock {
+  id: string;
+  description: string;
+}
+
+export interface NomosObjectiveBlock {
+  description: string;
+}
+
+export interface NomosQuery {
+  rawInput: string;
+  state: NomosStateBlock;
+  candidates: NomosCandidateBlock[];
+  objective?: NomosObjectiveBlock | null;
+  parserConfidence: ParserConfidence;
+  completeness: SubmissionCompleteness;
+  notes: string[];
+}
+
+export interface ParseQueryRequest {
+  rawInput: string;
+  operatorHints?: string[];
+  allowFallback?: boolean;
+}
+
+export interface EvaluateQueryRequest {
+  query: NomosQuery;
+}
+
+export type CandidateStatus =
+  (typeof CandidateStatus)[keyof typeof CandidateStatus];
+
+export const CandidateStatus = {
+  LAWFUL: "LAWFUL",
+  DEGRADED: "DEGRADED",
+  INVALID: "INVALID",
+} as const;
+
+export type MarginLabel = (typeof MarginLabel)[keyof typeof MarginLabel];
+
+export const MarginLabel = {
+  HIGH: "HIGH",
+  MODERATE: "MODERATE",
+  LOW: "LOW",
+  FAILED: "FAILED",
+} as const;
+
+export type EvaluatorConfidence =
+  (typeof EvaluatorConfidence)[keyof typeof EvaluatorConfidence];
+
+export const EvaluatorConfidence = {
+  high: "high",
+  moderate: "moderate",
+  low: "low",
+} as const;
+
+export interface CandidateEvaluation {
+  id: string;
+  status: CandidateStatus;
+  reason: string;
+  decisiveVariable: string;
+  adjustments?: string[] | null;
+  confidence: EvaluatorConfidence;
+  /**
+   * @minimum 0
+   * @maximum 1
+   */
+  marginScore: number;
+  marginLabel: MarginLabel;
+}
+
+export interface EvaluationResult {
+  overallStatus: CandidateStatus;
+  lawfulSet: string[];
+  candidateEvaluations: CandidateEvaluation[];
+  decisiveVariable: string;
+  notes: string[];
+  bestCandidateId?: string | null;
+  strongestMarginScore?: number | null;
+  weakestAdmissibleMarginScore?: number | null;
+}
+
+export type ConversationSuggestionType =
+  (typeof ConversationSuggestionType)[keyof typeof ConversationSuggestionType];
+
+export const ConversationSuggestionType = {
+  constraint: "constraint",
+  intent: "intent",
+  assumption: "assumption",
+} as const;
+
+export type ConversationSuggestionConfidence =
+  (typeof ConversationSuggestionConfidence)[keyof typeof ConversationSuggestionConfidence];
+
+export const ConversationSuggestionConfidence = {
+  low: "low",
+  moderate: "moderate",
+  high: "high",
+} as const;
+
+export interface ConversationSuggestion {
+  id: string;
+  text: string;
+  type: ConversationSuggestionType;
+  confidence: ConversationSuggestionConfidence;
+}
+
+export interface ConversationSuggestRequest {
+  stage?: string;
+  input?: string;
+}
+
+export interface ConversationSuggestResponse {
+  suggestions: ConversationSuggestion[];
+}
+
 export type NomosVerificationStatus =
   (typeof NomosVerificationStatus)[keyof typeof NomosVerificationStatus];
 

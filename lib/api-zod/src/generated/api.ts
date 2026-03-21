@@ -108,3 +108,115 @@ export const GetNomosStateResponse = zod.object({
     notes: zod.array(zod.string()),
   }),
 });
+
+/**
+ * @summary Extract a structured NomosQuery from natural language input. Does NOT assign lawfulness — extraction only.
+
+ */
+export const ParseNomosQueryBody = zod.object({
+  rawInput: zod.string(),
+  operatorHints: zod.array(zod.string()).optional(),
+  allowFallback: zod.boolean().optional(),
+});
+
+export const ParseNomosQueryResponse = zod.object({
+  rawInput: zod.string(),
+  state: zod.object({
+    description: zod.string(),
+    facts: zod.array(zod.string()),
+    constraints: zod.array(zod.string()),
+    uncertainties: zod.array(zod.string()),
+  }),
+  candidates: zod.array(
+    zod.object({
+      id: zod.string(),
+      description: zod.string(),
+    }),
+  ),
+  objective: zod
+    .object({
+      description: zod.string(),
+    })
+    .nullish(),
+  parserConfidence: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+  completeness: zod.enum(["COMPLETE", "PARTIAL", "INSUFFICIENT"]),
+  notes: zod.array(zod.string()),
+});
+
+/**
+ * @summary Evaluate a NomosQuery through the full constitutional pipeline. Deterministic matcher runs first; LLM semantic evaluator is a fallback for UNKNOWN constraint kinds only. LAWFUL / DEGRADED / INVALID is the authoritative machine verdict.
+
+ */
+export const EvaluateNomosQueryBody = zod.object({
+  query: zod.object({
+    rawInput: zod.string(),
+    state: zod.object({
+      description: zod.string(),
+      facts: zod.array(zod.string()),
+      constraints: zod.array(zod.string()),
+      uncertainties: zod.array(zod.string()),
+    }),
+    candidates: zod.array(
+      zod.object({
+        id: zod.string(),
+        description: zod.string(),
+      }),
+    ),
+    objective: zod
+      .object({
+        description: zod.string(),
+      })
+      .nullish(),
+    parserConfidence: zod.enum(["HIGH", "MEDIUM", "LOW"]),
+    completeness: zod.enum(["COMPLETE", "PARTIAL", "INSUFFICIENT"]),
+    notes: zod.array(zod.string()),
+  }),
+});
+
+export const evaluateNomosQueryResponseCandidateEvaluationsItemMarginScoreMin = 0;
+export const evaluateNomosQueryResponseCandidateEvaluationsItemMarginScoreMax = 1;
+
+export const EvaluateNomosQueryResponse = zod.object({
+  overallStatus: zod.enum(["LAWFUL", "DEGRADED", "INVALID"]),
+  lawfulSet: zod.array(zod.string()),
+  candidateEvaluations: zod.array(
+    zod.object({
+      id: zod.string(),
+      status: zod.enum(["LAWFUL", "DEGRADED", "INVALID"]),
+      reason: zod.string(),
+      decisiveVariable: zod.string(),
+      adjustments: zod.array(zod.string()).nullish(),
+      confidence: zod.enum(["high", "moderate", "low"]),
+      marginScore: zod
+        .number()
+        .min(evaluateNomosQueryResponseCandidateEvaluationsItemMarginScoreMin)
+        .max(evaluateNomosQueryResponseCandidateEvaluationsItemMarginScoreMax),
+      marginLabel: zod.enum(["HIGH", "MODERATE", "LOW", "FAILED"]),
+    }),
+  ),
+  decisiveVariable: zod.string(),
+  notes: zod.array(zod.string()),
+  bestCandidateId: zod.string().nullish(),
+  strongestMarginScore: zod.number().nullish(),
+  weakestAdmissibleMarginScore: zod.number().nullish(),
+});
+
+/**
+ * @summary LLM-assisted refinement suggestions for the conversation engine. ADVISORY ONLY — suggestions do not carry authority and are never used as ground truth for evaluation. Returns empty array when OPENAI_API_KEY is absent (rule-based fallback).
+
+ */
+export const ConversationSuggestBody = zod.object({
+  stage: zod.string().optional(),
+  input: zod.string().optional(),
+});
+
+export const ConversationSuggestResponse = zod.object({
+  suggestions: zod.array(
+    zod.object({
+      id: zod.string(),
+      text: zod.string(),
+      type: zod.enum(["constraint", "intent", "assumption"]),
+      confidence: zod.enum(["low", "moderate", "high"]),
+    }),
+  ),
+});

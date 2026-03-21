@@ -1,5 +1,5 @@
 import React from "react";
-import { NomosQueryResponse } from "../../../query/query_response_types";
+import { NomosQueryResponse } from "../../../query/query_types";
 
 export interface EvaluationResultPanelProps {
   result?: NomosQueryResponse;
