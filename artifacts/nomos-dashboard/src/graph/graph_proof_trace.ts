@@ -6,8 +6,11 @@
  * The trace captures every query step that the constraint executor runs,
  * recording which node IDs survived and which were excluded at each stage.
  *
- * This function runs the full execution pipeline internally so the trace
- * reflects actual execution rather than a post hoc summary.
+ * New fields populated on each step:
+ *   anchorNodeIds        — anchor nodes referenced (Window Restriction step)
+ *   windowNodeIds        — window nodes applied   (Window Restriction step)
+ *   aggregateSourceNodeIds — entities that contributed to the aggregate
+ *                           (Aggregation + Threshold Comparison steps)
  *
  * Steps produced (where applicable):
  *   1. Candidate Selection   — selectCandidateEntities
@@ -31,6 +34,7 @@ import {
   restrictEntitiesByAnchorWindow,
   aggregateSelectedQuantity,
 } from "./graph_query_engine.ts";
+import { resolveUnit } from "../compiler/unit_registry.ts";
 
 /* =========================================================
    Internal helpers
@@ -44,18 +48,15 @@ function nodeLabel(graph: OperandGraph, id: string): string {
   return nodeById(graph, id)?.label ?? id;
 }
 
-/** Plural-aware "entity" / "entities". */
 function entityWord(n: number): string {
   return n === 1 ? "entity" : "entities";
 }
 
-/** Comma-joined label list for a set of node IDs. */
 function labelList(graph: OperandGraph, ids: string[]): string {
   if (ids.length === 0) return "(none)";
   return ids.map((id) => nodeLabel(graph, id)).join(", ");
 }
 
-/** Compare helper matching graph_constraint_executor logic. */
 function compare(
   observed: number,
   operator: GraphConstraintSpec["operator"],
@@ -70,10 +71,8 @@ function compare(
   }
 }
 
-/**
- * Find window node IDs connected to the surviving entity IDs that are
- * anchored to the given anchor label.
- */
+/* ─── New: collect window node IDs ────────────────────────────────────────── */
+
 function collectWindowNodeIds(
   graph:       OperandGraph,
   entityIds:   string[],
@@ -84,10 +83,8 @@ function collectWindowNodeIds(
   const windowEdges = new Set(["BEFORE", "AFTER", "WITHIN", "BETWEEN"]);
 
   for (const entityId of entityIds) {
-    const edges = graph.edges.filter(
-      (e) => e.from === entityId && windowEdges.has(e.type)
-    );
-    for (const edge of edges) {
+    for (const edge of graph.edges) {
+      if (edge.from !== entityId || !windowEdges.has(edge.type)) continue;
       const target = nodeById(graph, edge.to);
       if (!target || target.type !== "window") continue;
 
@@ -99,23 +96,59 @@ function collectWindowNodeIds(
         const anchorNode = nodeById(graph, anchorsTo.to);
         if (anchorNode?.label.toLowerCase() !== lowerAnchor) continue;
       }
-
       result.add(target.id);
     }
   }
   return [...result];
 }
 
+/* ─── New: collect anchor node IDs ────────────────────────────────────────── */
+
+function collectAnchorNodeIds(
+  graph:       OperandGraph,
+  anchorLabel: string | null | undefined
+): string[] {
+  if (!anchorLabel) return [];
+  const lower = anchorLabel.toLowerCase();
+  return graph.nodes
+    .filter((n) => n.type === "anchor" && n.label.toLowerCase() === lower)
+    .map((n) => n.id);
+}
+
+/* ─── New: compute aggregate-source node IDs ─────────────────────────────── */
+
+/**
+ * Return the entity node IDs from `entityIds` whose HAS_UNIT resolves to the
+ * target canonical unit — i.e. the entities that actually contributed a value
+ * to the aggregate (unit-mismatched entities contribute 0 and are excluded).
+ */
+function computeAggregateSourceNodeIds(
+  graph:        OperandGraph,
+  entityIds:    string[],
+  quantityUnit: string
+): string[] {
+  const targetCanonical =
+    resolveUnit(quantityUnit)?.canonical ?? quantityUnit.toLowerCase();
+
+  return entityIds.filter((entityId) => {
+    const unitEdge = graph.edges.find(
+      (e) => e.type === "HAS_UNIT" && e.from === entityId
+    );
+    if (!unitEdge) return false;
+    const unitNode = nodeById(graph, unitEdge.to);
+    if (!unitNode) return false;
+    const unitCanonical =
+      (unitNode.data?.normalizedUnit as string | undefined) ??
+      resolveUnit(unitNode.label)?.canonical ??
+      unitNode.label.toLowerCase();
+    return unitCanonical === targetCanonical;
+  });
+}
+
 /* =========================================================
    Public API
    ========================================================= */
 
-/**
- * Build a graph-native proof trace for `spec` evaluated against `graph`.
- *
- * Runs the full query pipeline and records the differential (selected IDs,
- * excluded IDs) at each step so the UI can highlight nodes directly.
- */
 export function buildConstraintProofTrace(
   graph: OperandGraph,
   spec:  GraphConstraintSpec
@@ -134,23 +167,26 @@ export function buildConstraintProofTrace(
       : `Selected ${activeIds.length} ${entityWord(activeIds.length)} (all candidates)${activeIds.length > 0 ? ": " + labelList(graph, activeIds) : ""}.`;
 
     steps.push({
-      stepNumber:     stepN++,
-      label:          "Candidate Selection",
-      description:    desc,
+      stepNumber:      stepN++,
+      label:           "Candidate Selection",
+      description:     desc,
       selectedNodeIds: [...activeIds],
       excludedNodeIds: [],
-      data:           { candidateId: selection.candidateId ?? null },
+      anchorNodeIds:   [],
+      windowNodeIds:   [],
+      aggregateSourceNodeIds: [],
+      data:            { candidateId: selection.candidateId ?? null },
     });
   }
 
   // ── Step 2: Tag Filter ────────────────────────────────────────────────────
   const tags = selection.entityTags ?? [];
   if (tags.length > 0) {
-    const prevIds = [...activeIds];
-    activeIds     = filterEntitiesByTags(graph, activeIds, tags);
+    const prevIds  = [...activeIds];
+    activeIds      = filterEntitiesByTags(graph, activeIds, tags);
     const excluded = prevIds.filter((id) => !activeIds.includes(id));
 
-    const tagDesc = tags.join(" + ");
+    const tagDesc      = tags.join(" + ");
     const excludedDesc = excluded.length > 0
       ? ` Excluded: ${labelList(graph, excluded)}.`
       : "";
@@ -161,6 +197,9 @@ export function buildConstraintProofTrace(
       description:     `Filtered entities tagged ${tagDesc}. ${activeIds.length} qualified, ${excluded.length} excluded.${excludedDesc}`,
       selectedNodeIds: [...activeIds],
       excludedNodeIds: excluded,
+      anchorNodeIds:   [],
+      windowNodeIds:   [],
+      aggregateSourceNodeIds: [],
       data:            { tags },
     });
   }
@@ -168,8 +207,8 @@ export function buildConstraintProofTrace(
   // ── Step 3: Label Filter ──────────────────────────────────────────────────
   const entityLabels = selection.entityLabels ?? [];
   if (entityLabels.length > 0) {
-    const prevIds = [...activeIds];
-    activeIds     = filterEntitiesByLabels(graph, activeIds, entityLabels);
+    const prevIds  = [...activeIds];
+    activeIds      = filterEntitiesByLabels(graph, activeIds, entityLabels);
     const excluded = prevIds.filter((id) => !activeIds.includes(id));
 
     const excludedDesc = excluded.length > 0
@@ -182,26 +221,26 @@ export function buildConstraintProofTrace(
       description:     `Filtered by labels [${entityLabels.join(", ")}]. ${activeIds.length} qualified, ${excluded.length} excluded.${excludedDesc}`,
       selectedNodeIds: [...activeIds],
       excludedNodeIds: excluded,
+      anchorNodeIds:   [],
+      windowNodeIds:   [],
+      aggregateSourceNodeIds: [],
       data:            { entityLabels },
     });
   }
 
   // ── Step 4: Window Restriction ────────────────────────────────────────────
   if (selection.anchorLabel || selection.relation || selection.windowMinutes != null) {
-    const prevIds = [...activeIds];
-    activeIds     = restrictEntitiesByAnchorWindow(
-      graph,
-      activeIds,
-      selection.anchorLabel,
-      selection.relation,
-      selection.windowMinutes
+    const prevIds      = [...activeIds];
+    activeIds          = restrictEntitiesByAnchorWindow(
+      graph, activeIds, selection.anchorLabel, selection.relation, selection.windowMinutes
     );
     const excluded     = prevIds.filter((id) => !activeIds.includes(id));
     const windowNodeIds = collectWindowNodeIds(graph, activeIds, selection.anchorLabel);
+    const anchorNodeIds = collectAnchorNodeIds(graph, selection.anchorLabel);
 
-    const windowDesc  = selection.windowMinutes != null ? `${selection.windowMinutes} minutes ` : "";
-    const relDesc     = selection.relation ?? "relative to";
-    const anchorDesc  = selection.anchorLabel ?? "(any anchor)";
+    const windowDesc   = selection.windowMinutes != null ? `${selection.windowMinutes} minutes ` : "";
+    const relDesc      = selection.relation ?? "relative to";
+    const anchorDesc   = selection.anchorLabel ?? "(any anchor)";
     const excludedDesc = excluded.length > 0
       ? ` Excluded: ${labelList(graph, excluded)}.`
       : "";
@@ -212,21 +251,25 @@ export function buildConstraintProofTrace(
       description:     `Restricted entities to ${windowDesc}${relDesc} ${anchorDesc}. ${activeIds.length} qualified, ${excluded.length} excluded.${excludedDesc}`,
       selectedNodeIds: [...activeIds],
       excludedNodeIds: excluded,
+      anchorNodeIds,
+      windowNodeIds,
+      aggregateSourceNodeIds: [],
       data:            {
         windowNodeIds,
-        anchorLabel:    selection.anchorLabel ?? null,
-        offsetMinutes:  selection.windowMinutes ?? null,
-        relation:       selection.relation ?? null,
+        anchorNodeIds,
+        anchorLabel:   selection.anchorLabel ?? null,
+        offsetMinutes: selection.windowMinutes ?? null,
+        relation:      selection.relation ?? null,
       },
     });
   }
 
   // ── Step 5: Aggregation ───────────────────────────────────────────────────
-  const observed = aggregateSelectedQuantity(
-    graph,
-    activeIds,
-    aggregation.quantityUnit,
-    aggregation.aggregation
+  const observed            = aggregateSelectedQuantity(
+    graph, activeIds, aggregation.quantityUnit, aggregation.aggregation
+  );
+  const aggregateSourceNodeIds = computeAggregateSourceNodeIds(
+    graph, activeIds, aggregation.quantityUnit
   );
 
   steps.push({
@@ -234,6 +277,10 @@ export function buildConstraintProofTrace(
     label:           "Aggregation",
     description:     `Aggregated qualifying ${aggregation.quantityUnit} = ${observed}. (${aggregation.aggregation} over ${activeIds.length} ${entityWord(activeIds.length)})`,
     selectedNodeIds: [...activeIds],
+    excludedNodeIds: [],
+    anchorNodeIds:   [],
+    windowNodeIds:   [],
+    aggregateSourceNodeIds,
     data:            {
       aggregate: observed,
       unit:      aggregation.quantityUnit,
@@ -246,10 +293,16 @@ export function buildConstraintProofTrace(
   const passed = compare(observed, spec.operator, spec.threshold);
 
   steps.push({
-    stepNumber:  stepN++,
-    label:       "Threshold Comparison",
-    description: `Compared ${observed} ${spec.operator} ${spec.threshold} → ${passed ? "pass" : "fail"}.`,
-    data:        {
+    stepNumber:      stepN++,
+    label:           "Threshold Comparison",
+    description:     `Compared ${observed} ${spec.operator} ${spec.threshold} → ${passed ? "pass" : "fail"}.`,
+    selectedNodeIds: [],
+    excludedNodeIds: [],
+    anchorNodeIds:   [],
+    windowNodeIds:   [],
+    // Carry aggregate source through so UI can still highlight contributing nodes
+    aggregateSourceNodeIds,
+    data:            {
       observed,
       operator:  spec.operator,
       threshold: spec.threshold,
@@ -258,13 +311,13 @@ export function buildConstraintProofTrace(
   });
 
   return {
-    constraintId:      spec.constraintId,
-    label:             spec.label,
-    candidateId:       selection.candidateId ?? null,
+    constraintId:       spec.constraintId,
+    label:              spec.label,
+    candidateId:        selection.candidateId ?? null,
     steps,
     finalObservedValue: observed,
-    operator:          spec.operator,
-    threshold:         spec.threshold,
+    operator:           spec.operator,
+    threshold:          spec.threshold,
     passed,
   };
 }

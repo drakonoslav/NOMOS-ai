@@ -59,6 +59,25 @@ export interface GraphProofStep {
   excludedNodeIds?: string[];
 
   /**
+   * Anchor node IDs referenced by this step (Window Restriction step).
+   * Used by the UI to give the anchor its own "contextual" highlight.
+   */
+  anchorNodeIds?: string[];
+
+  /**
+   * Window node IDs applied in this step (Window Restriction step).
+   * Used by the UI to highlight the temporal/spatial window directly.
+   */
+  windowNodeIds?: string[];
+
+  /**
+   * Entity node IDs that actually contributed a value to the aggregate
+   * (Aggregation step only).  Their unit matched the target unit and
+   * their amount was included in the sum/count/max/min.
+   */
+  aggregateSourceNodeIds?: string[];
+
+  /**
    * Arbitrary step-specific data for detailed inspection.
    *
    * Examples:
