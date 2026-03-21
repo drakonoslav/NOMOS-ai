@@ -31,7 +31,7 @@
  *   mapping table to match.
  */
 
-import { normalizeConstraintText } from "./constraint_normalizer";
+import { normalizeConstraintText } from "./text_normalizer";
 
 /* =========================================================
    Types

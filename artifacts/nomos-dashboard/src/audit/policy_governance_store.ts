@@ -1,4 +1,9 @@
 /**
+ * PERSISTENCE: IN_MEMORY_CLIENT_ONLY
+ * Storage backend: browser localStorage (key: nomos_governance_state_v1)
+ * Durability: none — clears on browser data wipe, incognito session end, or explicit reset
+ * Server-side durable storage: NOT wired (lib/db stub — see lib/db/src/schema/index.ts)
+ *
  * policy_governance_store.ts
  *
  * Persists and retrieves PolicyGovernanceState from localStorage.

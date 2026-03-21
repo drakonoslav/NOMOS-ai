@@ -1,4 +1,9 @@
 /**
+ * PERSISTENCE: IN_MEMORY_CLIENT_ONLY
+ * Storage backend: browser localStorage (key: nomos_gov_audit_trail_v1)
+ * Durability: none — clears on browser data wipe, incognito session end, or explicit reset
+ * Server-side durable storage: NOT wired (lib/db stub — see lib/db/src/schema/index.ts)
+ *
  * governance_audit_trail.ts
  *
  * Governance audit trail for NOMOS.

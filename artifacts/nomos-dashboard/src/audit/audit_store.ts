@@ -1,3 +1,10 @@
+/**
+ * PERSISTENCE: IN_MEMORY_CLIENT_ONLY
+ * Storage backend: browser localStorage (key: nomos_audit_history_v1)
+ * Durability: none — clears on browser data wipe, incognito session end, or explicit reset
+ * Server-side durable storage: NOT wired (lib/db stub — see lib/db/src/schema/index.ts)
+ */
+
 import { AuditRecord } from "./audit_types";
 
 const STORAGE_KEY = "nomos_audit_history_v1";

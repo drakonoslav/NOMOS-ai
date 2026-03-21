@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
-import { normalizeConstraintText } from "../compiler/constraint_normalizer";
+import { normalizeConstraintText } from "../compiler/text_normalizer";
 import {
   compileConstraint,
   CompiledConstraint,
