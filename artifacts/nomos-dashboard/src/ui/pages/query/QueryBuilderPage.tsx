@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import { HybridNomosQueryParser } from "../../../query/query_parser";
 import { NomosQuery } from "../../../query/query_types";
 import { NomosQueryResponse } from "../../../query/query_response_types";
+import { useScenario } from "@/context/scenario-context";
 
 import { QueryPageHeader } from "../../components/query/QueryPageHeader";
 import { QueryModeSwitcher } from "../../components/query/QueryModeSwitcher";
@@ -193,6 +194,7 @@ async function evaluateNomosQuery(query: NomosQuery): Promise<NomosQueryResponse
 
 export function QueryBuilderPage() {
   const parser = useMemo(() => new HybridNomosQueryParser(), []);
+  const { evaluateLiveQuery } = useScenario();
 
   const [state, setState] = useState<QueryBuilderPageState>({
     mode: "guided",
@@ -262,7 +264,10 @@ export function QueryBuilderPage() {
     }));
 
     try {
-      const evaluationResult = await evaluateNomosQuery(state.parsedQuery);
+      const [evaluationResult] = await Promise.all([
+        evaluateNomosQuery(state.parsedQuery),
+        evaluateLiveQuery(state.parsedQuery),
+      ]);
       setState((prev) => ({ ...prev, isEvaluating: false, evaluationResult }));
     } catch (err) {
       setState((prev) => ({
