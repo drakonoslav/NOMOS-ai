@@ -1,0 +1,111 @@
+Build constraint execution over graph queries for NOMOS.
+
+Goal:
+Constraints must execute over the operand/relation graph rather than over raw text or ad hoc event arrays.
+
+This means constraints should evaluate by:
+- selecting graph entities
+- filtering by tag/class
+- restricting by relation/window
+- aggregating a measured quantity
+- comparing against a threshold
+
+Create:
+- src/graph/graph_constraint_types.ts
+- src/graph/graph_query_engine.ts
+- src/graph/graph_constraint_executor.ts
+- src/tests/graph_constraint_executor_test.ts
+
+Requirements:
+
+1. Add canonical query types.
+
+interface GraphSelectionSpec {
+  candidateId?: string | null;
+  entityTags?: string[];
+  entityLabels?: string[];
+  anchorLabel?: string | null;
+  relation?: "before" | "after" | "within" | "between" | null;
+  windowMinutes?: number | null;
+}
+
+interface GraphAggregationSpec {
+  quantityUnit: string;
+  aggregation: "sum" | "count" | "max" | "min";
+}
+
+interface GraphConstraintSpec {
+  constraintId: string;
+  label: string;
+
+  selection: GraphSelectionSpec;
+  aggregation: GraphAggregationSpec;
+
+  operator: ">=" | "<=" | ">" | "<" | "==";
+  threshold: number;
+}
+
+interface GraphConstraintExecutionResult {
+  constraintId: string;
+  passed: boolean;
+
+  selectedNodeIds: string[];
+  observedValue: number;
+
+  operator: string;
+  threshold: number;
+
+  explanationLines: string[];
+}
+
+2. Build deterministic graph query functions:
+- selectCandidateEntities(graph, candidateId)
+- filterEntitiesByTags(graph, entityIds, tags)
+- restrictEntitiesByAnchorWindow(graph, entityIds, anchorLabel, relation, windowMinutes)
+- aggregateSelectedQuantity(graph, entityIds, quantityUnit, aggregation)
+
+3. Build deterministic execution:
+- executeGraphConstraint(graph, spec)
+- executeGraphConstraintSet(graph, specs)
+
+4. Example carb-timing execution:
+Constraint 1:
+- candidateId: A
+- entityTags: ["fast", "carb"]
+- anchorLabel: "lifting"
+- relation: "before"
+- windowMinutes: 90
+- aggregation: sum grams
+- operator: >=
+- threshold: 60
+
+Constraint 2:
+- candidateId: A
+- entityTags: ["slow", "carb"]
+- anchorLabel: "lifting"
+- relation: "before"
+- windowMinutes: 60
+- aggregation: sum grams
+- operator: <=
+- threshold: 20
+
+5. Explanation lines must expose the query steps:
+- selected candidate A entities
+- filtered fast carb entities
+- restricted to within 90 minutes before lifting
+- aggregated grams = 80
+- compared 80 >= 60 -> pass
+
+6. Add tests for:
+- carb timing A/B/C/D
+- no matching entities
+- multiple qualifying entities
+- mixed fast/slow entities
+- wrong-window exclusion
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. The graph executor must become the preferred path for temporal candidate constraints where graph data exists.
+
+Success condition:
+NOMOS can evaluate constraints by querying the graph structure directly and produce auditable step-by-step execution traces.

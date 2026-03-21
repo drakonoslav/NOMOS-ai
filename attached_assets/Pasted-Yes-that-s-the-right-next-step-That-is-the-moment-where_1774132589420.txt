@@ -1,0 +1,268 @@
+Yes — that’s the right next step.
+
+That is the moment where NOMOS stops being:
+	•	extracted fields
+	•	plus rules
+
+and becomes:
+
+a symbolic measurable-entity system
+
+Because now it can represent not just words, but relationships between measured things.
+
+What the graph should represent
+
+At minimum, NOMOS should be able to store:
+	•	entities
+	•	quantities
+	•	units
+	•	anchors
+	•	relations
+	•	windows
+	•	constraints
+	•	candidates
+
+So the system can move from:
+	•	“80g dextrin 30 minutes before lifting”
+
+to:
+	•	measured entity: dextrin, 80 g
+	•	measured entity: 30 minutes
+	•	anchor: lifting
+	•	relation: dextrin event occurs before lifting by 30 minutes
+
+That is exactly the right direction.
+
+⸻
+
+What to tell Replit
+
+Build an operand graph / relation graph for NOMOS.
+
+Goal:
+Represent measurable entities, anchors, relations, windows, and constraints as a reusable symbolic graph so parsing becomes true structural reasoning.
+
+This graph must sit beneath domain routing and above evaluation.
+
+Create:
+- src/graph/operand_graph_types.ts
+- src/graph/operand_graph_builder.ts
+- src/graph/relation_graph_builder.ts
+- src/graph/graph_query_helpers.ts
+- src/tests/operand_graph_test.ts
+
+Requirements:
+
+1. Add canonical node types.
+
+type GraphNodeType =
+  | "entity"
+  | "quantity"
+  | "unit"
+  | "anchor"
+  | "relation"
+  | "window"
+  | "constraint"
+  | "candidate"
+  | "objective";
+
+interface GraphNode {
+  id: string;
+  type: GraphNodeType;
+  label: string;
+
+  data?: Record<string, unknown>;
+}
+
+2. Add canonical edge types.
+
+type GraphEdgeType =
+  | "HAS_QUANTITY"
+  | "HAS_UNIT"
+  | "MODIFIES"
+  | "RELATIVE_TO"
+  | "BEFORE"
+  | "AFTER"
+  | "WITHIN"
+  | "BETWEEN"
+  | "CONSTRAINS"
+  | "BELONGS_TO_CANDIDATE"
+  | "BELONGS_TO_OBJECTIVE"
+  | "CLASSIFIED_AS"
+  | "AGGREGATES_OVER"
+  | "ANCHORS_TO";
+
+interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: GraphEdgeType;
+
+  data?: Record<string, unknown>;
+}
+
+3. Add canonical graph type.
+
+interface OperandGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+4. Build graph from parsed measurable entities and relation bindings.
+
+Examples that must graph correctly:
+
+A. "80g cyclic dextrin 30 minutes before lifting"
+Should produce:
+- entity node: cyclic dextrin
+- quantity node: 80
+- unit node: g
+- anchor node: lifting
+- quantity node: 30
+- unit node: minute
+- relation node or relational edge for BEFORE
+- edge linking dextrin event relative to lifting by 30 minutes
+
+B. "At least 60g of fast-digesting carbohydrates within 90 minutes before lifting"
+Should produce:
+- constraint node
+- quantity node: 60
+- unit node: g
+- class/tag data: fast-digesting carbohydrates
+- window node: within 90 minutes before lifting
+- anchor node: lifting
+- constraint edges tying threshold to operand class and window
+
+5. Candidate representation:
+Each candidate should have its own node.
+Measured entities belonging to a candidate must connect via:
+- BELONGS_TO_CANDIDATE
+
+6. Objective representation:
+Objective text should become an objective node if present.
+Relevant entities or constraints may connect to it.
+
+7. Add graph query helpers:
+- getCandidateEntities(graph, candidateId)
+- getConstraintWindows(graph)
+- getEntitiesRelativeToAnchor(graph, anchorLabel)
+- getQuantifiedEntities(graph)
+- getConstraintOperands(graph)
+
+8. Keep it deterministic.
+9. Do not use LLM generation.
+10. Graph must preserve open-vocabulary entities.
+11. Known domain tags may be added, but must not be required for graph construction.
+
+Success condition:
+NOMOS can represent parsed measurable entities and their relations as a graph that later evaluators can query structurally instead of relying on raw strings.
+
+
+⸻
+
+Why this matters
+
+Once this graph exists, NOMOS can reason in a much more stable way.
+
+Instead of asking:
+	•	what does this sentence maybe mean?
+
+It can ask:
+	•	which entities belong to candidate A?
+	•	which of them are tagged fast carb?
+	•	which fall inside the pre-lift window?
+	•	which constraint nodes apply to that class?
+	•	what is the aggregate quantity inside the window?
+
+That is far better.
+
+⸻
+
+What the graph buys you
+
+1. Reusable structure across domains
+
+Same graph can represent:
+	•	nutrition timing
+	•	training loads
+	•	schedule windows
+	•	supplement dosing
+	•	generic resource allocation
+
+2. Better routing
+
+Query-family routing can use graph structure as evidence.
+
+3. Cleaner constraint evaluation
+
+Constraints can operate on graph queries instead of fuzzy strings.
+
+4. Better traces
+
+Proof traces can point to:
+	•	node ids
+	•	edges
+	•	windows
+	•	aggregates
+
+5. Open vocabulary without chaos
+
+You don’t need to know every noun in advance if the graph preserves structure.
+
+⸻
+
+A simple mental model
+
+For a candidate like:
+
+D. Consume 60g cyclic dextrin 75 minutes before lifting and 30g oats 45 minutes before lifting.
+
+the graph should let NOMOS store:
+	•	Candidate D
+	•	dextrin entity
+	•	60 g
+	•	before lifting by 75 min
+	•	tags: fast, carb
+	•	oats entity
+	•	30 g
+	•	before lifting by 45 min
+	•	tags: slow, carb
+
+Then the temporal engine just queries the graph.
+
+That is exactly what you want.
+
+⸻
+
+Important design choice
+
+I would not make the graph too “smart” too early.
+
+Start with:
+	•	explicit nodes
+	•	explicit edges
+	•	simple query helpers
+
+Not:
+	•	theorem prover
+	•	inference explosion
+	•	automatic ontology generation
+
+You want a stable symbolic backbone, not an overambitious reasoning web.
+
+⸻
+
+The strongest next step after this
+
+After operand graph / relation graph, the strongest next step is:
+
+constraint execution over graph queries
+
+So constraints no longer bind directly to raw text or ad hoc event arrays, but instead say:
+	•	select entities in candidate A
+	•	filter by tag fast carb
+	•	restrict to window before lifting
+	•	aggregate grams
+	•	compare to threshold
+
+That would be the real bridge from parsing to symbolic execution.

@@ -1,0 +1,173 @@
+Yes — that’s the right next step.
+
+That is the actual bridge from:
+	•	parsed structure
+to
+	•	executable reasoning
+
+Once constraints execute over graph queries, NOMOS stops depending on fragile string-level bindings and starts operating on explicit symbolic selections.
+
+What to tell Replit
+
+Build constraint execution over graph queries for NOMOS.
+
+Goal:
+Constraints must execute over the operand/relation graph rather than over raw text or ad hoc event arrays.
+
+This means constraints should evaluate by:
+- selecting graph entities
+- filtering by tag/class
+- restricting by relation/window
+- aggregating a measured quantity
+- comparing against a threshold
+
+Create:
+- src/graph/graph_constraint_types.ts
+- src/graph/graph_query_engine.ts
+- src/graph/graph_constraint_executor.ts
+- src/tests/graph_constraint_executor_test.ts
+
+Requirements:
+
+1. Add canonical query types.
+
+interface GraphSelectionSpec {
+  candidateId?: string | null;
+  entityTags?: string[];
+  entityLabels?: string[];
+  anchorLabel?: string | null;
+  relation?: "before" | "after" | "within" | "between" | null;
+  windowMinutes?: number | null;
+}
+
+interface GraphAggregationSpec {
+  quantityUnit: string;
+  aggregation: "sum" | "count" | "max" | "min";
+}
+
+interface GraphConstraintSpec {
+  constraintId: string;
+  label: string;
+
+  selection: GraphSelectionSpec;
+  aggregation: GraphAggregationSpec;
+
+  operator: ">=" | "<=" | ">" | "<" | "==";
+  threshold: number;
+}
+
+interface GraphConstraintExecutionResult {
+  constraintId: string;
+  passed: boolean;
+
+  selectedNodeIds: string[];
+  observedValue: number;
+
+  operator: string;
+  threshold: number;
+
+  explanationLines: string[];
+}
+
+2. Build deterministic graph query functions:
+- selectCandidateEntities(graph, candidateId)
+- filterEntitiesByTags(graph, entityIds, tags)
+- restrictEntitiesByAnchorWindow(graph, entityIds, anchorLabel, relation, windowMinutes)
+- aggregateSelectedQuantity(graph, entityIds, quantityUnit, aggregation)
+
+3. Build deterministic execution:
+- executeGraphConstraint(graph, spec)
+- executeGraphConstraintSet(graph, specs)
+
+4. Example carb-timing execution:
+Constraint 1:
+- candidateId: A
+- entityTags: ["fast", "carb"]
+- anchorLabel: "lifting"
+- relation: "before"
+- windowMinutes: 90
+- aggregation: sum grams
+- operator: >=
+- threshold: 60
+
+Constraint 2:
+- candidateId: A
+- entityTags: ["slow", "carb"]
+- anchorLabel: "lifting"
+- relation: "before"
+- windowMinutes: 60
+- aggregation: sum grams
+- operator: <=
+- threshold: 20
+
+5. Explanation lines must expose the query steps:
+- selected candidate A entities
+- filtered fast carb entities
+- restricted to within 90 minutes before lifting
+- aggregated grams = 80
+- compared 80 >= 60 -> pass
+
+6. Add tests for:
+- carb timing A/B/C/D
+- no matching entities
+- multiple qualifying entities
+- mixed fast/slow entities
+- wrong-window exclusion
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. The graph executor must become the preferred path for temporal candidate constraints where graph data exists.
+
+Success condition:
+NOMOS can evaluate constraints by querying the graph structure directly and produce auditable step-by-step execution traces.
+
+Why this matters
+
+This is where the symbolic backbone becomes useful.
+
+Instead of:
+	•	parse sentence
+	•	hand-build event array
+	•	evaluate constraint
+
+you get:
+	•	parse sentence
+	•	build graph
+	•	run graph query
+	•	evaluate constraint
+
+That is far more stable and extensible.
+
+What NOMOS should eventually be doing
+
+For candidate D, it should be able to do something like:
+	1.	select all entities belonging to candidate D
+	2.	filter entities tagged fast and carb
+	3.	restrict to those before lifting within 90 minutes
+	4.	aggregate grams
+	5.	compare to 60
+
+Then separately:
+	1.	select all entities belonging to candidate D
+	2.	filter entities tagged slow and carb
+	3.	restrict to those before lifting within 60 minutes
+	4.	aggregate grams
+	5.	compare to 20
+
+That’s the correct execution model.
+
+What comes after this
+
+After constraint execution over graph queries, the strongest next step is:
+
+graph-native proof trace
+
+So the proof itself can reference:
+	•	selected nodes
+	•	filtered nodes
+	•	excluded nodes
+	•	windows
+	•	aggregates
+	•	comparison result
+
+That would make every pass/fail decision fully graph-auditable.

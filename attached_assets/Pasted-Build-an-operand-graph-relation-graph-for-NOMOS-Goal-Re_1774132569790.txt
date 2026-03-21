@@ -1,0 +1,119 @@
+Build an operand graph / relation graph for NOMOS.
+
+Goal:
+Represent measurable entities, anchors, relations, windows, and constraints as a reusable symbolic graph so parsing becomes true structural reasoning.
+
+This graph must sit beneath domain routing and above evaluation.
+
+Create:
+- src/graph/operand_graph_types.ts
+- src/graph/operand_graph_builder.ts
+- src/graph/relation_graph_builder.ts
+- src/graph/graph_query_helpers.ts
+- src/tests/operand_graph_test.ts
+
+Requirements:
+
+1. Add canonical node types.
+
+type GraphNodeType =
+  | "entity"
+  | "quantity"
+  | "unit"
+  | "anchor"
+  | "relation"
+  | "window"
+  | "constraint"
+  | "candidate"
+  | "objective";
+
+interface GraphNode {
+  id: string;
+  type: GraphNodeType;
+  label: string;
+
+  data?: Record<string, unknown>;
+}
+
+2. Add canonical edge types.
+
+type GraphEdgeType =
+  | "HAS_QUANTITY"
+  | "HAS_UNIT"
+  | "MODIFIES"
+  | "RELATIVE_TO"
+  | "BEFORE"
+  | "AFTER"
+  | "WITHIN"
+  | "BETWEEN"
+  | "CONSTRAINS"
+  | "BELONGS_TO_CANDIDATE"
+  | "BELONGS_TO_OBJECTIVE"
+  | "CLASSIFIED_AS"
+  | "AGGREGATES_OVER"
+  | "ANCHORS_TO";
+
+interface GraphEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: GraphEdgeType;
+
+  data?: Record<string, unknown>;
+}
+
+3. Add canonical graph type.
+
+interface OperandGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+4. Build graph from parsed measurable entities and relation bindings.
+
+Examples that must graph correctly:
+
+A. "80g cyclic dextrin 30 minutes before lifting"
+Should produce:
+- entity node: cyclic dextrin
+- quantity node: 80
+- unit node: g
+- anchor node: lifting
+- quantity node: 30
+- unit node: minute
+- relation node or relational edge for BEFORE
+- edge linking dextrin event relative to lifting by 30 minutes
+
+B. "At least 60g of fast-digesting carbohydrates within 90 minutes before lifting"
+Should produce:
+- constraint node
+- quantity node: 60
+- unit node: g
+- class/tag data: fast-digesting carbohydrates
+- window node: within 90 minutes before lifting
+- anchor node: lifting
+- constraint edges tying threshold to operand class and window
+
+5. Candidate representation:
+Each candidate should have its own node.
+Measured entities belonging to a candidate must connect via:
+- BELONGS_TO_CANDIDATE
+
+6. Objective representation:
+Objective text should become an objective node if present.
+Relevant entities or constraints may connect to it.
+
+7. Add graph query helpers:
+- getCandidateEntities(graph, candidateId)
+- getConstraintWindows(graph)
+- getEntitiesRelativeToAnchor(graph, anchorLabel)
+- getQuantifiedEntities(graph)
+- getConstraintOperands(graph)
+
+8. Keep it deterministic.
+9. Do not use LLM generation.
+10. Graph must preserve open-vocabulary entities.
+11. Known domain tags may be added, but must not be required for graph construction.
+
+Success condition:
+NOMOS can represent parsed measurable entities and their relations as a graph that later evaluators can query structurally instead of relying on raw strings.

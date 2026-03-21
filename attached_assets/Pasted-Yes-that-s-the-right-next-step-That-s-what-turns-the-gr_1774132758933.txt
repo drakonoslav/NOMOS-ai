@@ -1,0 +1,139 @@
+Yes — that’s the right next step.
+
+That’s what turns the graph executor from “correct” into auditable.
+
+You want the proof to say not just:
+	•	pass
+	•	fail
+	•	observed value
+
+but:
+	•	which nodes were selected
+	•	which were filtered in
+	•	which were excluded
+	•	which window was applied
+	•	what was aggregated
+	•	what comparison was made
+
+That is exactly the right evolution.
+
+What to tell Replit
+
+Build graph-native proof trace for NOMOS.
+
+Goal:
+Every graph-executed constraint must produce a proof trace that references:
+- selected nodes
+- filtered nodes
+- excluded nodes
+- applied window
+- aggregate result
+- final comparison result
+
+This proof trace must be deterministic and tied directly to graph execution.
+
+Create:
+- src/graph/graph_proof_types.ts
+- src/graph/graph_proof_trace.ts
+- update graph_constraint_executor.ts
+- src/ui/components/evaluation/GraphProofTracePanel.tsx
+- src/tests/graph_proof_trace_test.ts
+
+Requirements:
+
+1. Add canonical proof types.
+
+interface GraphProofStep {
+  stepNumber: number;
+  label: string;
+  description: string;
+
+  selectedNodeIds?: string[];
+  excludedNodeIds?: string[];
+
+  data?: Record<string, unknown>;
+}
+
+interface GraphConstraintProofTrace {
+  constraintId: string;
+  label: string;
+
+  candidateId?: string | null;
+
+  steps: GraphProofStep[];
+
+  finalObservedValue: number;
+  operator: string;
+  threshold: number;
+  passed: boolean;
+}
+
+2. Proof trace must include these stages where applicable:
+- candidate entity selection
+- tag/class filtering
+- window restriction
+- excluded nodes after filtering/windowing
+- aggregation result
+- threshold comparison
+
+3. Example proof lines for carb timing:
+- "Selected all entities belonging to candidate D."
+- "Filtered entities tagged fast + carb."
+- "Restricted entities to within 90 minutes before lifting."
+- "Excluded oats node because it is tagged slow."
+- "Aggregated qualifying grams = 60."
+- "Compared 60 >= 60 -> pass."
+
+Second constraint:
+- "Filtered entities tagged slow + carb."
+- "Restricted entities to within 60 minutes before lifting."
+- "Aggregated qualifying grams = 30."
+- "Compared 30 <= 20 -> fail."
+
+4. Update graph_constraint_executor.ts so every execution returns:
+- GraphConstraintExecutionResult
+- GraphConstraintProofTrace
+
+5. Proof trace must preserve ids of:
+- selected nodes
+- excluded nodes
+- anchor/window nodes if available
+
+6. UI:
+Create GraphProofTracePanel showing:
+- ordered proof steps
+- final observed value
+- threshold comparison
+- pass/fail result
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. Proof trace must reflect actual graph execution, not post hoc narrative.
+
+Success condition:
+Every graph-executed constraint in NOMOS can produce a node-aware proof trace that makes pass/fail decisions fully graph-auditable.
+
+Why this matters
+
+This is the layer that lets you inspect a failure and say:
+	•	“these nodes were considered”
+	•	“these nodes were excluded”
+	•	“this window caused exclusion”
+	•	“this aggregate was computed”
+	•	“this comparison failed”
+
+That is a real proof, not just an explanation.
+
+What comes after this
+
+After graph-native proof trace, the strongest next step is:
+
+proof-to-UI graph highlighting
+
+So clicking a proof step can highlight:
+	•	the selected nodes
+	•	the excluded nodes
+	•	the anchor/window
+	•	the aggregate source
+
+directly in the graph view.
