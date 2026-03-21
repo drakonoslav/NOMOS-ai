@@ -39,25 +39,45 @@ function edgesTo(graph: OperandGraph, toId: string): GraphEdge[] {
    ========================================================= */
 
 /**
- * Return all entity nodes that belong to a given candidate node.
+ * Return all entity nodes that belong to a given candidate.
  *
- * Traverses BELONGS_TO_CANDIDATE edges pointing to the candidate.
+ * Traverses BELONGS_TO_CANDIDATE edges pointing to matching candidate nodes.
  * If candidateId is omitted, returns entities for ALL candidates.
+ *
+ * `candidateId` may be either:
+ *   - A graph node id (e.g. "gn_candidate_12") — matched against node.id
+ *   - A semantic label (e.g. "A", "B", "1") — matched against node.data.candidateId
+ *
+ * Both forms allow the constraint algebra to address candidates by their
+ * domain label without knowing internal graph node IDs.
  */
 export function getCandidateEntities(
   graph: OperandGraph,
   candidateId?: string
 ): GraphNode[] {
-  const candidateIds: Set<string> = candidateId
-    ? new Set([candidateId])
-    : new Set(
-        graph.nodes
-          .filter((n) => n.type === "candidate")
-          .map((n) => n.id)
-      );
+  let candidateNodeIds: Set<string>;
+
+  if (candidateId === undefined) {
+    // All candidate nodes
+    candidateNodeIds = new Set(
+      graph.nodes.filter((n) => n.type === "candidate").map((n) => n.id)
+    );
+  } else {
+    // Match by graph node id OR by data.candidateId (semantic label)
+    candidateNodeIds = new Set(
+      graph.nodes
+        .filter(
+          (n) =>
+            n.type === "candidate" &&
+            (n.id === candidateId ||
+              (n.data as Record<string, unknown>)?.candidateId === candidateId)
+        )
+        .map((n) => n.id)
+    );
+  }
 
   return graph.edges
-    .filter((e) => e.type === "BELONGS_TO_CANDIDATE" && candidateIds.has(e.to))
+    .filter((e) => e.type === "BELONGS_TO_CANDIDATE" && candidateNodeIds.has(e.to))
     .map((e) => nodeById(graph, e.from))
     .filter((n): n is GraphNode => n !== undefined && n.type === "entity");
 }

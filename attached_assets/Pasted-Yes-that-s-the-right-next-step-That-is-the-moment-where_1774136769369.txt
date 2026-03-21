@@ -1,0 +1,236 @@
+Yes — that’s the right next step.
+
+That is the moment where NOMOS stops having:
+	•	canonical entities over here
+	•	relation bindings over there
+	•	graph builder as a separate translation layer
+
+and instead gets:
+
+one canonical semantic graph
+
+built directly from:
+	•	canonical entities
+	•	canonical relations
+
+That should become the spine.
+
+What this means structurally
+
+Right now, the graph is probably still partly:
+	•	reconstructed from parser outputs
+	•	reconstructed from role heuristics
+	•	reconstructed from relation snippets
+
+You want to replace that with:
+
+canonical entity-relation graph
+
+where:
+	•	entities are first-class canonical nodes
+	•	relations are first-class canonical edges or relation nodes
+	•	graph build is mostly a projection of canonical semantic objects
+	•	evaluation, proof, UI, and governance all hang off the same graph substrate
+
+That is the correct architecture.
+
+⸻
+
+What to tell Replit
+
+Build entity-relation graph unification for NOMOS.
+
+Goal:
+Make the graph a direct canonical projection of:
+- canonical entities
+- canonical relations
+
+The graph should no longer be a partially reconstructed structure built from ad hoc parser outputs.
+It should become the semantic spine of the whole system.
+
+Create:
+- src/graph/canonical_graph_types.ts
+- src/graph/canonical_graph_builder.ts
+- src/graph/canonical_graph_projection.ts
+- src/tests/canonical_graph_unification_test.ts
+
+Requirements:
+
+1. Add canonical graph schema.
+
+interface CanonicalGraphNode {
+  id: string;
+  kind: "entity" | "anchor" | "candidate" | "constraint" | "objective" | "quantity" | "unit";
+  label: string;
+  data: Record<string, unknown>;
+}
+
+interface CanonicalGraphEdge {
+  id: string;
+  kind: string; // derived from canonical relation type
+  from: string;
+  to: string;
+  data: Record<string, unknown>;
+}
+
+interface CanonicalGraph {
+  nodes: CanonicalGraphNode[];
+  edges: CanonicalGraphEdge[];
+}
+
+2. Input to graph builder must be:
+- CanonicalEntity[]
+- CanonicalRelation[]
+- optional candidate / objective / constraint canonical records
+
+3. The builder must not re-infer semantics already present in canonical entities/relations.
+It should project canonical semantic objects into graph form.
+
+4. Entity projection rules:
+- every CanonicalEntity becomes exactly one graph entity node
+- quantity/unit may become separate nodes only if needed for graph query / proof purposes
+- category/tags/provenance/confidence must survive into node data
+
+5. Relation projection rules:
+- every CanonicalRelation becomes either:
+  - a direct typed edge
+  - or a relation node + edges if needed for richer graph semantics
+- offset/window/provenance/confidence must survive into edge/node data
+
+6. Candidate/objective/constraint projection rules:
+- candidate ownership must be explicit and candidate-local
+- objective nodes must preserve full objective content, not shallow truncation
+- constraint nodes must attach to relevant operands and windows
+
+7. Add invariants:
+- one canonical entity -> one graph entity node
+- one canonical relation -> one canonical graph relation representation
+- no graph node/edge may silently reclassify entity tags or relation meaning
+- if graph data exists, downstream execution must prefer graph data over raw text
+
+8. Add tests:
+- nutrition carb timing example
+- multi-candidate example
+- training load example
+- mixed measurable-entity example
+- ensure graph equivalence from canonical inputs is stable across runs
+
+9. Add debug output or trace:
+For a built graph, expose:
+- canonical entity count
+- canonical relation count
+- graph node count
+- graph edge count
+- any projection warnings
+
+Success condition:
+The graph is a faithful canonical semantic projection of entities and relations, and becomes the shared substrate for execution, proof, and UI.
+
+
+⸻
+
+Why this matters
+
+This solves a major architectural problem:
+
+before
+	•	parser extracts things
+	•	graph builder guesses structure
+	•	executor queries graph
+	•	proof tries to explain graph
+	•	UI tries to map back
+
+after
+	•	parser creates canonical entities/relations
+	•	graph is just a faithful semantic projection
+	•	executor queries canonical graph
+	•	proof references canonical graph
+	•	UI visualizes canonical graph
+
+That is much cleaner.
+
+⸻
+
+The key invariant
+
+You need this law:
+
+The graph may project canonical semantics. It may not invent them.
+
+That is the heart of unification.
+
+If the graph builder is still:
+	•	re-tagging
+	•	reclassifying
+	•	re-binding
+	•	guessing candidate structure
+
+then it is still not the semantic spine.
+
+⸻
+
+What this unlocks
+
+Once graph unification is done, a lot of your later systems become much safer:
+
+execution
+
+runs over canonical graph queries
+
+proof
+
+references canonical graph ids and canonical relation types
+
+highlighting
+
+uses graph ids that actually correspond to canonical semantic objects
+
+back-propagation
+
+can show which canonical objects participated in execution
+
+diff engine
+
+can compare graph states canonically
+
+policy / governance / health
+
+all inherit from one coherent substrate
+
+That is the real payoff.
+
+⸻
+
+A subtle design choice
+
+I would keep:
+	•	CanonicalEntity
+	•	CanonicalRelation
+
+as the actual semantic source of truth
+
+and let:
+	•	CanonicalGraph
+
+be the query/visualization substrate
+
+So the graph is central, but not ontologically “more true” than the canonical records it is built from.
+
+That prevents weird feedback loops where the graph becomes harder to reason about than the source.
+
+⸻
+
+The next strongest step after this
+
+After entity-relation graph unification, the strongest next step is:
+
+graph-as-source execution refactor
+
+Meaning:
+	•	graph-native constraint execution becomes the default path
+	•	event-array or raw-text fallback becomes secondary
+	•	proof, diff, and repair are all graph-first
+
+That is when the graph truly becomes the execution substrate, not just a representation layer.
+
+If you want, I’ll draft that exact graph-as-source execution refactor next.

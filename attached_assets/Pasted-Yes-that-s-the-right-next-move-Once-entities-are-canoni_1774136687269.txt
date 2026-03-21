@@ -1,0 +1,257 @@
+Yes — that’s the right next move.
+
+Once entities are canonical, relations need to be canonical too. Otherwise you still get drift in:
+	•	before vs within before
+	•	with vs during
+	•	belongs to candidate vs relative to anchor
+	•	threshold comparison vs structural relation
+
+You want a typed relation schema so NOMOS can reason over relations the same way it reasons over entities: explicitly, auditably, algebraically.
+
+The schema I’d use
+
+type RelationType =
+  | "HAS_MEASURE"
+  | "HAS_TAG"
+  | "MODIFIED_BY"
+  | "BELONGS_TO_CANDIDATE"
+  | "BELONGS_TO_OBJECTIVE"
+  | "BELONGS_TO_CONSTRAINT"
+  | "RELATIVE_TO_ANCHOR"
+  | "BEFORE"
+  | "AFTER"
+  | "WITHIN_WINDOW"
+  | "BETWEEN"
+  | "DURING"
+  | "WITH"
+  | "CONSTRAINS"
+  | "AGGREGATES_OVER"
+  | "COMPARES_TO_THRESHOLD"
+  | "CLASSIFIED_AS";
+
+type RelationProvenance =
+  | "explicit"
+  | "registry"
+  | "normalized"
+  | "inferred"
+  | "fallback";
+
+interface RelationOffset {
+  amount: number;
+  unitRaw: string;
+  unitNormalized: string;
+  dimension: "time" | "distance" | "count" | "unknown";
+}
+
+interface RelationWindow {
+  startAmount?: number | null;
+  startUnit?: string | null;
+  endAmount?: number | null;
+  endUnit?: string | null;
+  anchorLabel?: string | null;
+  relationDirection?: "before" | "after" | "around" | "between" | null;
+}
+
+interface CanonicalRelation {
+  id: string;
+
+  type: RelationType;
+
+  fromEntityId: string;
+  toEntityId?: string | null;
+
+  labelRaw: string;
+  labelNormalized: string;
+
+  provenance: RelationProvenance;
+  confidence: number;
+
+  offset?: RelationOffset | null;
+  window?: RelationWindow | null;
+
+  qualifiers?: string[];
+  sourceRegistryId?: string | null;
+
+  normalizationHistory: {
+    stage: string;
+    before: string;
+    after: string;
+    reason: string;
+  }[];
+}
+
+Why this is strong
+
+It separates:
+	•	relation type — what kind of structural link this is
+	•	provenance — where the relation came from
+	•	confidence — how strongly NOMOS should trust it
+	•	offset — exact measurable displacement, like 30 minutes
+	•	window — bounded context, like within 90 minutes before lifting
+
+That gives you explicit semantics instead of fuzzy parsing residue.
+
+Example 1
+
+Input:
+80g cyclic dextrin 30 minutes before lifting
+
+You’d get:
+
+Entity
+	•	cyclic_dextrin
+	•	80 g
+
+Anchor
+	•	lifting
+
+Relation
+
+{
+  id: "rel_001",
+  type: "BEFORE",
+  fromEntityId: "ent_cyclic_dextrin_event",
+  toEntityId: "anchor_lifting",
+  labelRaw: "30 minutes before",
+  labelNormalized: "before",
+  provenance: "explicit",
+  confidence: 0.98,
+  offset: {
+    amount: 30,
+    unitRaw: "minutes",
+    unitNormalized: "minute",
+    dimension: "time"
+  },
+  normalizationHistory: [
+    {
+      stage: "relation_normalization",
+      before: "30 minutes before",
+      after: "BEFORE + offset(30 minute)",
+      reason: "canonical temporal relation binding"
+    }
+  ]
+}
+
+Example 2
+
+Input:
+At least 60g of fast-digesting carbohydrates within 90 minutes before lifting
+
+This should produce:
+	•	entity class node or operand node: fast-digesting carbohydrates
+	•	threshold node: 60 g
+	•	window relation: within 90 minutes before lifting
+	•	comparison relation: at least
+
+So constraints become graphable, not just text blobs.
+
+The design rules you want
+
+1. Relations should be open enough for general use
+
+Not nutrition-only. Same schema should support:
+	•	5 mg melatonin 2 hours before bed
+	•	40 lb dumbbell for 12 reps
+	•	3 miles after work
+	•	2 months after promotion
+	•	1 decade before the merger
+
+2. Relation words should normalize into canonical types
+
+Examples:
+	•	before → BEFORE
+	•	after → AFTER
+	•	within X before → WITHIN_WINDOW + direction before
+	•	between A and B → BETWEEN
+	•	with dinner → WITH
+	•	during sleep → DURING
+
+3. Preserve provenance
+
+If the relation is explicit in text, keep that.
+If it was inferred from shorthand like pre-lift, record that as normalized or inferred.
+
+4. Never hide offsets inside prose once parsed
+
+30 minutes should be a first-class measurable relation attribute, not a buried string.
+
+What to tell Replit
+
+Build a typed relation schema for NOMOS.
+
+Goal:
+Pair canonical entities with canonical relations so the graph becomes fully rigorous and suitable for algebraic execution.
+
+Create:
+- src/compiler/canonical_relation_types.ts
+- src/compiler/canonical_relation_normalizer.ts
+- src/compiler/relation_registry.ts
+- src/tests/canonical_relation_schema_test.ts
+
+Requirements:
+
+1. Add canonical relation schema with:
+- relation type
+- provenance
+- confidence
+- offset
+- window
+- sourceRegistryId
+- normalizationHistory
+
+2. Relation types must support at minimum:
+- HAS_MEASURE
+- BELONGS_TO_CANDIDATE
+- BELONGS_TO_OBJECTIVE
+- BELONGS_TO_CONSTRAINT
+- RELATIVE_TO_ANCHOR
+- BEFORE
+- AFTER
+- WITHIN_WINDOW
+- BETWEEN
+- DURING
+- WITH
+- CONSTRAINS
+- AGGREGATES_OVER
+- COMPARES_TO_THRESHOLD
+- CLASSIFIED_AS
+
+3. Temporal phrases like:
+- 30 minutes before lifting
+- within 90 minutes before lifting
+- 2 hours after sleep
+must normalize into typed temporal relations with explicit offsets/windows.
+
+4. Keep this schema domain-agnostic.
+It must support nutrition, training, scheduling, and generic measurable reasoning.
+
+5. Preserve provenance:
+- explicit
+- registry
+- normalized
+- inferred
+- fallback
+
+6. Add tests for:
+- before
+- after
+- within-window
+- with
+- during
+- between
+- shorthand like pre-lift / post-workout if currently supported
+
+Success condition:
+NOMOS has a typed relation schema that can bind canonical entities into a rigorous graph for symbolic execution.
+
+What comes right after this
+
+After typed relation schema, the strongest next step is:
+
+entity-relation graph unification
+
+So the graph is no longer “entity nodes plus some edges,” but a true canonical graph built directly from:
+	•	canonical entities
+	•	canonical relations
+
+At that point, the graph becomes the semantic spine of the whole system.

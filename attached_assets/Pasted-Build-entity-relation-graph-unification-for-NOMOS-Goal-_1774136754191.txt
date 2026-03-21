@@ -1,0 +1,87 @@
+Build entity-relation graph unification for NOMOS.
+
+Goal:
+Make the graph a direct canonical projection of:
+- canonical entities
+- canonical relations
+
+The graph should no longer be a partially reconstructed structure built from ad hoc parser outputs.
+It should become the semantic spine of the whole system.
+
+Create:
+- src/graph/canonical_graph_types.ts
+- src/graph/canonical_graph_builder.ts
+- src/graph/canonical_graph_projection.ts
+- src/tests/canonical_graph_unification_test.ts
+
+Requirements:
+
+1. Add canonical graph schema.
+
+interface CanonicalGraphNode {
+  id: string;
+  kind: "entity" | "anchor" | "candidate" | "constraint" | "objective" | "quantity" | "unit";
+  label: string;
+  data: Record<string, unknown>;
+}
+
+interface CanonicalGraphEdge {
+  id: string;
+  kind: string; // derived from canonical relation type
+  from: string;
+  to: string;
+  data: Record<string, unknown>;
+}
+
+interface CanonicalGraph {
+  nodes: CanonicalGraphNode[];
+  edges: CanonicalGraphEdge[];
+}
+
+2. Input to graph builder must be:
+- CanonicalEntity[]
+- CanonicalRelation[]
+- optional candidate / objective / constraint canonical records
+
+3. The builder must not re-infer semantics already present in canonical entities/relations.
+It should project canonical semantic objects into graph form.
+
+4. Entity projection rules:
+- every CanonicalEntity becomes exactly one graph entity node
+- quantity/unit may become separate nodes only if needed for graph query / proof purposes
+- category/tags/provenance/confidence must survive into node data
+
+5. Relation projection rules:
+- every CanonicalRelation becomes either:
+  - a direct typed edge
+  - or a relation node + edges if needed for richer graph semantics
+- offset/window/provenance/confidence must survive into edge/node data
+
+6. Candidate/objective/constraint projection rules:
+- candidate ownership must be explicit and candidate-local
+- objective nodes must preserve full objective content, not shallow truncation
+- constraint nodes must attach to relevant operands and windows
+
+7. Add invariants:
+- one canonical entity -> one graph entity node
+- one canonical relation -> one canonical graph relation representation
+- no graph node/edge may silently reclassify entity tags or relation meaning
+- if graph data exists, downstream execution must prefer graph data over raw text
+
+8. Add tests:
+- nutrition carb timing example
+- multi-candidate example
+- training load example
+- mixed measurable-entity example
+- ensure graph equivalence from canonical inputs is stable across runs
+
+9. Add debug output or trace:
+For a built graph, expose:
+- canonical entity count
+- canonical relation count
+- graph node count
+- graph edge count
+- any projection warnings
+
+Success condition:
+The graph is a faithful canonical semantic projection of entities and relations, and becomes the shared substrate for execution, proof, and UI.

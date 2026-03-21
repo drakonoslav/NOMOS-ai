@@ -1,0 +1,106 @@
+Build the graph-as-source execution refactor for NOMOS.
+
+Goal:
+Make the canonical graph the default execution substrate for constraint evaluation.
+
+This means:
+- graph-native constraint execution becomes the preferred/default path
+- event-array or raw-text fallback becomes secondary
+- proof, diff, and repair all become graph-first
+
+Create or update:
+- src/execution/execution_route_types.ts
+- src/execution/execution_router.ts
+- src/execution/graph_first_evaluator.ts
+- src/execution/fallback_evaluator.ts
+- src/execution/execution_trace.ts
+- src/tests/graph_as_source_execution_test.ts
+
+Requirements:
+
+1. Add canonical execution routing types.
+
+type ExecutionRoute =
+  | "graph_first"
+  | "event_fallback"
+  | "text_fallback";
+
+interface ExecutionRoutingDecision {
+  route: ExecutionRoute;
+  reason: string;
+
+  hasCanonicalEntities: boolean;
+  hasCanonicalRelations: boolean;
+  hasCanonicalGraph: boolean;
+
+  fallbackAllowed: boolean;
+}
+
+2. Build deterministic routing function:
+- resolveExecutionRoute(context)
+
+Rule:
+- if canonical graph exists and required operands/relations are present -> use graph_first
+- else if event-structured temporal data exists -> use event_fallback
+- else -> use text_fallback only if explicitly allowed
+
+3. Graph-first evaluator:
+- evaluate constraints over canonical graph queries
+- produce:
+  - result
+  - graph-native proof trace
+  - graph-native diff
+  - graph-native repair suggestions
+
+4. Fallback evaluators:
+- event-array and raw-text paths remain available
+- but must be marked explicitly as fallback
+- execution trace must record that fallback was used
+
+5. Add canonical execution trace.
+
+interface ExecutionTrace {
+  route: ExecutionRoute;
+  routingReason: string;
+
+  constraintIds: string[];
+  graphUsed: boolean;
+  fallbackUsed: boolean;
+
+  proofMode: "graph" | "event" | "text";
+  diffMode: "graph" | "event" | "text";
+  repairMode: "graph" | "event" | "text";
+
+  notes: string[];
+}
+
+6. Invariants:
+- if graph_first is used, proof/diff/repair must all be graph-native
+- if canonical graph exists and is sufficient, raw-text execution must not silently run instead
+- UI must be able to display which execution route was used
+
+7. Refactor evaluation entry point:
+Current entry points should call execution_router first, then dispatch to:
+- graph_first_evaluator
+- fallback_evaluator
+
+8. Tests:
+Add tests proving:
+- graph-first route is chosen when canonical graph exists
+- carb timing case runs graph-first
+- proof trace is graph-native
+- fallback is recorded when graph is missing
+- graph-first and fallback results match for equivalent simple cases
+
+9. UI:
+Expose execution route in evaluation result:
+- Graph-first execution
+- Event fallback
+- Text fallback
+
+10. Keep everything deterministic.
+11. Do not use LLM generation.
+12. Do not silently mix graph and raw-text semantics in one execution without trace.
+
+Success condition:
+NOMOS uses the canonical graph as its default execution substrate whenever possible, and all downstream proof/diff/repair layers become graph-first.
