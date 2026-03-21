@@ -17,6 +17,7 @@
  */
 
 import { CandidateStatus, MarginLabel, NormalizedCandidate, NormalizedConstraint } from "./eval_types.js";
+import { scoreSleepCandidate } from "./domains/sleep_constraint_evaluator.js";
 
 export interface MarginResult {
   marginScore: number;
@@ -51,6 +52,10 @@ export function computeMarginScore(
 
     case "BOUNDED_RESOURCE":
       score = scoreBoundedResource(candidate, status);
+      break;
+
+    case "SLEEP_MIN_DURATION_AND_CONTINUITY":
+      score = scoreSleepCandidate(candidate, constraint, status);
       break;
 
     case "UNKNOWN":

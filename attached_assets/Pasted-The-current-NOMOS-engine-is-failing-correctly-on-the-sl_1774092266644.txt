@@ -1,0 +1,98 @@
+The current NOMOS engine is failing correctly on the sleep prompt because this domain requires quantitative constraint evaluation, not just semantic action matching.
+
+Problem:
+The engine is treating the sleep constraint as an unsupported free-text constraint and falling back to "constraint interpretation" for all candidates.
+
+Required fix:
+Add a dedicated sleep constraint domain with deterministic evaluation.
+
+Implement a new domain:
+SLEEP_MIN_DURATION_AND_CONTINUITY
+
+Constraint:
+"Total sleep must be at least 7 hours, and sleep must be continuous (no wake period longer than 20 minutes)."
+
+Required deterministic capabilities:
+
+1. Constraint decomposition
+Parse this compound constraint into two atomic rules:
+- minTotalSleepMinutes = 420
+- maxWakeGapMinutes = 20
+
+2. Candidate time parsing
+Parse candidate descriptions like:
+- "Sleep from 11:30 PM to 6:30 AM continuously."
+- "Sleep from 10:00 PM to 2:00 AM, wake for 1 hour, then sleep from 3:00 AM to 7:00 AM."
+
+Extract:
+- sleep intervals
+- wake intervals
+- total sleep minutes
+- longest wake gap
+- continuity flag
+
+3. Deterministic evaluation rules
+For each candidate:
+- if totalSleepMinutes < 420 => INVALID
+- else if longestWakeGapMinutes > 20 => INVALID
+- else candidate is admissible
+- use margin scoring:
+  - duration margin = totalSleepMinutes - 420
+  - continuity margin = 20 - longestWakeGapMinutes
+  - choose decisive variable based on the smaller margin or the violated constraint
+
+4. Expected results for the current test prompt
+A. 11:30 PM to 6:30 AM continuously
+- totalSleepMinutes = 420
+- longestWakeGapMinutes = 0
+- status = LAWFUL
+- marginScore = lower than C because duration is exactly at threshold
+
+B. 10:00 PM to 2:00 AM, wake 1 hour, then 3:00 AM to 7:00 AM
+- totalSleepMinutes = 480
+- longestWakeGapMinutes = 60
+- status = INVALID
+- decisiveVariable = sleep continuity
+
+C. 1:00 AM to 8:30 AM continuously
+- totalSleepMinutes = 450
+- longestWakeGapMinutes = 0
+- status = LAWFUL
+- strongest margin
+- decisiveVariable = sleep duration margin
+
+D. 11:00 PM to 5:30 AM continuously
+- totalSleepMinutes = 390
+- longestWakeGapMinutes = 0
+- status = INVALID
+- decisiveVariable = sleep duration
+
+Overall:
+- lawfulSet = A, C
+- bestCandidateId = C
+- overallStatus = LAWFUL
+
+5. Add a dedicated evaluator file
+Create something like:
+- src/evaluation/domains/sleep_constraint_evaluator.ts
+
+6. Add a dedicated constraint normalizer mapping
+When constraint text includes:
+- "total sleep"
+- "at least 7 hours"
+- "continuous"
+- "no wake period longer than 20 minutes"
+map it to:
+SLEEP_MIN_DURATION_AND_CONTINUITY
+
+7. Do not send this domain to generic LLM fallback unless deterministic parsing fails completely.
+This should be handled deterministically first.
+
+8. Update UI reasons to be precise
+Examples:
+- "Sleep duration below threshold. Constraint violated."
+- "Wake gap exceeds continuity limit. Constraint violated."
+- "Sleep continuous. Duration threshold satisfied."
+
+Goal:
+NOMOS must support derived-state quantitative evaluation, not only verb-based semantic constraints.

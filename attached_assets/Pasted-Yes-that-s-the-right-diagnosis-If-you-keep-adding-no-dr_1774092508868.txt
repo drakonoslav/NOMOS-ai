@@ -1,0 +1,362 @@
+Yes — that’s the right diagnosis.
+
+If you keep adding:
+	•	no drop
+	•	no turnover
+	•	sleep continuity
+	•	budget caps
+	•	protein minimums
+
+one by one, you’ll get a pile of demos, not a general system.
+
+What you’re actually discovering are not “use cases.”
+You’re discovering missing constraint classes.
+
+The real blind spots
+
+NOMOS currently seems strongest at:
+	•	categorical action prohibitions
+	•	“must not drop”
+	•	“must not till”
+	•	detect action token
+	•	classify violation
+
+It is weaker at:
+	•	derived quantitative constraints
+	•	“at least 7 hours”
+	•	“no wake longer than 20 minutes”
+	•	temporal reasoning
+	•	intervals
+	•	gaps
+	•	ordering
+	•	deadlines
+	•	compound constraint decomposition
+	•	one sentence containing multiple rules
+	•	state derivation
+	•	compute totals, maxima, durations, margins from raw candidate descriptions
+
+That means the blind spot is architectural:
+
+NOMOS lacks a general ontology of constraint types and evaluation operators.
+
+The shift you need
+
+Stop thinking:
+
+“What prompt should I test next?”
+
+Start thinking:
+
+“What class of constraint does this prompt instantiate?”
+
+That gives you a reusable engine.
+
+The right top-level taxonomy
+
+You want a constraint grammar something like this:
+
+1. Prohibition constraints
+
+Action/state must not occur.
+
+Examples:
+	•	must not drop
+	•	must not till
+	•	must not exceed pain threshold
+
+Operator form:
+	•	forbidden event present? yes/no
+
+2. Minimum threshold constraints
+
+A value must be at least X.
+
+Examples:
+	•	sleep ≥ 7h
+	•	protein ≥ 180g
+	•	revenue ≥ target
+
+Operator form:
+	•	derived metric >= threshold
+
+3. Maximum threshold constraints
+
+A value must be no more than X.
+
+Examples:
+	•	wake gap ≤ 20 min
+	•	budget ≤ $500
+	•	fatigue ≤ threshold
+
+Operator form:
+	•	derived metric <= threshold
+
+4. Interval/band constraints
+
+A value must stay within a range.
+
+Examples:
+	•	heart rate between 120–140
+	•	calories between 2600–2800
+
+Operator form:
+	•	lower <= metric <= upper
+
+5. Continuity constraints
+
+Interruptions/gaps must remain below a bound.
+
+Examples:
+	•	no wake period > 20 min
+	•	no training gap > 3 days
+
+Operator form:
+	•	max gap <= threshold
+
+6. Sequencing/order constraints
+
+Actions must occur in a particular order.
+
+Examples:
+	•	warmup before lift
+	•	harvest before till
+	•	shake within 30 min post-lift
+
+Operator form:
+	•	event order validity
+
+7. Deadline/window constraints
+
+Something must occur before/after/within a time window.
+
+Examples:
+	•	harvest before frost
+	•	carbs within 90 min pre-lift
+
+Operator form:
+	•	event timestamp relative to boundary/window
+
+8. Resource conservation constraints
+
+A state/resource must remain non-negative or preserved.
+
+Examples:
+	•	fuel >= 0
+	•	soil structure preserved
+	•	savings never below reserve
+
+Operator form:
+	•	stock / integrity variable preserved
+
+9. Mutual compatibility constraints
+
+Two or more constraints interact and may conflict.
+
+Examples:
+	•	maximize recovery while minimizing sleep latency
+	•	preserve soil while maximizing harvest speed
+
+Operator form:
+	•	multi-objective feasibility under coupled limits
+
+10. Uncertainty-sensitive constraints
+
+Constraint satisfaction depends on confidence/ambiguity.
+
+Examples:
+	•	admissible only if model confidence > threshold
+	•	degraded if identifiability partial
+
+Operator form:
+	•	epistemic adequacy gates admissibility
+
+What NOMOS is missing as a whole
+
+It needs a pipeline like:
+
+raw constraint
+→ constraint parser
+→ constraint class
+→ operator schema
+→ variable extractor
+→ derived-state calculator
+→ threshold comparison
+→ admissibility + margin
+
+Right now it looks like you have mostly:
+
+raw constraint
+→ semantic pattern match
+→ classify if obvious
+
+That is why simple no-drop works, but sleep continuity breaks.
+
+The real architecture you want
+
+Not “domain evaluators” first.
+
+Instead:
+
+Layer 1 — Constraint Classifier
+
+Maps raw constraint text into one or more abstract classes:
+	•	prohibition
+	•	min threshold
+	•	continuity
+	•	deadline
+	•	etc.
+
+Layer 2 — Variable Schema Extractor
+
+Identifies:
+	•	what variable is constrained
+	•	what threshold/operator applies
+	•	what units exist
+	•	whether time/order is involved
+
+Example:
+“Total sleep must be at least 7 hours, and no wake period longer than 20 minutes”
+
+becomes:
+
+Constraint 1:
+class = MIN_THRESHOLD
+variable = total_sleep_duration
+operator = >=
+threshold = 420 min
+
+Constraint 2:
+class = MAX_THRESHOLD / CONTINUITY
+variable = longest_wake_gap
+operator = <=
+threshold = 20 min
+
+Layer 3 — Candidate State Deriver
+
+Given a candidate, compute:
+	•	total sleep
+	•	longest wake gap
+	•	event order
+	•	total carbs
+	•	etc.
+
+Layer 4 — Constraint Evaluator
+
+Apply generic operators to derived values.
+
+Layer 5 — Margin Calculator
+
+Distance from boundary:
+	•	threshold slack
+	•	gap to failure
+	•	weakest satisfied constraint
+
+That’s the general engine.
+
+The key question to ask yourself now
+
+For every new failed prompt, ask:
+	1.	What constraint classes are present?
+	2.	What derived variables must be computed?
+	3.	What operators compare those variables to admissibility boundaries?
+	4.	What temporal structure, if any, must be parsed?
+	5.	Is the failure due to:
+	•	parsing
+	•	derivation
+	•	classification
+	•	threshold logic
+	•	uncertainty handling
+
+That turns random failures into architecture.
+
+What to tell Replit
+
+Paste this:
+
+We need to stop adding isolated use-case evaluators and instead generalize NOMOS around constraint classes.
+
+Current insight:
+The system’s blind spots are architectural, not domain-specific.
+
+Required next step:
+Design a general constraint taxonomy and evaluation framework.
+
+Implement these concepts:
+
+1. Constraint classes
+Add a typed constraint classification layer with classes such as:
+- PROHIBITION
+- MIN_THRESHOLD
+- MAX_THRESHOLD
+- RANGE
+- CONTINUITY
+- DEADLINE
+- SEQUENCING
+- RESOURCE_PRESERVATION
+- COMPATIBILITY
+- UNCERTAINTY_SENSITIVE
+
+2. Constraint decomposition
+A single raw constraint string may decompose into multiple atomic constraints.
+Example:
+"Total sleep must be at least 7 hours, and sleep must be continuous (no wake period longer than 20 minutes)."
+should decompose into:
+- total_sleep_duration >= 420 min
+- longest_wake_gap <= 20 min
+
+3. Variable schema extraction
+For each atomic constraint, extract:
+- variable
+- operator
+- threshold
+- units
+- temporal requirements if any
+
+4. Candidate derivation layer
+Create a general interface for deriving candidate state values before evaluation.
+Examples:
+- total duration
+- max gap
+- event ordering
+- resource remaining
+- cumulative quantity
+
+5. Generic operator evaluation
+Implement reusable evaluators for:
+- >=
+- <=
+- within range
+- forbidden event present
+- ordering satisfied
+- continuity/gap bound satisfied
+
+6. Margin scoring
+Margin should be computed as distance from the nearest violated or limiting constraint, not just hand-assigned per domain.
+
+7. Domain modules should become thin adapters
+Sleep, transport, soil, nutrition, etc. should map into the general constraint framework rather than each becoming a standalone special-case evaluator.
+
+Goal:
+Move NOMOS from a growing list of specific cases to a general constraint reasoning engine with reusable classes, derivation logic, and temporal operators.
+
+My blunt view
+
+You’re thinking correctly now.
+
+The danger is not underbuilding.
+The danger is building a museum of handcrafted demos.
+
+What you want is:
+
+a compiler for constraints
+
+not a shelf of examples.
+
+The next strong move would be to define the exact TypeScript interfaces for:
+	•	AtomicConstraint
+	•	ConstraintClass
+	•	DerivedVariable
+	•	EvaluationOperator
+	•	MarginResult
+
+That would turn this insight into architecture.

@@ -24,10 +24,13 @@ export interface NormalizedConstraint {
     | "NO_RELEASE"
     | "BOUNDED_TIME"
     | "BOUNDED_RESOURCE"
+    | "SLEEP_MIN_DURATION_AND_CONTINUITY"
     | "UNKNOWN";
   protectedObject?: string;
   threshold?: string;
   decisiveVariable?: string;
+  /** Domain-specific numeric parameters (e.g. minTotalSleepMinutes for sleep domain). */
+  params?: Record<string, number>;
 }
 
 export interface NormalizedCandidate {

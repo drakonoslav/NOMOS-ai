@@ -6,6 +6,8 @@
  * Constitutional role:
  * - Classifies constraints by kind so the deterministic matcher can apply
  *   kind-specific evaluation rules.
+ * - For quantitative domains (e.g. SLEEP_MIN_DURATION_AND_CONTINUITY), also
+ *   extracts numeric params so evaluators don't need to re-parse the raw text.
  * - Does not evaluate candidates — only classifies what the constraint requires.
  * - Produces "UNKNOWN" for constraints that cannot be deterministically classified;
  *   those are forwarded to the LLM semantic evaluator.
@@ -15,6 +17,32 @@ import { NormalizedConstraint } from "./eval_types.js";
 
 export function normalizeConstraint(raw: string): NormalizedConstraint {
   const text = raw.toLowerCase();
+
+  /* =========================================================
+     SLEEP_MIN_DURATION_AND_CONTINUITY — checked first because
+     "continuous" / "wake" would otherwise fall through to generic matchers.
+     ========================================================= */
+
+  if (
+    text.includes("total sleep") ||
+    (text.includes("sleep") && text.includes("at least") && (text.includes("hour") || text.includes("continuous"))) ||
+    text.includes("no wake period longer than") ||
+    (text.includes("sleep") && text.includes("continuous") && text.includes("wake"))
+  ) {
+    return {
+      raw,
+      kind: "SLEEP_MIN_DURATION_AND_CONTINUITY",
+      decisiveVariable: "sleep duration margin",
+      params: {
+        minTotalSleepMinutes: parseMinSleepMinutes(text),
+        maxWakeGapMinutes: parseMaxWakeGapMinutes(text),
+      },
+    };
+  }
+
+  /* =========================================================
+     Action-control domains
+     ========================================================= */
 
   if (
     text.includes("must not be dropped") ||
@@ -104,4 +132,36 @@ export function normalizeConstraint(raw: string): NormalizedConstraint {
     kind: "UNKNOWN",
     decisiveVariable: "constraint interpretation",
   };
+}
+
+/* =========================================================
+   Sleep constraint param parsers
+   ========================================================= */
+
+function parseMinSleepMinutes(text: string): number {
+  // "at least 7 hours" → 420
+  const hourMatch = text.match(/at\s+least\s+(\d+(?:\.\d+)?)\s*hours?/);
+  if (hourMatch) return parseFloat(hourMatch[1]) * 60;
+
+  // "at least 420 minutes"
+  const minMatch = text.match(/at\s+least\s+(\d+)\s*minutes?/);
+  if (minMatch) return parseInt(minMatch[1], 10);
+
+  return 420; // default: 7 hours
+}
+
+function parseMaxWakeGapMinutes(text: string): number {
+  // "no wake period longer than 20 minutes"
+  const minMatch = text.match(/no\s+wake\s+period\s+longer\s+than\s+(\d+)\s*minutes?/);
+  if (minMatch) return parseInt(minMatch[1], 10);
+
+  // "wake period no longer than 20 minutes" (alternate phrasing)
+  const altMatch = text.match(/wake\s+period.*?(\d+)\s*minutes?/);
+  if (altMatch) return parseInt(altMatch[1], 10);
+
+  // "no wake period longer than 1 hour"
+  const hourMatch = text.match(/no\s+wake\s+period\s+longer\s+than\s+(\d+)\s*hours?/);
+  if (hourMatch) return parseInt(hourMatch[1], 10) * 60;
+
+  return 20; // default: 20 minutes
 }

@@ -18,6 +18,7 @@ import {
   NormalizedCandidate,
   NormalizedConstraint,
 } from "./eval_types.js";
+import { evaluateSleepCandidate } from "./domains/sleep_constraint_evaluator.js";
 
 export function evaluateDeterministically(
   constraint: NormalizedConstraint,
@@ -41,6 +42,9 @@ export function evaluateDeterministically(
 
     case "BOUNDED_RESOURCE":
       return evalBoundedResource(candidate, constraint);
+
+    case "SLEEP_MIN_DURATION_AND_CONTINUITY":
+      return evaluateSleepCandidate(candidate, constraint);
 
     case "UNKNOWN":
     default:
