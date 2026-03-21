@@ -1,0 +1,99 @@
+Exactly. The issue is bigger than this one template.
+
+Your standard should be:
+
+If a human clearly writes candidates, NOMOS must recognize them as candidates unless there is real ambiguity.
+
+Right now it is behaving too literally and too brittly for a system that claims structured reasoning.
+
+The real requirement
+
+The app should not depend on one fragile surface format like:
+	•	A. text
+
+while failing on:
+	•	A: text
+	•	A) text
+	•	Candidate A: text
+	•	Option A: text
+
+If the semantic intent is obvious, the parser should map it correctly.
+
+This is not “being lenient.”
+This is basic semantic competence for a data-logic machine.
+
+What the parser should do
+
+It should infer candidates whenever it sees clear candidate markers, even if section boundaries are messy.
+
+Examples it should recognize:
+	•	A: ...
+	•	B: ...
+	•	A. ...
+	•	B. ...
+	•	A) ...
+	•	B) ...
+	•	Candidate A: ...
+	•	Option A: ...
+
+And if those appear anywhere in the submission, the parser should at minimum say:
+	•	“candidate-like entries detected”
+	•	attempt to recover them
+	•	only fail if it truly cannot separate them
+
+It should not just say “no candidates detected” when they are visibly present.
+
+The deeper bug
+
+This is really a failure of semantic recovery.
+
+A good parser should have layers:
+	1.	ideal structured parse
+	2.	section-based recovery
+	3.	candidate marker recovery
+	4.	minimal semantic salvage
+
+So even if section parsing is imperfect, candidate detection should still recover obvious A: / B: lines.
+
+What to tell Replit
+
+Paste this:
+
+The problem is not just that one template failed.
+
+The parser is too brittle and not semantically intelligent enough.
+
+Requirement:
+If a user clearly writes candidate actions, NOMOS must recognize them as candidates unless there is genuine ambiguity.
+
+The system must not report “no candidates detected” when candidate-like lines are visibly present.
+
+Please improve parser robustness with semantic recovery rules:
+
+1) Candidate detection must not depend on one exact format only.
+Accept and recover from at least:
+- A: text
+- A. text
+- A) text
+- Candidate A: text
+- Option A: text
+
+2) Candidate detection must run as a recovery pass even if section segmentation is imperfect.
+
+3) If candidate-like entries are found anywhere in the submission, the parser should attempt to assign them into the candidate block before declaring the submission insufficient.
+
+4) NOMOS should prefer obvious semantic interpretation over brittle formatting failure.
+
+5) Add regression tests proving candidate recovery works even when:
+- headings are slightly messy
+- section parsing is imperfect
+- candidates use colon/period/parenthesis variants
+
+This is not about fixing one use case.
+This is about making the parser behave like an intelligent structured reasoning system instead of a fragile template reader.
+
+The principle in one sentence
+
+NOMOS should be strict about truth, not stupid about formatting.
+
+That is the line I’d hold.

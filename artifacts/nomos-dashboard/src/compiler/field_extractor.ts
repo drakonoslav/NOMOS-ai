@@ -359,38 +359,185 @@ export function extractTargets(text: string): ExtractedTarget[] {
   return targets;
 }
 
-export function extractCandidates(text: string): ExtractedCandidate[] {
-  const candidates: ExtractedCandidate[] = [];
-  const lines = text.split("\n");
+// ─── Canonical section headings ──────────────────────────────────────────────
+//
+// These are the recognized structural markers for NOMOS submissions.
+// Rule: if a user explicitly labels a section with one of these headings,
+// the parser MUST trust that label as the primary assignment rule.
+// Content under a heading belongs to that section until the next recognized heading.
 
-  let inCandidatesSection = false;
+export const CANONICAL_HEADINGS = [
+  "STATE",
+  "FACTS",
+  "CONSTRAINTS",
+  "UNCERTAINTIES",
+  "CANDIDATES",
+  "OBJECTIVE",
+] as const;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+export type CanonicalHeading = (typeof CANONICAL_HEADINGS)[number];
 
-    if (/^CANDIDATES\s*:/i.test(line)) {
-      inCandidatesSection = true;
-      continue;
-    }
+/**
+ * matchHeading — recognizes a line as a canonical section heading.
+ *
+ * Accepts all of:
+ *   STATE        STATE:        state:        State :        CONSTRAINTS:
+ *   Objective    UNCERTAINTIES CANDIDATES:   facts
+ *
+ * Rejects content lines that happen to start with a recognized word:
+ *   "Stateful systems..." — has content after the heading word.
+ *
+ * Rules:
+ *   - Case-insensitive
+ *   - Optional colon, optional surrounding whitespace
+ *   - The ENTIRE trimmed line must be the heading word (+ optional colon/space)
+ *   - Whole-line match — prevents false positives on sentences
+ */
+export function matchHeading(line: string): CanonicalHeading | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
 
-    if (
-      inCandidatesSection &&
-      /^[A-Z][A-Z _]+\s*:/i.test(line) &&
-      !/^[A-Z]\s*:/i.test(line)
-    ) {
-      break;
-    }
-
-    const explicitCandidate = line.match(/^([A-Z])\s*:\s*(.+)$/);
-    if (inCandidatesSection && explicitCandidate) {
-      candidates.push({
-        id: explicitCandidate[1],
-        text: explicitCandidate[2].trim(),
-      });
+  for (const heading of CANONICAL_HEADINGS) {
+    // Pattern: ^HEADING\s*:?\s*$  — whole line, colon optional
+    if (new RegExp(`^${heading}\\s*:?\\s*$`, "i").test(trimmed)) {
+      return heading;
     }
   }
 
-  return candidates;
+  return null;
+}
+
+/**
+ * segmentSections — single-pass, canonical section segmenter.
+ *
+ * Design principle: explicit headings dominate assignment.
+ * A recognized heading opens a section; all following lines belong to
+ * that section until the next recognized heading begins.
+ *
+ * Headings are recognized robustly:
+ *   - Case-insensitive (STATE, state, State all work)
+ *   - Optional colon (STATE: and STATE both open the section)
+ *   - Whitespace-tolerant
+ *
+ * Returns:
+ *   sections  — map from CanonicalHeading → raw lines under that heading
+ *   unlabeled — lines that appear before the first recognized heading
+ */
+export function segmentSections(text: string): {
+  sections: Map<CanonicalHeading, string[]>;
+  unlabeled: string[];
+} {
+  const lines = text.split("\n");
+  const sections = new Map<CanonicalHeading, string[]>();
+  const unlabeled: string[] = [];
+
+  let current: CanonicalHeading | null = null;
+
+  for (const rawLine of lines) {
+    const heading = matchHeading(rawLine);
+
+    if (heading !== null) {
+      current = heading;
+      if (!sections.has(heading)) {
+        sections.set(heading, []);
+      }
+      continue;
+    }
+
+    if (current === null) {
+      unlabeled.push(rawLine);
+    } else {
+      sections.get(current)!.push(rawLine);
+    }
+  }
+
+  return { sections, unlabeled };
+}
+
+/**
+ * matchCandidateLine — parses a single line as a candidate entry.
+ *
+ * Accepted formats:
+ *   A: text          (colon — the format taught by the UI template)
+ *   A. text          (period)
+ *   A) text          (parenthesis)
+ *   Candidate A: text
+ *   Option A: text
+ *
+ * Returns { id, text } if the line is a candidate, null otherwise.
+ * id is always a single uppercase letter.
+ */
+export function matchCandidateLine(
+  line: string
+): ExtractedCandidate | null {
+  const t = line.trim();
+  if (!t) return null;
+
+  // Short form: A: / A. / A)  followed by text
+  const shortMatch = t.match(/^([A-Z])\s*[:.)] \s*(.+)$/i);
+  if (shortMatch) {
+    return { id: shortMatch[1].toUpperCase(), text: shortMatch[2].trim() };
+  }
+
+  // Short form without space after punctuation: A:text / A.text / A)text
+  const shortNoSpaceMatch = t.match(/^([A-Z])[:.)](.+)$/i);
+  if (shortNoSpaceMatch) {
+    const text = shortNoSpaceMatch[2].trim();
+    if (text.length > 0) {
+      return { id: shortNoSpaceMatch[1].toUpperCase(), text };
+    }
+  }
+
+  // Long form: Candidate A: text  /  Option A: text
+  const longMatch = t.match(/^(?:candidate|option)\s+([A-Z])\s*[:.)]?\s*(.+)$/i);
+  if (longMatch) {
+    return { id: longMatch[1].toUpperCase(), text: longMatch[2].trim() };
+  }
+
+  return null;
+}
+
+/**
+ * extractCandidates — two-layer candidate detection with recovery.
+ *
+ * Layer 1 (primary): collect candidates from the CANDIDATES section.
+ *   - Accepts A:, A., A), Candidate A:, Option A: — all common formats.
+ *   - The CANDIDATES section is detected by matchHeading (robust, no colon required).
+ *
+ * Layer 2 (recovery): if no candidates found in the section (or if there
+ *   was no CANDIDATES section at all), scan the entire input for candidate-like lines.
+ *   If any are found, they are returned rather than reporting "no candidates."
+ *   This ensures visible candidate-like entries are never silently discarded.
+ */
+export function extractCandidates(text: string): ExtractedCandidate[] {
+  const { sections } = segmentSections(text);
+
+  // Layer 1: parse from explicit CANDIDATES section
+  const sectionLines = sections.get("CANDIDATES") ?? [];
+  const fromSection: ExtractedCandidate[] = [];
+
+  for (const rawLine of sectionLines) {
+    const match = matchCandidateLine(rawLine);
+    if (match && !fromSection.find((c) => c.id === match.id)) {
+      fromSection.push(match);
+    }
+  }
+
+  if (fromSection.length > 0) return fromSection;
+
+  // Layer 2: recovery pass — scan full input for candidate-like lines.
+  // Only activates when the primary pass found nothing.
+  const allLines = text.split("\n");
+  const recovered: ExtractedCandidate[] = [];
+
+  for (const rawLine of allLines) {
+    const match = matchCandidateLine(rawLine);
+    if (match && !recovered.find((c) => c.id === match.id)) {
+      recovered.push(match);
+    }
+  }
+
+  return recovered;
 }
 
 export function extractObjective(text: string): string | undefined {
@@ -430,30 +577,63 @@ export function extractConstraintLines(text: string): string[] {
   return uniqueStrings(inferred);
 }
 
+/**
+ * extractBulletedSection — extracts bullet/line items from a named section.
+ *
+ * Uses segmentSections for robust heading detection:
+ *   - Section opens at any recognized heading matching sectionName
+ *   - Section closes at the next recognized heading (no colon required)
+ *   - Content is stripped of bullet markers (-, •, *)
+ *
+ * Only works for canonical headings (STATE, FACTS, CONSTRAINTS,
+ * UNCERTAINTIES, CANDIDATES, OBJECTIVE). For non-canonical names,
+ * falls back to the regex-based approach.
+ */
 export function extractBulletedSection(
   text: string,
   sectionName: string
 ): string[] {
+  const upperName = sectionName.toUpperCase();
+  const isCanonical = (CANONICAL_HEADINGS as readonly string[]).includes(upperName);
+
+  if (isCanonical) {
+    const { sections } = segmentSections(text);
+    const sectionLines = sections.get(upperName as CanonicalHeading) ?? [];
+    const out: string[] = [];
+
+    for (const rawLine of sectionLines) {
+      const line = rawLine.trim();
+      const bullet = line.match(/^[-•*]\s*(.+)$/);
+      if (bullet) {
+        out.push(bullet[1].trim());
+      } else if (line.length > 0) {
+        out.push(line);
+      }
+    }
+
+    return uniqueStrings(out.filter(Boolean));
+  }
+
+  // Fallback for non-canonical section names (nutrition-specific headings, etc.)
   const lines = text.split("\n");
   const out: string[] = [];
-
   let inSection = false;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
 
-    if (new RegExp(`^${escapeRegExp(sectionName)}\\s*:`, "i").test(line)) {
+    if (new RegExp(`^${escapeRegExp(sectionName)}\\s*:?`, "i").test(line)) {
       inSection = true;
       continue;
     }
 
-    if (inSection && /^[A-Z][A-Z _]+\s*:/i.test(line)) {
+    if (inSection && matchHeading(line) !== null) {
       break;
     }
 
     if (!inSection) continue;
 
-    const bullet = line.match(/^[-•]\s*(.+)$/);
+    const bullet = line.match(/^[-•*]\s*(.+)$/);
     if (bullet) {
       out.push(bullet[1].trim());
       continue;
@@ -467,10 +647,36 @@ export function extractBulletedSection(
   return uniqueStrings(out.filter(Boolean));
 }
 
+/**
+ * extractSingleSection — extracts the full text content of a named section
+ * as a single joined string. Used for OBJECTIVE and other single-value sections.
+ *
+ * Uses segmentSections for robust heading detection.
+ */
 export function extractSingleSection(
   text: string,
   sectionName: string
 ): string | undefined {
+  const upperName = sectionName.toUpperCase();
+  const isCanonical = (CANONICAL_HEADINGS as readonly string[]).includes(upperName);
+
+  if (isCanonical) {
+    const { sections } = segmentSections(text);
+    const sectionLines = sections.get(upperName as CanonicalHeading) ?? [];
+    const parts: string[] = [];
+
+    for (const rawLine of sectionLines) {
+      const line = rawLine.trim();
+      if (line.length > 0) {
+        parts.push(line.replace(/^[-•*]\s*/, ""));
+      }
+    }
+
+    const joined = parts.join(" ").trim();
+    return joined || undefined;
+  }
+
+  // Fallback for non-canonical names
   const lines = text.split("\n");
   const parts: string[] = [];
   let inSection = false;
@@ -478,17 +684,17 @@ export function extractSingleSection(
   for (const rawLine of lines) {
     const line = rawLine.trim();
 
-    if (new RegExp(`^${escapeRegExp(sectionName)}\\s*:`, "i").test(line)) {
+    if (new RegExp(`^${escapeRegExp(sectionName)}\\s*:?`, "i").test(line)) {
       inSection = true;
       continue;
     }
 
-    if (inSection && /^[A-Z][A-Z _]+\s*:/i.test(line)) {
+    if (inSection && matchHeading(line) !== null) {
       break;
     }
 
     if (inSection && line.length > 0) {
-      parts.push(line.replace(/^[-•]\s*/, ""));
+      parts.push(line.replace(/^[-•*]\s*/, ""));
     }
   }
 

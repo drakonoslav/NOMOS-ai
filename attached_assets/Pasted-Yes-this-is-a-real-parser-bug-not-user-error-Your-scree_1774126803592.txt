@@ -1,0 +1,212 @@
+Yes — this is a real parser bug, not user error.
+
+Your screenshots show three concrete failures:
+
+What broke
+
+1) The parser collapsed the whole submission into DESCRIPTION
+
+In the parsed state, the DESCRIPTION contains:
+	•	STATE
+	•	CONSTRAINTS
+	•	UNCERTAINTIES
+	•	CANDIDATES
+	•	OBJECTIVE
+
+all concatenated together.
+
+That means the section parser did not actually segment the blocks correctly.
+
+2) It misplaced uncertainties into constraints
+
+Under CONSTRAINTS, it included:
+	•	UNCERTAINTIES:
+	•	I am not sure whether I have enough Greek yogurt left.
+	•	I do not know whether the whey scoop is 25g or 30g protein.
+
+So the parser is leaking later sections into the constraints block.
+
+3) It falsely says “No candidates detected”
+
+You clearly provided:
+	•	A: Make oats, whey, and yogurt bowl.
+	•	B: Make eggs with oats and banana.
+
+So the candidate detector is either:
+	•	receiving the wrong extracted block, or
+	•	using a brittle pattern that misses valid A: / B: lines after bad section splitting.
+
+The diagnostic itself tells on the bug:
+
+“No candidates found in Candidates block. Use ‘A. text’ format.”
+
+But your app prompt template itself shows:
+	•	A: ...
+	•	B: ...
+
+So either:
+	•	the parser expects A. while the UI teaches A:, which is an internal contract mismatch,
+or
+	•	the candidates block never got isolated, so the candidate regex never saw the right lines.
+
+Bottom line
+
+The app is broken in the section parser / candidate parser contract.
+Your input was valid according to the UI you were given.
+
+⸻
+
+What I think is happening technically
+
+Most likely one or both of these are true:
+
+Section extraction bug
+
+The section-based parser is probably not robustly splitting blocks on headings like:
+	•	STATE:
+	•	CONSTRAINTS:
+	•	UNCERTAINTIES:
+	•	CANDIDATES:
+	•	OBJECTIVE:
+
+It looks like it may be:
+	•	capturing everything after STATE: until the end,
+or
+	•	failing to terminate one block when the next heading appears.
+
+Candidate format mismatch
+
+The parser appears to want:
+	•	A. text
+
+but the UI template teaches:
+	•	A: ...
+
+That is a design bug even if the section parser were working.
+
+⸻
+
+Exact repro result you can give Replit
+
+Paste this to Replit:
+
+This is a real parser bug.
+
+Reproduction input used:
+
+STATE:
+- I need to prepare dinner tonight using food already in the apartment.
+
+CONSTRAINTS:
+- I cannot leave home.
+- Total meal must stay under 700 kcal.
+- It must include at least 40g protein.
+- I can only use foods currently in the kitchen.
+
+UNCERTAINTIES:
+- I am not sure whether I have enough Greek yogurt left.
+- I do not know whether the whey scoop is 25g or 30g protein.
+
+CANDIDATES:
+A: Make oats, whey, and yogurt bowl.
+B: Make eggs with oats and banana.
+
+OBJECTIVE:
+Choose the most feasible high-protein dinner under current constraints.
+
+Observed broken behavior:
+1) Parsed state description incorrectly contains the entire submission including later section headings.
+2) Uncertainties are incorrectly included inside the constraints list.
+3) Parsed uncertainties says “None detected.”
+4) Parsed candidates says “No candidates detected.”
+5) Submission quality is marked insufficient even though candidates were clearly present.
+6) The diagnostic says use “A. text” format, but the UI template itself teaches “A: ... / B: ...” format.
+
+This means the app currently has:
+- a section parser segmentation bug
+- and/or a candidate parser contract mismatch between UI and parser
+
+Please fix this as a parser correctness issue, not as a user-input issue.
+
+Required fixes:
+1) Section parser must correctly isolate blocks for:
+   - STATE
+   - CONSTRAINTS
+   - UNCERTAINTIES
+   - CANDIDATES
+   - OBJECTIVE
+
+2) Block extraction must stop when the next recognized heading begins.
+
+3) Candidate parsing must accept BOTH:
+   - A: text
+   - A. text
+   - A) text
+if possible, since the UI currently teaches colon format.
+
+4) The UI prompt template and parser acceptance rules must match exactly.
+If parser requires one format, the template must teach that exact format.
+Prefer supporting all common enumerator forms.
+
+5) Add regression tests for this exact input and assert:
+   - description contains only the STATE block content
+   - constraints contain only the 4 declared constraints
+   - uncertainties contain the 2 uncertainty lines
+   - candidates contains A and B
+   - objective is parsed correctly
+   - submission is evaluable after confirmation
+
+6) Add a regression test proving that “A:” works, since the current UI suggests that syntax.
+
+7) If the LLM parser is unavailable, the rule-based fallback must still correctly parse the canonical template shown in the UI.
+That is a hard requirement.
+
+This is a constitutional correctness issue because NOMOS is rejecting a valid structured submission due to parser failure.
+
+
+⸻
+
+My recommendation on the fix itself
+
+The parser should normalize headings and candidate formats up front.
+
+Good parsing rule
+
+Accept headings case-insensitively:
+	•	STATE
+	•	CONSTRAINTS
+	•	UNCERTAINTIES
+	•	CANDIDATES
+	•	OBJECTIVE
+
+with optional trailing colon.
+
+Then capture content until the next recognized heading.
+
+Good candidate rule
+
+Accept candidate starts like:
+	•	A:
+	•	A.
+	•	A)
+	•	B:
+	•	B.
+	•	B)
+
+That removes needless brittleness.
+
+⸻
+
+What your screenshots prove
+
+They prove the system is not failing because of ambiguity.
+
+It is failing on a well-formed canonical example that closely matches the UI scaffold.
+
+That means this is exactly the kind of bug that should be fixed immediately, because it undermines trust in the machine.
+
+Short diagnosis
+
+Valid structured input was rejected because the fallback parser failed to segment sections and the candidate parser is stricter than the UI template.
+
+Send Replit the block above exactly.

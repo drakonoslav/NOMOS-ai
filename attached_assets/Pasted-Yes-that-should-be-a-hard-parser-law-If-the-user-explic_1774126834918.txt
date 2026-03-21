@@ -1,0 +1,174 @@
+Yes — that should be a hard parser law.
+
+If the user explicitly labels a field, the system should trust the label first and parse beneath it accordingly.
+
+Not blindly forever, but as the primary rule of assignment.
+
+The principle
+
+NOMOS should be strict about evaluation, but generous about explicit structure.
+
+So if a user writes:
+	•	OBJECTIVE:
+	•	CONSTRAINTS:
+	•	UNCERTAINTIES:
+	•	CANDIDATES:
+
+then the parser should not act confused about where those belong.
+Those headings are the user doing the structuring work for the machine.
+
+If NOMOS ignores that, it is failing at the easiest case.
+
+The parser rule you want
+
+Here is the rule in plain language:
+
+Rule 1 — explicit headings dominate
+
+When a recognized heading is present, all following lines belong to that section until the next recognized heading.
+
+Recognized headings should include at least:
+	•	STATE
+	•	FACTS
+	•	CONSTRAINTS
+	•	UNCERTAINTIES
+	•	CANDIDATES
+	•	OBJECTIVE
+
+with tolerance for:
+	•	uppercase / lowercase
+	•	optional colon
+	•	extra whitespace
+
+So all of these should work:
+	•	OBJECTIVE:
+	•	Objective:
+	•	objective
+	•	CONSTRAINTS :
+
+Rule 2 — content under an explicit heading should be assigned there first
+
+If a user writes:
+
+CONSTRAINTS:
+- cannot leave home
+- under 700 kcal
+
+those lines should go to constraints even if the wording is imperfect.
+
+Likewise:
+
+OBJECTIVE:
+choose the most feasible dinner
+
+should go to objective even if the sentence could also sound like a preference.
+
+The heading is the user’s declaration of intent.
+
+Rule 3 — semantic recovery happens after explicit heading assignment, not before
+
+The parser should use this order:
+	1.	explicit labeled sections
+	2.	candidate-line recovery inside labeled candidate section
+	3.	semantic inference only for unlabeled or malformed leftovers
+
+That prevents the machine from “outsmarting” obvious structure.
+
+Rule 4 — section boundaries must terminate cleanly
+
+If the parser sees:
+
+UNCERTAINTIES:
+...
+CANDIDATES:
+...
+
+then uncertainty parsing must stop when CANDIDATES starts.
+
+That sounds obvious, but your screenshots show the parser is violating exactly this.
+
+Rule 5 — explicit candidates should be recovered even if the rest is messy
+
+If the user writes:
+	•	A: ...
+	•	B: ...
+
+under CANDIDATES:, then they are candidates.
+
+The parser should not reject them because of tiny punctuation expectations.
+
+What to tell Replit
+
+Paste this:
+
+This needs to become a hard parser rule:
+
+If the user explicitly labels a section, NOMOS must trust that label as the primary assignment rule.
+
+Meaning:
+- content under OBJECTIVE belongs to objective
+- content under CONSTRAINTS belongs to constraints
+- content under UNCERTAINTIES belongs to uncertainties
+- content under CANDIDATES belongs to candidates
+- content under STATE belongs to state
+- content under FACTS belongs to facts
+
+Required parser behavior:
+
+1) Recognized headings must dominate assignment.
+A recognized heading opens a section and all following lines belong to that section until the next recognized heading.
+
+2) Headings must be matched robustly:
+- case-insensitive
+- optional colon
+- tolerant of whitespace
+
+3) The parser must not ignore explicit structure in favor of brittle semantic guessing.
+
+4) Candidate parsing must work inside an explicitly labeled CANDIDATES section even if the candidate format varies slightly:
+- A: text
+- A. text
+- A) text
+- Candidate A: text
+- Option A: text
+
+5) If section headings are explicit, NOMOS should be “dumb in the right way”:
+it should obey the user’s declared structure before trying to reinterpret it.
+
+6) Add regression tests proving that explicitly labeled sections are always respected.
+At minimum test:
+- STATE
+- FACTS
+- CONSTRAINTS
+- UNCERTAINTIES
+- CANDIDATES
+- OBJECTIVE
+
+7) Add tests showing that content does not leak across section boundaries.
+
+Design principle:
+NOMOS should be strict about truth and evaluation, but it should not be stupid about explicit structure supplied by the user.
+
+The architecture version of the same idea
+
+You can also frame it like this:
+
+Explicit labels are part of the data model, not just presentation text.
+
+That means OBJECTIVE: is not decoration.
+It is a field declaration.
+
+Same with:
+	•	CONSTRAINTS:
+	•	UNCERTAINTIES:
+	•	CANDIDATES:
+
+If the parser treats those as mere text instead of structural markers, it is not really respecting the user’s data declaration.
+
+Best concise line
+
+This is probably the strongest one-liner to give Replit:
+
+When the user has already done the structuring work, NOMOS must preserve that structure, not second-guess it.
+
+That is the standard.

@@ -1,0 +1,72 @@
+This is a real parser bug.
+
+Reproduction input used:
+
+STATE:
+- I need to prepare dinner tonight using food already in the apartment.
+
+CONSTRAINTS:
+- I cannot leave home.
+- Total meal must stay under 700 kcal.
+- It must include at least 40g protein.
+- I can only use foods currently in the kitchen.
+
+UNCERTAINTIES:
+- I am not sure whether I have enough Greek yogurt left.
+- I do not know whether the whey scoop is 25g or 30g protein.
+
+CANDIDATES:
+A: Make oats, whey, and yogurt bowl.
+B: Make eggs with oats and banana.
+
+OBJECTIVE:
+Choose the most feasible high-protein dinner under current constraints.
+
+Observed broken behavior:
+1) Parsed state description incorrectly contains the entire submission including later section headings.
+2) Uncertainties are incorrectly included inside the constraints list.
+3) Parsed uncertainties says “None detected.”
+4) Parsed candidates says “No candidates detected.”
+5) Submission quality is marked insufficient even though candidates were clearly present.
+6) The diagnostic says use “A. text” format, but the UI template itself teaches “A: ... / B: ...” format.
+
+This means the app currently has:
+- a section parser segmentation bug
+- and/or a candidate parser contract mismatch between UI and parser
+
+Please fix this as a parser correctness issue, not as a user-input issue.
+
+Required fixes:
+1) Section parser must correctly isolate blocks for:
+   - STATE
+   - CONSTRAINTS
+   - UNCERTAINTIES
+   - CANDIDATES
+   - OBJECTIVE
+
+2) Block extraction must stop when the next recognized heading begins.
+
+3) Candidate parsing must accept BOTH:
+   - A: text
+   - A. text
+   - A) text
+if possible, since the UI currently teaches colon format.
+
+4) The UI prompt template and parser acceptance rules must match exactly.
+If parser requires one format, the template must teach that exact format.
+Prefer supporting all common enumerator forms.
+
+5) Add regression tests for this exact input and assert:
+   - description contains only the STATE block content
+   - constraints contain only the 4 declared constraints
+   - uncertainties contain the 2 uncertainty lines
+   - candidates contains A and B
+   - objective is parsed correctly
+   - submission is evaluable after confirmation
+
+6) Add a regression test proving that “A:” works, since the current UI suggests that syntax.
+
+7) If the LLM parser is unavailable, the rule-based fallback must still correctly parse the canonical template shown in the UI.
+That is a hard requirement.
+
+This is a constitutional correctness issue because NOMOS is rejecting a valid structured submission due to parser failure.
