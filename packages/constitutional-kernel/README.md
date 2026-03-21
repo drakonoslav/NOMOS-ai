@@ -106,6 +106,31 @@ Sensor measurement
 └──────────┘
 ```
 
+## Six-Layer Architecture
+
+The kernel is structured as six ordered layers. Each layer has a single constitutional responsibility and hands a typed report to the next layer. No layer may bypass or short-circuit a lower-numbered layer.
+
+| Layer | Name | Responsibility | Source Files | Law |
+|-------|------|----------------|--------------|-----|
+| 1 | **Ontology** | Define the universe: states, controls, resources, constraints, dependency stamps. Provides the shared vocabulary all layers speak. | `feasibility_engine.ts` (type exports: `FeasibilityInput`, `ConstraintDefinition`, `DependencyStamp`, …) | — |
+| 2 | **Epistemic** | Maintain beliefs about the world with explicit uncertainty quantification. Detect measurement delays; propagate covariance; track provenance. Flag low-confidence or unidentifiable states rather than silently hiding them. | `belief_state.ts`, `observer.ts` | III |
+| 3 | **Model** | Register, score, and switch between dynamical models. Compute residuals, prediction errors, and invariant violations. Select the best-scoring non-degraded model; fall back constitutionally when all primaries are degraded. | `model_registry.ts` | IV (partial) |
+| 4 | **Decision** | Enforce the constitutional plan-selection order: (i) reject infeasible plans (Law I), (ii) reject plans below the minimum robustness radius (Law II), (iii) rank survivors by robustness first, cost second (Law II, T2.5). Return an explicit `DecisionResult` — never silently coerce an infeasible plan into a lawful one. | `feasibility_engine.ts`, `robustness_analyzer.ts`, `decision_engine.ts` | I, II |
+| 5 | **Verification** | Cross-law synthesis gate. Aggregates Law I (feasibility), Law II (robustness), Law III (observability, identifiability), and Law IV (model confidence, objective drift) into a single `VerificationReport`. Outputs `LAWFUL`, `DEGRADED`, or `REFUSED` — never a silent pass on a multi-law violation. | `verification_kernel.ts` | I, II, III, IV |
+| 6 | **Control / Audit** | Apply or refuse the verified control action. Append a tamper-evident audit record containing the full decision trail (belief, model, feasibility, robustness, verification, outcome). Provide summary statistics for post-hoc constitutional review. | `constitution_guard.ts`, `audit_log.ts` | IV |
+
+### Layer Interaction Contract
+
+```
+Layer 2 (Epistemic)   →  BeliefState
+Layer 3 (Model)       →  ModelSignature + ModelConfidence
+Layer 4 (Decision)    →  DecisionResult { selectedPlan, feasibility, robustness }
+Layer 5 (Verification)→  VerificationReport { status: LAWFUL | DEGRADED | REFUSED }
+Layer 6 (Control)     →  AuditRecord { outcome: APPLIED | DEGRADED_ACTION_APPLIED | REFUSED }
+```
+
+Each arrow is a named TypeScript interface. No layer produces untyped outputs or swallows errors silently.
+
 ## Key Design Decisions
 
 - **No silent fallbacks.** Every failure path surfaces an explicit reason string and a structured report.

@@ -3,6 +3,10 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@constitutional-kernel/*": ["src/*"]
+    },
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "composite": false,
