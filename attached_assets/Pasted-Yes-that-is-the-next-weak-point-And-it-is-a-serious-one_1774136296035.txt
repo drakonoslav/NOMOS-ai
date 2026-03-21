@@ -1,0 +1,271 @@
+Yes — that is the next weak point.
+
+And it is a serious one.
+
+The problem
+
+Right now NOMOS is getting better at:
+	•	extracting quantified entities
+	•	building a graph
+	•	executing graph constraints
+
+But the chain:
+
+quantified entity extraction → tag/class assignment → graph node data → graph filtering
+
+is still fragile.
+
+That means a constraint like:
+	•	fast carbs within 90m before lifting >= 60
+
+only works reliably if the system can prove:
+	1.	this entity is a carb
+	2.	this entity is fast
+	3.	that classification survives into the graph
+	4.	the graph executor filters on those exact tags
+
+If any link in that chain is implicit, ad hoc, or recreated later, you will get silent semantic drift.
+
+⸻
+
+What the weak point probably is
+
+The likely failure pattern is:
+
+Extraction layer
+
+Entity gets parsed as:
+	•	cyclic dextrin
+	•	oats
+
+Somewhere later
+
+A heuristic infers:
+	•	dextrin = fast carb
+	•	oats = slow carb
+
+But:
+	•	tags may not be stored canonically on the entity
+	•	or not copied into the graph node
+	•	or graph filtering may depend on string matching instead of canonical tags
+	•	or provenance of that tag may be lost
+
+So the system can “work” in a test case while still being structurally weak.
+
+That is dangerous.
+
+⸻
+
+Why provenance matters
+
+You need to know why something is tagged as:
+	•	fast
+	•	slow
+	•	carb
+	•	protein
+	•	fluid
+	•	supplement
+	•	load
+	•	duration
+
+Because later, when a graph filter says:
+	•	select entities tagged fast and carb
+
+you need to be able to prove:
+	•	where those tags came from
+	•	whether they were user-declared
+	•	registry-derived
+	•	inferred
+	•	or fallback guesses
+
+Without provenance, the graph executor becomes a black box.
+
+⸻
+
+The exact challenge for Replit
+
+Send this:
+
+I want a structural audit and fix for the tag/class provenance path from quantified entity extraction into graph constraint filtering.
+
+Problem:
+Graph-native constraint execution now depends on tags/classes like:
+- fast
+- slow
+- carb
+- protein
+
+But I need to know whether those tags are:
+- extracted explicitly
+- registry-derived
+- inferred heuristically
+- or recreated ad hoc later
+
+I want this path made explicit and auditable.
+
+Audit these layers end-to-end:
+- quantified entity extraction
+- entity category/tag assignment
+- graph node creation
+- graph query filtering
+- graph constraint execution
+
+I want you to check for these failure modes:
+
+1. Tag loss
+- entity gets tagged during extraction, but graph node does not preserve those tags
+
+2. Tag recreation
+- graph executor re-infers "fast" / "slow" / "carb" from labels instead of using canonical stored tags
+
+3. Provenance loss
+- graph node has tags, but there is no record of where they came from
+
+4. Mixed semantics
+- category, tag, and label are being used interchangeably
+- e.g. "carb" as category in one layer, tag in another, string match in another
+
+5. Non-canonical filtering
+- graph queries use label substring matching where canonical tags should be used
+
+I need a fix with these requirements:
+
+A. Add canonical tag provenance.
+
+For each quantified entity and graph entity node, store:
+- tags: string[]
+- tagProvenance: Record<string, "explicit" | "registry" | "inferred" | "fallback">
+
+B. Preserve tags from extraction into graph nodes without recomputing them later.
+
+C. Graph filtering must prefer canonical tags over label text.
+Only use label fallback if no canonical tag exists, and expose that explicitly.
+
+D. Add regression tests using:
+- cyclic dextrin -> fast, carb
+- oats -> slow, carb
+- yogurt -> protein, dairy (if applicable)
+- water -> fluid
+- magnesium capsule -> supplement
+
+E. Add a debug trace for one graph-executed constraint:
+- selected entities
+- required tags
+- matched tags
+- tag provenance used
+
+F. Add invariant:
+If a graph constraint filters by tag, the execution result must be able to report whether that tag came from:
+- explicit declaration
+- registry
+- inference
+- fallback
+
+Success condition:
+Graph-native constraints filter over canonical, provenance-aware tags rather than opaque string assumptions.
+
+
+⸻
+
+What I suspect is happening now
+
+Probably something like this:
+	•	extraction gets cyclic dextrin
+	•	some nutrition rule knows dextrin is “fast carb”
+	•	graph node maybe stores only label + category
+	•	graph constraint executor later filters with something loose like:
+	•	label contains “dextrin”
+	•	or category == food
+	•	or tag recreated during execution
+
+That works in a demo, but it is not stable enough for a real engine.
+
+⸻
+
+What the correct architecture should look like
+
+Extraction output
+
+{
+  entityLabel: "cyclic dextrin",
+  tags: ["fast", "carb"],
+  tagProvenance: {
+    fast: "registry",
+    carb: "registry"
+  }
+}
+
+Graph node
+
+{
+  type: "entity",
+  label: "cyclic dextrin",
+  data: {
+    tags: ["fast", "carb"],
+    tagProvenance: {
+      fast: "registry",
+      carb: "registry"
+    }
+  }
+}
+
+Graph query
+
+filterEntitiesByTags(["fast", "carb"])
+
+Proof trace
+
+- entity: cyclic dextrin
+- matched tags: fast, carb
+- provenance: registry, registry
+
+That is the right chain.
+
+⸻
+
+The deeper invariant
+
+You want this law:
+
+classification must happen once, be stored canonically, and be reused downstream
+
+Not:
+
+classify at extraction
+classify again at graph build
+classify again at execution
+
+That creates drift.
+
+⸻
+
+The concrete red flags to watch for
+
+If Replit comes back with code where any of these happen, push back:
+	•	if (label.includes("dextrin")) tags.push("fast") inside graph executor
+	•	if (label.includes("oat")) tags.push("slow") inside proof layer
+	•	graph node missing tags
+	•	graph node has category but graph filters rely on label
+	•	no provenance map
+
+Those are all signs the tag spine is still weak.
+
+⸻
+
+My judgment
+
+This is absolutely the next weak point after candidate fusion.
+
+Because once candidate-local graph structure is fixed, the next thing that can still silently corrupt truth is:
+
+class/tag meaning not being stably carried through the pipeline
+
+And for a system like NOMOS, semantic provenance is not optional.
+
+If you want, the next thing I can do is draft the exact canonical tagging schema I’d use, including:
+	•	category
+	•	tags
+	•	tagProvenance
+	•	confidence
+	•	sourceRegistryId
+	•	normalizationHistory

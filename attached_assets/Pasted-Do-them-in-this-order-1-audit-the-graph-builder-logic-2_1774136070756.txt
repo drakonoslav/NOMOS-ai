@@ -1,0 +1,241 @@
+Do them in this order:
+	1.	audit the graph builder logic
+	2.	then design the constraint algebra + diff engine
+
+Because the diff engine will only be as good as the graph it operates on.
+
+If the graph is even slightly wrong, the algebra becomes elegant nonsense.
+
+⸻
+
+Recommended sequence
+
+First: graph builder audit
+
+You want to verify:
+	•	every quantified entity becomes exactly one graph entity
+	•	quantities and units are attached correctly
+	•	anchors are distinct from measured entities
+	•	relations bind the right nodes
+	•	candidate ownership is preserved
+	•	no duplicate or orphan nodes appear
+	•	no proof/execution layer depends on string fallbacks when graph data exists
+
+What to tell Replit
+
+Perform a graph builder audit before further abstraction work.
+
+Goal:
+Verify that the operand/relation graph is faithful, minimal, non-duplicative, and suitable as the substrate for later constraint algebra and diff execution.
+
+Audit these files:
+- src/graph/operand_graph_builder.ts
+- src/graph/relation_graph_builder.ts
+- src/graph/graph_query_helpers.ts
+- any measured entity / relation binder inputs that feed them
+
+I want the audit to check these invariants:
+
+1. Entity Fidelity
+- each extracted quantified entity maps to exactly one graph entity node
+- no duplicate entity nodes for the same parsed measurable object unless explicitly justified
+
+2. Quantity Attachment
+- each measured entity with quantity must connect correctly to its quantity node and unit node
+- unit normalization must be stable
+
+3. Relation Fidelity
+- temporal/spatial relations must bind the intended subject and anchor/object
+- relation edges must not attach to labels when node ids are available
+
+4. Candidate Ownership
+- entities belonging to a candidate must be connected by BELONGS_TO_CANDIDATE
+- candidate-local selection must be recoverable from graph queries
+
+5. Anchor Integrity
+- anchors like lifting, sleep, meal, etc. must be represented distinctly from measured entities
+- anchor reuse should be intentional and stable
+
+6. Orphan / Duplication Audit
+- detect orphan nodes
+- detect duplicate nodes
+- detect edges pointing to missing nodes
+
+7. Query Suitability
+- confirm graph contains enough information for graph-native constraint execution without falling back to raw text
+
+Return:
+A. strengths
+B. graph integrity risks
+C. exact files/lines to fix
+D. whether the graph is ready for constraint algebra + diff engine
+
+
+⸻
+
+Then: constraint algebra + diff engine
+
+Once the graph is clean, the next step is to formalize constraints as:
+	•	selection
+	•	transformation
+	•	comparison
+	•	repair
+
+You want constraints to stop being just checks and become:
+
+executable mathematical objects with diffable state transitions
+
+⸻
+
+What the algebra should do
+
+For any constraint, NOMOS should be able to answer:
+	•	what was selected?
+	•	what was required?
+	•	what was observed?
+	•	what is the diff?
+	•	what is the minimal repair?
+
+That means every constraint becomes a function over graph state.
+
+⸻
+
+What to tell Replit for the algebra + diff engine
+
+Build a formal constraint algebra + diff engine for NOMOS on top of the graph substrate.
+
+Goal:
+Represent constraints as executable algebraic objects over graph queries, and produce explicit diffs plus minimal repair suggestions.
+
+Create:
+- src/constraints/constraint_algebra_types.ts
+- src/constraints/constraint_algebra.ts
+- src/constraints/constraint_diff_engine.ts
+- src/constraints/constraint_repair.ts
+- src/tests/constraint_algebra_test.ts
+
+Requirements:
+
+1. Add canonical types.
+
+type ConstraintOperator =
+  | "MUST_EQUAL"
+  | "AT_LEAST"
+  | "AT_MOST"
+  | "SUBSET_OF"
+  | "WITHIN_WINDOW"
+  | "MAX_DELTA"
+  | "MIN_DELTA";
+
+interface ConstraintSelection {
+  candidateId?: string | null;
+  entityTags?: string[];
+  anchorLabel?: string | null;
+  relation?: "before" | "after" | "within" | "between" | null;
+  windowMinutes?: number | null;
+  quantityUnit?: string | null;
+  aggregation?: "sum" | "count" | "max" | "min" | null;
+}
+
+interface AlgebraicConstraint {
+  id: string;
+  label: string;
+
+  variableName: string;
+  operator: ConstraintOperator;
+
+  selection: ConstraintSelection;
+
+  expectedValue: number | string | string[] | Record<string, unknown>;
+  observedValue?: number | string | string[] | Record<string, unknown> | null;
+}
+
+interface ConstraintDiff {
+  constraintId: string;
+  variableName: string;
+
+  expectedValue: unknown;
+  observedValue: unknown;
+
+  satisfied: boolean;
+  delta?: number | null;
+
+  added?: unknown;
+  removed?: unknown;
+  changed?: unknown;
+
+  summary: string;
+}
+
+interface ConstraintRepairSuggestion {
+  constraintId: string;
+  summary: string;
+  minimalActions: string[];
+}
+
+2. Build deterministic functions:
+- executeAlgebraicConstraint(graph, constraint)
+- diffConstraintResult(constraint, observedValue)
+- buildConstraintRepairSuggestion(constraint, diff)
+- executeConstraintSet(graph, constraints)
+
+3. Numeric examples:
+- fast carbs >= 60 within 90m before lifting
+- slow carbs <= 20 within 60m before lifting
+
+4. Structural examples:
+- protein placement MUST_EQUAL baseline map
+- meal order MUST_EQUAL baseline order
+- adjusted foods SUBSET_OF baseline foods
+
+5. Diff behavior:
+- for numeric constraints, compute delta
+- for set/structural constraints, compute added/removed/changed
+- summary must be generated from actual diff, not labels
+
+6. Repair behavior:
+- numeric undershoot -> suggest adding amount
+- numeric overshoot -> suggest reducing offending entities
+- structural mismatch -> suggest restoring moved/missing entities
+- subset violation -> suggest removing disallowed entities
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. All reasoning must be derived from graph queries and explicit diffs.
+
+Success condition:
+NOMOS can execute constraints algebraically over graph state, compute explicit diffs, and propose minimal repairs grounded in those diffs.
+
+
+⸻
+
+Why this order matters
+
+If you do the algebra first, you risk building a beautiful layer on top of unstable graph semantics.
+
+If you audit the graph first, then the algebra becomes stable and reusable.
+
+⸻
+
+The ideal future flow
+
+Once both are done, NOMOS can do this:
+	1.	parse measurable entities
+	2.	bind relations
+	3.	build graph
+	4.	execute algebraic constraints over graph queries
+	5.	compute diffs
+	6.	produce repairs
+	7.	show proof trace
+	8.	highlight graph nodes
+	9.	let user inspect exactly what changed
+
+That is the real reasoning stack.
+
+⸻
+
+My recommendation
+
+Press Replit first with the graph builder audit ask above. After that comes back, use the constraint algebra + diff engine spec.
+
+If you want, I can also draft a graph audit checklist with exact red flags so you know how to judge Replit’s answer.

@@ -1,0 +1,103 @@
+Build a formal constraint algebra + diff engine for NOMOS on top of the graph substrate.
+
+Goal:
+Represent constraints as executable algebraic objects over graph queries, and produce explicit diffs plus minimal repair suggestions.
+
+Create:
+- src/constraints/constraint_algebra_types.ts
+- src/constraints/constraint_algebra.ts
+- src/constraints/constraint_diff_engine.ts
+- src/constraints/constraint_repair.ts
+- src/tests/constraint_algebra_test.ts
+
+Requirements:
+
+1. Add canonical types.
+
+type ConstraintOperator =
+  | "MUST_EQUAL"
+  | "AT_LEAST"
+  | "AT_MOST"
+  | "SUBSET_OF"
+  | "WITHIN_WINDOW"
+  | "MAX_DELTA"
+  | "MIN_DELTA";
+
+interface ConstraintSelection {
+  candidateId?: string | null;
+  entityTags?: string[];
+  anchorLabel?: string | null;
+  relation?: "before" | "after" | "within" | "between" | null;
+  windowMinutes?: number | null;
+  quantityUnit?: string | null;
+  aggregation?: "sum" | "count" | "max" | "min" | null;
+}
+
+interface AlgebraicConstraint {
+  id: string;
+  label: string;
+
+  variableName: string;
+  operator: ConstraintOperator;
+
+  selection: ConstraintSelection;
+
+  expectedValue: number | string | string[] | Record<string, unknown>;
+  observedValue?: number | string | string[] | Record<string, unknown> | null;
+}
+
+interface ConstraintDiff {
+  constraintId: string;
+  variableName: string;
+
+  expectedValue: unknown;
+  observedValue: unknown;
+
+  satisfied: boolean;
+  delta?: number | null;
+
+  added?: unknown;
+  removed?: unknown;
+  changed?: unknown;
+
+  summary: string;
+}
+
+interface ConstraintRepairSuggestion {
+  constraintId: string;
+  summary: string;
+  minimalActions: string[];
+}
+
+2. Build deterministic functions:
+- executeAlgebraicConstraint(graph, constraint)
+- diffConstraintResult(constraint, observedValue)
+- buildConstraintRepairSuggestion(constraint, diff)
+- executeConstraintSet(graph, constraints)
+
+3. Numeric examples:
+- fast carbs >= 60 within 90m before lifting
+- slow carbs <= 20 within 60m before lifting
+
+4. Structural examples:
+- protein placement MUST_EQUAL baseline map
+- meal order MUST_EQUAL baseline order
+- adjusted foods SUBSET_OF baseline foods
+
+5. Diff behavior:
+- for numeric constraints, compute delta
+- for set/structural constraints, compute added/removed/changed
+- summary must be generated from actual diff, not labels
+
+6. Repair behavior:
+- numeric undershoot -> suggest adding amount
+- numeric overshoot -> suggest reducing offending entities
+- structural mismatch -> suggest restoring moved/missing entities
+- subset violation -> suggest removing disallowed entities
+
+7. Keep everything deterministic.
+8. Do not use LLM generation.
+9. All reasoning must be derived from graph queries and explicit diffs.
+
+Success condition:
+NOMOS can execute constraints algebraically over graph state, compute explicit diffs, and propose minimal repairs grounded in those diffs.
