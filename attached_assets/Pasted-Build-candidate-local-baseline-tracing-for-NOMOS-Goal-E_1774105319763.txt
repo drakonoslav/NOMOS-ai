@@ -1,0 +1,101 @@
+Build candidate-local baseline tracing for NOMOS.
+
+Goal:
+Each candidate card must expose the specific baseline state, candidate state, diff, and proof of violation for the decisive constraint.
+
+This is not just UI decoration.
+It must be driven from the formal constraint algebra + diff engine.
+
+Create:
+- src/eval/baseline_trace.ts
+- src/ui/components/evaluation/ConstraintTracePanel.tsx
+- update candidate evaluation types to include trace data
+- update EvaluationResultPanel / candidate cards to support expandable proof traces
+
+Requirements:
+
+1. Add candidate-local trace data to the canonical evaluation model.
+
+interface ConstraintTrace {
+  constraintId: string;
+  key: string;
+  variableName: string;
+  violationLabel: string;
+  operator: string;
+
+  baselineState: unknown;
+  candidateState: unknown;
+  diffSummary: string;
+
+  proofLines: string[];
+  suggestedRepair: string | null;
+}
+
+interface CandidateEvaluationReport {
+  ...
+  decisiveConstraintTrace?: ConstraintTrace | null;
+  allConstraintTraces?: ConstraintTrace[];
+}
+
+2. For the decisive violated constraint, always generate:
+- baselineState
+- candidateState
+- diffSummary
+- proofLines
+- suggestedRepair
+
+3. For protein placement, baseline tracing must show:
+- baseline protein placement map
+- candidate protein placement map
+- explicit moved/removed/added protein-bearing foods by meal
+
+Example proofLines:
+- "Baseline meal 2 contains whey."
+- "Candidate meal 2 does not contain whey."
+- "Candidate meal 7 contains whey."
+- "Therefore whey moved from meal 2 to meal 7."
+- "Constraint MUST_EQUAL on protein placement is violated."
+
+4. For meal order:
+- baseline ordered meal labels
+- candidate ordered meal labels
+- first differing position
+- proof line showing mismatch
+
+5. For meal count:
+- baseline meal count
+- candidate meal count
+- proof line showing count mismatch
+
+6. For calorie lockdown:
+- target calories
+- actual candidate calories
+- absolute delta
+- proof line showing tolerance miss
+
+7. For already-present foods only:
+- baseline food id set
+- candidate adjusted food id set
+- added ids outside baseline
+- proof line naming disallowed additions
+
+8. UI:
+Add expandable trace section per candidate card:
+- collapsed by default
+- title: "View proof trace"
+- when opened, show:
+  - baseline state
+  - candidate state
+  - diff summary
+  - proof lines
+  - suggested repair
+
+9. Baseline and candidate state should be rendered in readable structured form.
+Do not dump raw JSON without formatting.
+
+10. If candidate is satisfied on decisive constraint, trace may still exist but should say:
+- "No violation detected."
+- proofLines should explain equality or acceptable delta
+
+Success condition:
+Every candidate card can show exactly why it passed or failed, using baseline state, candidate state, diff, and proof lines.

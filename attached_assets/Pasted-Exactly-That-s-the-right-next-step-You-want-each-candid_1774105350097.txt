@@ -1,0 +1,202 @@
+Exactly. That’s the right next step.
+
+You want each candidate card to stop being:
+	•	verdict
+	•	label
+	•	one sentence
+
+and become:
+	•	baseline
+	•	candidate
+	•	diff
+	•	proof
+	•	repair
+
+That is what makes NOMOS auditable.
+
+What to tell Replit
+
+Build candidate-local baseline tracing for NOMOS.
+
+Goal:
+Each candidate card must expose the specific baseline state, candidate state, diff, and proof of violation for the decisive constraint.
+
+This is not just UI decoration.
+It must be driven from the formal constraint algebra + diff engine.
+
+Create:
+- src/eval/baseline_trace.ts
+- src/ui/components/evaluation/ConstraintTracePanel.tsx
+- update candidate evaluation types to include trace data
+- update EvaluationResultPanel / candidate cards to support expandable proof traces
+
+Requirements:
+
+1. Add candidate-local trace data to the canonical evaluation model.
+
+interface ConstraintTrace {
+  constraintId: string;
+  key: string;
+  variableName: string;
+  violationLabel: string;
+  operator: string;
+
+  baselineState: unknown;
+  candidateState: unknown;
+  diffSummary: string;
+
+  proofLines: string[];
+  suggestedRepair: string | null;
+}
+
+interface CandidateEvaluationReport {
+  ...
+  decisiveConstraintTrace?: ConstraintTrace | null;
+  allConstraintTraces?: ConstraintTrace[];
+}
+
+2. For the decisive violated constraint, always generate:
+- baselineState
+- candidateState
+- diffSummary
+- proofLines
+- suggestedRepair
+
+3. For protein placement, baseline tracing must show:
+- baseline protein placement map
+- candidate protein placement map
+- explicit moved/removed/added protein-bearing foods by meal
+
+Example proofLines:
+- "Baseline meal 2 contains whey."
+- "Candidate meal 2 does not contain whey."
+- "Candidate meal 7 contains whey."
+- "Therefore whey moved from meal 2 to meal 7."
+- "Constraint MUST_EQUAL on protein placement is violated."
+
+4. For meal order:
+- baseline ordered meal labels
+- candidate ordered meal labels
+- first differing position
+- proof line showing mismatch
+
+5. For meal count:
+- baseline meal count
+- candidate meal count
+- proof line showing count mismatch
+
+6. For calorie lockdown:
+- target calories
+- actual candidate calories
+- absolute delta
+- proof line showing tolerance miss
+
+7. For already-present foods only:
+- baseline food id set
+- candidate adjusted food id set
+- added ids outside baseline
+- proof line naming disallowed additions
+
+8. UI:
+Add expandable trace section per candidate card:
+- collapsed by default
+- title: "View proof trace"
+- when opened, show:
+  - baseline state
+  - candidate state
+  - diff summary
+  - proof lines
+  - suggested repair
+
+9. Baseline and candidate state should be rendered in readable structured form.
+Do not dump raw JSON without formatting.
+
+10. If candidate is satisfied on decisive constraint, trace may still exist but should say:
+- "No violation detected."
+- proofLines should explain equality or acceptable delta
+
+Success condition:
+Every candidate card can show exactly why it passed or failed, using baseline state, candidate state, diff, and proof lines.
+
+What the card should look like
+
+For a real protein-placement failure, one candidate should read like:
+
+Decisive factor
+protein placement violation
+
+Reason
+Protein placement differs from baseline.
+
+View proof trace
+
+When expanded:
+
+Baseline state
+	•	Meal 2: whey
+	•	Meal 3: yogurt, whey
+	•	Meal 4: whey
+	•	Meal 5: whey
+	•	Meal 6: whey
+
+Candidate state
+	•	Meal 2: none
+	•	Meal 3: yogurt, whey
+	•	Meal 4: whey
+	•	Meal 5: whey
+	•	Meal 6: whey
+	•	Meal 7: whey
+
+Diff
+	•	Whey removed from meal 2
+	•	Whey added to meal 7
+
+Proof
+	•	Baseline meal 2 contains whey.
+	•	Candidate meal 2 does not contain whey.
+	•	Candidate meal 7 contains whey.
+	•	Therefore whey moved from meal 2 to meal 7.
+	•	Constraint MUST_EQUAL on protein placement is violated.
+
+Suggested repair
+	•	Restore whey to meal 2.
+
+That is the level you want.
+
+Why this matters
+
+Once this exists, you no longer have to trust NOMOS’s language.
+You can inspect its proof.
+
+That changes the system from:
+	•	persuasive
+to
+	•	falsifiable
+
+And that is exactly what a reasoning engine should be.
+
+The deeper architecture
+
+At that point, each candidate becomes:
+	•	declared baseline
+	•	transformed candidate
+	•	evaluated diff
+	•	explicit constraint proof
+
+Which means you can later add:
+	•	diff history across runs
+	•	proof export
+	•	audit comparison between versions
+	•	proof ranking by decisive constraint
+
+The strongest follow-up after this
+
+After candidate-local tracing, the strongest next step is:
+	•	trace-aware diff across runs
+
+So NOMOS can compare:
+	•	yesterday’s baseline trace
+	•	today’s baseline trace
+	•	what changed in the proof itself
+
+That’s when audit history becomes truly powerful.

@@ -1,0 +1,267 @@
+Good — this is the clearest snapshot yet.
+
+I’m going to be very direct:
+
+👉 This result is still wrong — but now for a precise, identifiable reason.
+
+⸻
+
+🚨 The real bug (now fully exposed)
+
+This line proves it:
+
+“Structural lock violated: protein placement violation was altered.”
+
+That sentence is nonsensical.
+
+It means your system is literally doing:
+
+violation_label = "protein placement violation"
+
+→ explanation =
+"protein placement violation was altered"
+
+So:
+
+👉 The engine is using the label of the violation as if it were the variable being compared
+
+Instead of:
+
+variable = protein placement
+status = violated
+
+it is doing:
+
+variable = "protein placement violation"
+status = altered
+
+
+⸻
+
+🧠 Root cause (very important)
+
+You have a semantic collapse between:
+	•	the constraint variable
+	•	the violation label
+	•	the UI string
+
+What it SHOULD be:
+
+constraint: preserve_protein_placement
+variable: protein placement
+status: violated
+
+What it CURRENTLY is:
+
+variable: "protein placement violation"
+status: altered
+
+So the system is comparing:
+
+“protein placement violation” vs baseline
+
+Which is meaningless.
+
+⸻
+
+🔥 Why ALL candidates are failing
+
+Because of that bug:
+
+👉 Every candidate inherits the same broken variable
+
+So instead of checking:
+
+candidate_A.protein_map vs baseline.protein_map
+candidate_B.protein_map vs baseline.protein_map
+candidate_C.protein_map vs baseline.protein_map
+
+It is effectively checking:
+
+"protein placement violation" != "protein placement"
+→ always true
+
+So:
+
+👉 All candidates fail by construction
+
+⸻
+
+🧬 You’ve now isolated the exact failure class
+
+This is not:
+	•	parsing ❌
+	•	classification ❌
+	•	determinism ❌
+
+This is:
+
+variable identity corruption
+
+⸻
+
+🛠️ What to tell Replit (this is the critical fix)
+
+Send this exactly:
+
+The evaluation engine is incorrectly using the violation label as the variable being compared.
+
+Observed output:
+"Structural lock violated: protein placement violation was altered."
+
+This is invalid.
+
+"protein placement violation" is a RESULT label, not a variable.
+
+Correct model:
+
+- constraint key: preserve_protein_placement
+- variable: protein placement
+- status: violated
+
+Current bug:
+The system is treating:
+"protein placement violation"
+as the variable, and then saying it was altered.
+
+This causes:
+- all candidates to fail
+- identical decisive variable across all candidates
+- meaningless explanations
+
+Fix required:
+
+1. Separate three fields explicitly in ConstraintEvaluationRecord:
+   - variableName: "protein placement"
+   - violationLabel: "protein placement violation"
+   - status: "satisfied" | "violated"
+
+2. Evaluation must operate on variableName, not violationLabel.
+
+3. Explanation generation must follow:
+   If violated:
+     "Protein placement differs from baseline."
+   NOT:
+     "protein placement violation was altered"
+
+4. decisiveVariable must be derived as:
+   violationLabel ONLY AFTER violation is confirmed.
+
+5. Add invariant:
+   variableName must never contain the word "violation"
+
+6. Add assertion:
+   If variableName includes "violation", throw error.
+
+7. Add debug output:
+   - baselineProteinPlacementMap
+   - candidateProteinPlacementMap
+   - diff
+
+8. Regression test:
+   Ensure:
+   - variableName === "protein placement"
+   - violationLabel === "protein placement violation"
+   - explanation references variable, not violation label
+
+Success condition:
+Each candidate is evaluated against baseline protein placement using a real variable comparison.
+Violation labels are only used for reporting, not computation.
+
+
+⸻
+
+🧠 What the correct output SHOULD look like
+
+For a real violation:
+
+DECISIVE FACTOR
+protein placement violation
+
+REASON
+Protein placement differs from the declared meal structure.
+
+DETAIL
+Whey moved from Meal 2 → Meal 7.
+
+ADJUSTMENT
+Restore whey to Meal 2.
+
+
+⸻
+
+🚨 What your current output proves
+
+This line:
+
+“Restore protein placement violation to its declared state.”
+
+is also broken.
+
+Because:
+
+👉 You cannot “restore a violation”
+
+You restore the variable, not the violation.
+
+Correct:
+
+Restore protein placement to its declared state.
+
+⸻
+
+🧠 Big picture (this is important)
+
+You have now uncovered a fundamental law for your system:
+
+Variables, violations, and labels must never be conflated
+
+This is the same kind of mistake as:
+	•	confusing force with acceleration
+	•	confusing error with signal
+	•	confusing symptom with cause
+
+⸻
+
+🔥 Where you are now
+
+You’ve successfully progressed through:
+	1.	❌ Couldn’t classify constraints
+	2.	❌ UI contradictions
+	3.	❌ Summary logic errors
+	4.	❌ Baseline suspicion
+	5.	✅ Now: exact variable corruption identified
+
+This is a high-quality debugging trajectory
+
+⸻
+
+🎯 After this fix
+
+Once this is corrected:
+	•	candidates may diverge (A ≠ B ≠ C)
+	•	some may pass
+	•	decisive variable will be meaningful
+	•	adjustments will become actionable
+
+⸻
+
+🧠 Final translation
+
+Right now your system is saying:
+
+“The error has changed, therefore the system is wrong.”
+
+Instead of:
+
+“The system changed, therefore an error occurred.”
+
+That’s the inversion.
+
+⸻
+
+If you want next step after this:
+
+👉 we can formalize constraint algebra + diff engine
+
+So every violation becomes a provable transformation, not just a label.

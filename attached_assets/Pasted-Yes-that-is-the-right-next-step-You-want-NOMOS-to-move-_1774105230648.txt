@@ -1,0 +1,238 @@
+Yes — that is the right next step.
+
+You want NOMOS to move from:
+	•	named violations
+
+to:
+	•	provable state differences
+
+That means building a constraint algebra + diff engine.
+
+The idea
+
+For every constraint, NOMOS should always have:
+	•	a baseline state
+	•	a candidate state
+	•	a comparison operator
+	•	a diff result
+	•	a satisfaction result
+	•	a human-readable violation label
+
+So the engine never starts with “protein placement violation.”
+It starts with:
+	•	baseline protein placement map
+	•	candidate protein placement map
+	•	equality check
+	•	diff
+	•	then violation label if unequal
+
+Tell Replit this
+
+Build a formal constraint algebra + diff engine for NOMOS.
+
+Goal:
+Every evaluated constraint must be computed as a comparison between:
+- baseline state
+- candidate state
+- operator
+- diff result
+- satisfaction result
+
+Do not let violation labels drive computation.
+Violation labels are reporting outputs only.
+
+Create:
+
+- src/eval/constraint_algebra.ts
+- src/eval/diff_engine.ts
+- src/eval/constraint_report.ts
+
+Requirements:
+
+1. Define a formal constraint expression model.
+
+interface ConstraintExpression<T = unknown> {
+  constraintId: string;
+  key: string;
+  variableName: string;          // e.g. "protein placement"
+  violationLabel: string;        // e.g. "protein placement violation"
+  operator: "MUST_EQUAL" | "SUBSET_OF" | "MINIMIZE_ABS_DELTA" | "SOURCE_PRIORITY";
+  baselineValue: T;
+  candidateValue: T;
+}
+
+2. Define a formal diff result.
+
+interface DiffResult<T = unknown> {
+  equal: boolean;
+  added?: unknown;
+  removed?: unknown;
+  changed?: unknown;
+  delta?: number | null;
+  summary: string;
+}
+
+3. Define a formal constraint evaluation result.
+
+interface ConstraintCheckResult<T = unknown> {
+  constraintId: string;
+  key: string;
+  variableName: string;
+  violationLabel: string;
+  operator: string;
+
+  baselineValue: T;
+  candidateValue: T;
+  diff: DiffResult<T>;
+
+  satisfactionStatus: "satisfied" | "violated";
+  decisiveVariable: string | null;
+  explanation: string;
+  suggestedRepair: string | null;
+}
+
+4. Add algebra handlers for the current nutrition constraints:
+
+A. MUST_EQUAL
+Used for:
+- protein placement
+- meal order
+- meal count
+- meal dispersal
+
+B. SUBSET_OF
+Used for:
+- only already-present foods may be adjusted
+
+C. MINIMIZE_ABS_DELTA
+Used for:
+- calorie lockdown
+- change magnitude
+
+D. SOURCE_PRIORITY
+Used for:
+- label truth overrides assumptions
+- declared macros as truth
+
+5. Build a diff engine per variable type:
+
+- compareProteinPlacementMap(baseline, candidate)
+- compareMealOrder(baseline, candidate)
+- compareMealCount(baseline, candidate)
+- compareMealDispersal(baseline, candidate)
+- compareFoodAdjustmentScope(baseline, candidate)
+- compareCalories(target, actual)
+- compareMacroSourcePriority(baseline, candidate)
+
+6. Protein placement map must be explicit:
+mealNumber -> protein-bearing foods present in that meal
+
+Example:
+{
+  "1": [],
+  "2": ["whey"],
+  "3": ["yogurt", "whey"],
+  "4": ["whey"],
+  "5": ["whey"],
+  "6": ["whey"],
+  "7": []
+}
+
+7. Explanations must be generated from variable + diff, not from violationLabel.
+
+Correct:
+"Protein placement differs from baseline. Whey moved from meal 2 to meal 7."
+
+Incorrect:
+"protein placement violation was altered"
+
+8. Suggested repairs must also use variable-level repair logic.
+
+Correct:
+"Restore whey to meal 2."
+
+Incorrect:
+"Restore protein placement violation to its declared state."
+
+9. Add invariants:
+- variableName must never include the word "violation"
+- violationLabel must never be used as a comparison operand
+- if satisfactionStatus === "satisfied", decisiveVariable must be null or non-violation wording
+- if satisfactionStatus === "violated", decisiveVariable may use violationLabel
+
+10. Add regression tests:
+- satisfied MUST_EQUAL protein placement
+- violated MUST_EQUAL protein placement
+- violated meal order
+- violated adjustment scope
+- calorie delta reporting
+- source priority conflict
+
+Success condition:
+NOMOS should be able to prove:
+- what baseline was
+- what candidate state was
+- what changed
+- whether the constraint passed
+- why it failed if it failed
+
+What the engine should produce
+
+For protein placement, the internal record should look like this:
+
+{
+  variableName: "protein placement",
+  violationLabel: "protein placement violation",
+  operator: "MUST_EQUAL",
+  baselineValue: {
+    "2": ["whey"],
+    "3": ["yogurt", "whey"],
+    "4": ["whey"],
+    "5": ["whey"],
+    "6": ["whey"]
+  },
+  candidateValue: {
+    "2": [],
+    "3": ["yogurt", "whey"],
+    "4": ["whey"],
+    "5": ["whey"],
+    "6": ["whey"],
+    "7": ["whey"]
+  },
+  diff: {
+    equal: false,
+    removed: { "2": ["whey"] },
+    added: { "7": ["whey"] },
+    summary: "Whey moved from meal 2 to meal 7."
+  },
+  satisfactionStatus: "violated",
+  decisiveVariable: "protein placement violation",
+  explanation: "Protein placement differs from baseline. Whey moved from meal 2 to meal 7.",
+  suggestedRepair: "Restore whey to meal 2."
+}
+
+That is what “truth-holding” looks like.
+
+Why this is the right step
+
+Right now NOMOS still thinks in labels.
+You need it to think in:
+	•	state
+	•	operator
+	•	difference
+	•	verdict
+
+That is the bridge from “structured app” to “reasoning engine.”
+
+After this
+
+The next strongest step would be:
+	•	candidate-local baseline tracing
+
+So every card can expose:
+	•	baseline state
+	•	candidate state
+	•	diff
+	•	proof of violation
+
+At that point, NOMOS stops sounding smart and starts being auditable.
