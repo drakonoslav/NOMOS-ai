@@ -330,19 +330,33 @@ function dedupeCandidates(values: CompiledCandidate[]): CompiledCandidate[] {
 }
 
 /**
- * buildDetectedStructureNotes — produces debug output lines that appear
- * in the compiled draft's notes section. Reports what structural signals
- * were detected by the extractor, allowing reviewers to verify detection
- * without running the code.
+ * buildDetectedStructureNotes — produces debug output lines in the compiled
+ * draft's notes section. Reports structural signals and per-phase target block
+ * detection, allowing reviewers to verify parsing without running the code.
  *
  * Format:
- *   DETECTED_STRUCTURE: phases_detected: true | meals_detected: true | targets_detected: false
+ *   DETECTED_STRUCTURE: phases_detected: true | meals_detected: true | targets_detected: true
+ *   DETECTED_TARGET_BLOCKS:
+ *   - BASE: true
+ *   - CARB_UP: true
+ *   - CARB_CUT: false
+ *   ...
  */
 function buildDetectedStructureNotes(extracted: ExtractedFields): string[] {
-  const { phasesDetected, mealsDetected, targetsDetected } =
+  const { phasesDetected, mealsDetected, targetsDetected, detectedTargetBlocksByPhase } =
     extracted.detectedStructure;
 
-  return [
+  const lines: string[] = [
     `DETECTED_STRUCTURE: phases_detected: ${phasesDetected} | meals_detected: ${mealsDetected} | targets_detected: ${targetsDetected}`,
   ];
+
+  const phaseKeys = Object.keys(detectedTargetBlocksByPhase);
+  if (phaseKeys.length > 0) {
+    lines.push("DETECTED_TARGET_BLOCKS:");
+    for (const phase of phaseKeys) {
+      lines.push(`- ${phase}: ${detectedTargetBlocksByPhase[phase]}`);
+    }
+  }
+
+  return lines;
 }

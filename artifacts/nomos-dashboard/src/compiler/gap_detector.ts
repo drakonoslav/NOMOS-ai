@@ -57,10 +57,17 @@ export function detectGaps(
   }
 
   if (template.intent === "NUTRITION_AUDIT") {
+    const { phasesDetected, mealsDetected, targetsDetected } =
+      extracted.detectedStructure;
+
     if (extracted.hasMealSystem && !extracted.hasTargets) {
-      warnings.push(
-        "Meal system detected, but no target macro blocks were found."
-      );
+      // Suppress if all three structural signals are present — the nutrition
+      // target parser may have resolved what the heuristic extractor missed.
+      if (!(phasesDetected && mealsDetected && targetsDetected)) {
+        warnings.push(
+          "Meal system detected, but no target macro blocks were found."
+        );
+      }
     }
 
     if (
