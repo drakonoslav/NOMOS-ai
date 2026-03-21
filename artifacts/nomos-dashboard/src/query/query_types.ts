@@ -54,6 +54,11 @@ export interface NomosCandidateEvaluation {
   id: string;
   classification: NomosActionClassification;
   reasons: string[];
+  /**
+   * The specific constraint texts that produced a non-LAWFUL verdict.
+   * Populated by the rule-based evaluator; may be absent for LLM evaluations.
+   */
+  violatedConstraints?: string[];
 }
 
 export interface NomosAdjustment {
@@ -68,6 +73,11 @@ export interface NomosQueryResponse {
   lawfulSet: string[];
   adjustments?: NomosAdjustment[];
   notes: string[];
+  /**
+   * "rule-based" when the LLM was unavailable and the semantic fallback ran.
+   * Absent when the LLM produced the result.
+   */
+  evaluationMethod?: "llm" | "rule-based";
 }
 
 export function draftToQuery(draft: GuidedQueryDraft): NomosQuery {

@@ -51,4 +51,6 @@ export type {
 
 export { HybridNomosQueryParser } from "./query/query_parser.js";
 export type { HybridQueryParserInput } from "./query/query_parser.js";
-export { NomosQueryEvaluator } from "./query/query_evaluator.js";
+export { NomosQueryEvaluator, RuleBasedQueryEvaluator } from "./query/query_evaluator.js";
+export { evaluateConstraint, evaluateCandidateAgainstConstraints } from "./query/constraint_evaluator.js";
+export type { ConstraintEvalResult, CandidateConstraintSummary } from "./query/constraint_evaluator.js";

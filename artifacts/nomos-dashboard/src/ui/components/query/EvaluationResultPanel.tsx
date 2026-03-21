@@ -32,12 +32,44 @@ function evalStatusClass(classification: string): string {
   }
 }
 
+/**
+ * Render a reason with [VIOLATION] or [RISK] prefix styled distinctly.
+ */
+function ReasonLine({ reason }: { reason: string }) {
+  if (reason.startsWith("[VIOLATION]")) {
+    const body = reason.slice("[VIOLATION]".length).trim();
+    return (
+      <li>
+        <span className="nm-violation-label">[VIOLATION]</span>{" "}
+        {body}
+      </li>
+    );
+  }
+  if (reason.startsWith("[RISK]")) {
+    const body = reason.slice("[RISK]".length).trim();
+    return (
+      <li>
+        <span className="nm-risk-label">[RISK]</span>{" "}
+        {body}
+      </li>
+    );
+  }
+  return <li>{reason}</li>;
+}
+
 export function EvaluationResultPanel({ result }: EvaluationResultPanelProps) {
   if (!result) return null;
 
   return (
     <div className="panel evaluation-result-panel">
-      <div className="panel-header">Evaluation Result</div>
+      <div className="panel-header">
+        <span>Evaluation Result</span>
+        {result.evaluationMethod && (
+          <span className="eval-method-badge">
+            {result.evaluationMethod === "rule-based" ? "RULE-BASED" : "LLM"}
+          </span>
+        )}
+      </div>
 
       {/* Overall status */}
       <div className="result-header">
@@ -83,10 +115,23 @@ export function EvaluationResultPanel({ result }: EvaluationResultPanelProps) {
                 {ev.classification}
               </span>
             </div>
+
+            {/* Violated / risk constraints — shown before reasons */}
+            {ev.violatedConstraints && ev.violatedConstraints.length > 0 && (
+              <div className={`violated-constraints-block violated-constraints-block--${ev.classification.toLowerCase()}`}>
+                <div className="violated-constraints-label">
+                  {ev.classification === "INVALID" ? "VIOLATED CONSTRAINTS" : "RISK CONSTRAINTS"}
+                </div>
+                {ev.violatedConstraints.map((vc, i) => (
+                  <div key={i} className="violated-constraint-text">· {vc}</div>
+                ))}
+              </div>
+            )}
+
             {ev.reasons.length > 0 && (
               <ul className="candidate-eval-reasons">
                 {ev.reasons.map((r, i) => (
-                  <li key={i}>{r}</li>
+                  <ReasonLine key={i} reason={r} />
                 ))}
               </ul>
             )}

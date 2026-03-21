@@ -1,0 +1,568 @@
+Build evaluation engine
+
+Yes. Here is the clean design for a full constraint evaluation kernel that is:
+	•	deterministic first
+	•	LLM-assisted second
+	•	structured end-to-end
+	•	aligned with NOMOS
+
+The point is simple:
+
+structure gets you admissible input
+evaluation gets you admissible action
+
+⸻
+
+1. Kernel role
+
+The evaluation engine must answer, for each candidate:
+	•	does this violate the declared constraint?
+	•	does this satisfy it cleanly?
+	•	does it satisfy it with reduced margin?
+
+Output must be:
+	•	LAWFUL
+	•	DEGRADED
+	•	INVALID
+
+with:
+	•	reason
+	•	decisive variable
+	•	optional adjustment
+
+⸻
+
+2. Architecture
+
+NomosQuery
+→ constraint_normalizer
+→ candidate_action_normalizer
+→ deterministic_constraint_matcher
+→ llm_semantic_evaluator (fallback / supplement)
+→ candidate_scoring
+→ lawful_set_builder
+→ overall_status_resolver
+
+
+⸻
+
+3. Core types
+
+src/evaluation/eval_types.ts
+
+export type CandidateStatus = "LAWFUL" | "DEGRADED" | "INVALID";
+
+export interface NormalizedConstraint {
+  raw: string;
+  kind:
+    | "NO_DROP"
+    | "NO_TURNOVER"
+    | "PRESERVE_STRUCTURE"
+    | "NO_RELEASE"
+    | "BOUNDED_TIME"
+    | "BOUNDED_RESOURCE"
+    | "UNKNOWN";
+  protectedObject?: string;
+  threshold?: string;
+  decisiveVariable?: string;
+}
+
+export interface NormalizedCandidate {
+  id: string;
+  raw: string;
+  actions: string[];
+  detectedVerbs: string[];
+  riskFlags: string[];
+}
+
+export interface CandidateEvaluation {
+  id: string;
+  status: CandidateStatus;
+  reason: string;
+  decisiveVariable: string;
+  adjustments?: string[];
+  confidence: "high" | "moderate" | "low";
+}
+
+export interface EvaluationResult {
+  overallStatus: CandidateStatus;
+  lawfulSet: string[];
+  candidateEvaluations: CandidateEvaluation[];
+  decisiveVariable: string;
+  notes: string[];
+}
+
+
+⸻
+
+4. Constraint normalizer
+
+This converts raw constraint text into a usable type.
+
+src/evaluation/constraint_normalizer.ts
+
+import { NormalizedConstraint } from "./eval_types";
+
+export function normalizeConstraint(raw: string): NormalizedConstraint {
+  const text = raw.toLowerCase();
+
+  if (text.includes("must not be dropped")) {
+    return {
+      raw,
+      kind: "NO_DROP",
+      protectedObject: "object",
+      decisiveVariable: "drop risk",
+    };
+  }
+
+  if (text.includes("without full turnover") || text.includes("must be preserved")) {
+    return {
+      raw,
+      kind: "NO_TURNOVER",
+      decisiveVariable: "soil disturbance",
+    };
+  }
+
+  if (text.includes("must not release")) {
+    return {
+      raw,
+      kind: "NO_RELEASE",
+      decisiveVariable: "control continuity",
+    };
+  }
+
+  if (text.includes("within") || text.includes("must not exceed")) {
+    return {
+      raw,
+      kind: "BOUNDED_TIME",
+      decisiveVariable: "time bound",
+    };
+  }
+
+  return {
+    raw,
+    kind: "UNKNOWN",
+    decisiveVariable: "constraint interpretation",
+  };
+}
+
+
+⸻
+
+5. Candidate normalizer
+
+Turn free text into action semantics.
+
+src/evaluation/candidate_normalizer.ts
+
+import { NormalizedCandidate } from "./eval_types";
+
+const VERBS = [
+  "carry",
+  "toss",
+  "throw",
+  "slide",
+  "transport",
+  "harvest",
+  "delay",
+  "till",
+  "fertilize",
+  "reduce",
+  "increase",
+  "decompose",
+  "leave",
+  "apply",
+  "use",
+];
+
+export function normalizeCandidate(id: string, raw: string): NormalizedCandidate {
+  const lower = raw.toLowerCase();
+
+  const detectedVerbs = VERBS.filter((v) => lower.includes(v));
+  const riskFlags: string[] = [];
+
+  if (lower.includes("toss") || lower.includes("throw")) {
+    riskFlags.push("release_control");
+  }
+
+  if (lower.includes("slide")) {
+    riskFlags.push("reduced_control");
+  }
+
+  if (lower.includes("till") || lower.includes("turnover")) {
+    riskFlags.push("soil_disturbance");
+  }
+
+  if (lower.includes("increase irrigation")) {
+    riskFlags.push("resource_intensity");
+  }
+
+  return {
+    id,
+    raw,
+    actions: detectedVerbs,
+    detectedVerbs,
+    riskFlags,
+  };
+}
+
+
+⸻
+
+6. Deterministic matcher
+
+This is the heart of first-pass real evaluation.
+
+src/evaluation/deterministic_matcher.ts
+
+import {
+  CandidateEvaluation,
+  NormalizedCandidate,
+  NormalizedConstraint,
+} from "./eval_types";
+
+export function evaluateDeterministically(
+  constraint: NormalizedConstraint,
+  candidate: NormalizedCandidate
+): CandidateEvaluation | null {
+  switch (constraint.kind) {
+    case "NO_DROP":
+      return evalNoDrop(candidate);
+
+    case "NO_TURNOVER":
+      return evalNoTurnover(candidate);
+
+    case "NO_RELEASE":
+      return evalNoRelease(candidate);
+
+    default:
+      return null;
+  }
+}
+
+function evalNoDrop(candidate: NormalizedCandidate): CandidateEvaluation {
+  if (candidate.riskFlags.includes("release_control")) {
+    return {
+      id: candidate.id,
+      status: "INVALID",
+      reason: "Constraint violated: control is released during transport.",
+      decisiveVariable: "drop risk",
+      confidence: "high",
+      adjustments: ["Use continuous controlled transport."],
+    };
+  }
+
+  if (candidate.riskFlags.includes("reduced_control")) {
+    return {
+      id: candidate.id,
+      status: "DEGRADED",
+      reason: "Constraint preserved with reduced control margin.",
+      decisiveVariable: "control margin",
+      confidence: "high",
+      adjustments: ["Increase transport stability."],
+    };
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: "Constraint satisfied under controlled transport.",
+    decisiveVariable: "control continuity",
+    confidence: "high",
+  };
+}
+
+function evalNoTurnover(candidate: NormalizedCandidate): CandidateEvaluation {
+  if (candidate.riskFlags.includes("soil_disturbance")) {
+    return {
+      id: candidate.id,
+      status: "INVALID",
+      reason: "Constraint violated: soil turnover or tilling detected.",
+      decisiveVariable: "soil disturbance",
+      confidence: "high",
+      adjustments: ["Remove tilling or turnover from the sequence."],
+    };
+  }
+
+  if (candidate.raw.toLowerCase().includes("fertilization")) {
+    return {
+      id: candidate.id,
+      status: "DEGRADED",
+      reason: "Constraint preserved, but soil profile is altered by intervention.",
+      decisiveVariable: "nutrient intervention",
+      confidence: "moderate",
+      adjustments: ["Reduce external intervention intensity."],
+    };
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: "Constraint satisfied with low disturbance.",
+    decisiveVariable: "soil disturbance",
+    confidence: "high",
+  };
+}
+
+function evalNoRelease(candidate: NormalizedCandidate): CandidateEvaluation {
+  if (candidate.riskFlags.includes("release_control")) {
+    return {
+      id: candidate.id,
+      status: "INVALID",
+      reason: "Constraint violated: release of control detected.",
+      decisiveVariable: "control continuity",
+      confidence: "high",
+    };
+  }
+
+  return {
+    id: candidate.id,
+    status: "LAWFUL",
+    reason: "Constraint satisfied.",
+    decisiveVariable: "control continuity",
+    confidence: "high",
+  };
+}
+
+
+⸻
+
+7. LLM semantic evaluator
+
+Use only when deterministic matcher returns null or low-confidence domain ambiguity.
+
+src/evaluation/llm_semantic_evaluator.ts
+
+import OpenAI from "openai";
+import { CandidateEvaluation, NormalizedCandidate, NormalizedConstraint } from "./eval_types";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export async function evaluateSemantically(
+  constraint: NormalizedConstraint,
+  candidate: NormalizedCandidate
+): Promise<CandidateEvaluation> {
+  const prompt = `
+You are evaluating whether a candidate action satisfies a constraint.
+
+Return JSON only:
+{
+  "status": "LAWFUL" | "DEGRADED" | "INVALID",
+  "reason": "short formal reason",
+  "decisiveVariable": "short variable name",
+  "confidence": "low" | "moderate" | "high",
+  "adjustments": ["optional short adjustment"]
+}
+
+Constraint:
+${constraint.raw}
+
+Candidate:
+${candidate.raw}
+
+Rules:
+- LAWFUL = cleanly satisfies constraint
+- DEGRADED = satisfies with reduced margin or elevated risk
+- INVALID = violates constraint
+- be concise
+- no conversational language
+`;
+
+  const res = await client.responses.create({
+    model: process.env.OPENAI_MODEL ?? "gpt-5.4",
+    input: prompt,
+  });
+
+  const parsed = JSON.parse(res.output_text);
+
+  return {
+    id: candidate.id,
+    status: parsed.status,
+    reason: parsed.reason,
+    decisiveVariable: parsed.decisiveVariable,
+    confidence: parsed.confidence,
+    adjustments: parsed.adjustments ?? [],
+  };
+}
+
+
+⸻
+
+8. Candidate scoring orchestrator
+
+src/evaluation/candidate_scoring.ts
+
+import { NomosQuery } from "../query/query_types";
+import { normalizeConstraint } from "./constraint_normalizer";
+import { normalizeCandidate } from "./candidate_normalizer";
+import { evaluateDeterministically } from "./deterministic_matcher";
+import { evaluateSemantically } from "./llm_semantic_evaluator";
+import { CandidateEvaluation, EvaluationResult } from "./eval_types";
+
+export async function evaluateQueryCandidates(
+  query: NomosQuery
+): Promise<EvaluationResult> {
+  const constraintRaw = query.state.constraints[0] ?? "";
+  const constraint = normalizeConstraint(constraintRaw);
+
+  const evaluations: CandidateEvaluation[] = [];
+
+  for (const c of query.candidates) {
+    const normalized = normalizeCandidate(c.id, c.description);
+
+    let result = evaluateDeterministically(constraint, normalized);
+
+    if (!result) {
+      result = await evaluateSemantically(constraint, normalized);
+    }
+
+    evaluations.push(result);
+  }
+
+  const lawfulSet = evaluations
+    .filter((e) => e.status === "LAWFUL")
+    .map((e) => e.id);
+
+  const overallStatus = resolveOverallStatus(evaluations);
+  const decisiveVariable = resolveGlobalDecisiveVariable(evaluations, constraint.decisiveVariable);
+
+  return {
+    overallStatus,
+    lawfulSet,
+    candidateEvaluations: evaluations,
+    decisiveVariable,
+    notes: [],
+  };
+}
+
+function resolveOverallStatus(
+  evals: CandidateEvaluation[]
+): "LAWFUL" | "DEGRADED" | "INVALID" {
+  const hasLawful = evals.some((e) => e.status === "LAWFUL");
+  const hasDegraded = evals.some((e) => e.status === "DEGRADED");
+
+  if (hasLawful) return "LAWFUL";
+  if (hasDegraded) return "DEGRADED";
+  return "INVALID";
+}
+
+function resolveGlobalDecisiveVariable(
+  evals: CandidateEvaluation[],
+  fallback = "constraint boundary"
+): string {
+  const invalid = evals.find((e) => e.status === "INVALID");
+  if (invalid) return invalid.decisiveVariable;
+
+  const degraded = evals.find((e) => e.status === "DEGRADED");
+  if (degraded) return degraded.decisiveVariable;
+
+  const lawful = evals.find((e) => e.status === "LAWFUL");
+  return lawful?.decisiveVariable ?? fallback;
+}
+
+
+⸻
+
+9. Expected behavior on your simple case
+
+Input:
+
+Objective: Transport an object from point A to point B.
+Constraint: The object must not be dropped at any point during transport.
+Candidates:
+A. Carry the object carefully using both hands.
+B. Toss the object to the destination.
+C. Use a cart to transport the object securely.
+D. Slide the object along the ground.
+Question: Which candidate is admissible under the constraint?
+
+Expected:
+	•	A → LAWFUL
+	•	B → INVALID
+	•	C → LAWFUL
+	•	D → DEGRADED
+
+Overall:
+	•	LAWFUL
+	•	lawful set = A, C
+	•	decisive variable = drop risk or control continuity
+
+⸻
+
+10. What to tell Replit
+
+Paste this exactly:
+
+Build the real evaluation engine for NOMOS.
+
+Goal:
+Move evaluation from structure-only validation to actual constraint-based candidate evaluation.
+
+Create these files:
+- src/evaluation/eval_types.ts
+- src/evaluation/constraint_normalizer.ts
+- src/evaluation/candidate_normalizer.ts
+- src/evaluation/deterministic_matcher.ts
+- src/evaluation/llm_semantic_evaluator.ts
+- src/evaluation/candidate_scoring.ts
+
+Requirements:
+1. Normalize the first declared constraint into a typed constraint kind:
+   - NO_DROP
+   - NO_TURNOVER
+   - NO_RELEASE
+   - BOUNDED_TIME
+   - BOUNDED_RESOURCE
+   - UNKNOWN
+
+2. Normalize candidate descriptions into:
+   - detected verbs
+   - action list
+   - risk flags
+
+3. Deterministic first:
+   - if constraint is "must not be dropped", then:
+     - toss/throw/release control => INVALID
+     - slide/reduced control => DEGRADED
+     - carry/cart/secure transport => LAWFUL
+
+4. For unknown constraint kinds, use LLM semantic evaluator as fallback.
+
+5. Each candidate must return:
+   - status
+   - reason
+   - decisiveVariable
+   - confidence
+   - optional adjustments
+
+6. EvaluationResult must return:
+   - overallStatus
+   - lawfulSet
+   - candidateEvaluations
+   - decisiveVariable
+   - notes
+
+7. Replace the current placeholder evaluation logic so the simple transport example produces:
+   - A LAWFUL
+   - B INVALID
+   - C LAWFUL
+   - D DEGRADED
+
+8. Update the UI to display the real reason and decisive variable per candidate.
+
+
+⸻
+
+11. My advice
+
+Start with just these two domains:
+	•	NO_DROP
+	•	NO_TURNOVER
+
+That’s enough to prove the kernel works across two unrelated problem types.
+
+Once that passes, expand.
+
+If you want, I can next write the UI mapping layer so the evaluation result cards render reasons and decisive variables cleanly.

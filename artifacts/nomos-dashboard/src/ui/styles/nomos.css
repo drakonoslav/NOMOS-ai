@@ -684,6 +684,92 @@ textarea {
 }
 
 /* =========================================================
+   Constraint violation / risk display
+   ========================================================= */
+
+.violated-constraints-block {
+  margin: var(--nm-space-3) 0;
+  padding: var(--nm-space-3) var(--nm-space-4);
+  border-left: 2px solid;
+  border-radius: 0 var(--nm-radius-xs) var(--nm-radius-xs) 0;
+}
+
+.violated-constraints-block--invalid {
+  border-color: var(--nm-status-invalid);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.violated-constraints-block--degraded {
+  border-color: var(--nm-status-degraded);
+  background: rgba(234, 179, 8, 0.06);
+}
+
+.violated-constraints-label {
+  font-family: var(--nm-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: var(--nm-space-2);
+}
+
+.violated-constraints-block--invalid .violated-constraints-label {
+  color: var(--nm-status-invalid);
+}
+
+.violated-constraints-block--degraded .violated-constraints-label {
+  color: var(--nm-status-degraded);
+}
+
+.violated-constraint-text {
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-sm);
+  color: var(--nm-text-secondary);
+  line-height: var(--nm-line-loose);
+}
+
+.violated-constraints-block--invalid .violated-constraint-text {
+  color: color-mix(in srgb, var(--nm-status-invalid) 70%, var(--nm-text-secondary));
+}
+
+.violated-constraints-block--degraded .violated-constraint-text {
+  color: color-mix(in srgb, var(--nm-status-degraded) 70%, var(--nm-text-secondary));
+}
+
+/* Inline reason prefix labels */
+.nm-violation-label {
+  font-family: var(--nm-font-mono);
+  font-weight: 700;
+  font-size: var(--nm-text-sm);
+  color: var(--nm-status-invalid);
+}
+
+.nm-risk-label {
+  font-family: var(--nm-font-mono);
+  font-weight: 700;
+  font-size: var(--nm-text-sm);
+  color: var(--nm-status-degraded);
+}
+
+/* Evaluation method badge */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eval-method-badge {
+  font-family: var(--nm-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  padding: 2px 6px;
+  border: 1px solid var(--nm-border);
+  color: var(--nm-text-muted);
+  border-radius: var(--nm-radius-xs);
+  text-transform: uppercase;
+}
+
+/* =========================================================
    Evaluation launch
    ========================================================= */
 

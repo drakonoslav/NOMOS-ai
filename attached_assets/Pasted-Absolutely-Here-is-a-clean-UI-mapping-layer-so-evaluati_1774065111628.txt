@@ -1,0 +1,494 @@
+Absolutely. Here is a clean UI mapping layer so evaluation result cards render:
+	•	status
+	•	reason
+	•	decisive variable
+	•	adjustments
+
+cleanly and consistently.
+
+This assumes you already have:
+	•	EvaluationResult
+	•	CandidateEvaluation
+	•	the real evaluation engine returning those
+	•	React + TypeScript UI
+
+⸻
+
+Goal
+
+Take raw kernel output like:
+
+{
+  status: "INVALID",
+  reason: "Constraint violated: control is released during transport.",
+  decisiveVariable: "drop risk",
+  adjustments: ["Use continuous controlled transport."]
+}
+
+and map it into a UI-friendly card model with:
+	•	label-safe strings
+	•	compact presentation
+	•	no leakage of backend wording structure into components
+
+⸻
+
+1. UI view-model types
+
+src/ui/mappers/evaluation_view_models.ts
+
+export type UiCandidateStatus = "LAWFUL" | "DEGRADED" | "INVALID";
+
+export interface CandidateEvaluationCardViewModel {
+  id: string;
+  title: string;
+  status: UiCandidateStatus;
+  reason: string;
+  decisiveVariable?: string;
+  adjustments: string[];
+  toneClassName: string;
+  statusLabel: string;
+}
+
+export interface EvaluationResultViewModel {
+  overallStatus: UiCandidateStatus;
+  overallStatusLabel: string;
+  overallToneClassName: string;
+  lawfulSetLabel: string;
+  decisiveVariable?: string;
+  candidateCards: CandidateEvaluationCardViewModel[];
+  notes: string[];
+}
+
+
+⸻
+
+2. Mapper from engine output to UI view-model
+
+src/ui/mappers/evaluation_mapper.ts
+
+import {
+  CandidateEvaluation,
+  EvaluationResult,
+} from "../../evaluation/eval_types";
+import {
+  CandidateEvaluationCardViewModel,
+  EvaluationResultViewModel,
+  UiCandidateStatus,
+} from "./evaluation_view_models";
+
+export function mapEvaluationResultToViewModel(
+  result: EvaluationResult
+): EvaluationResultViewModel {
+  return {
+    overallStatus: result.overallStatus,
+    overallStatusLabel: result.overallStatus,
+    overallToneClassName: toToneClassName(result.overallStatus),
+    lawfulSetLabel:
+      result.lawfulSet.length > 0 ? result.lawfulSet.join(", ") : "None",
+    decisiveVariable: cleanPhrase(result.decisiveVariable),
+    candidateCards: result.candidateEvaluations.map(mapCandidateEvaluation),
+    notes: result.notes ?? [],
+  };
+}
+
+export function mapCandidateEvaluation(
+  evaluation: CandidateEvaluation
+): CandidateEvaluationCardViewModel {
+  return {
+    id: evaluation.id,
+    title: `Candidate ${evaluation.id}`,
+    status: evaluation.status,
+    statusLabel: evaluation.status,
+    toneClassName: toToneClassName(evaluation.status),
+    reason: cleanPhrase(evaluation.reason),
+    decisiveVariable: cleanPhrase(evaluation.decisiveVariable),
+    adjustments: (evaluation.adjustments ?? []).map(cleanPhrase),
+  };
+}
+
+function toToneClassName(status: UiCandidateStatus): string {
+  switch (status) {
+    case "LAWFUL":
+      return "is-lawful";
+    case "DEGRADED":
+      return "is-degraded";
+    case "INVALID":
+      return "is-invalid";
+  }
+}
+
+function cleanPhrase(value?: string): string | undefined {
+  if (!value) return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  return trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+}
+
+
+⸻
+
+3. Card component
+
+src/ui/components/evaluation/CandidateEvaluationCard.tsx
+
+import React from "react";
+import { CandidateEvaluationCardViewModel } from "../../mappers/evaluation_view_models";
+
+export interface CandidateEvaluationCardProps {
+  card: CandidateEvaluationCardViewModel;
+}
+
+export function CandidateEvaluationCard({
+  card,
+}: CandidateEvaluationCardProps) {
+  return (
+    <div className={`panel candidate-evaluation-card ${card.toneClassName}`}>
+      <div className="candidate-evaluation-card__header">
+        <div className="candidate-evaluation-card__title">
+          {card.title}
+        </div>
+
+        <div className={`status-badge ${card.toneClassName}`}>
+          {card.statusLabel}
+        </div>
+      </div>
+
+      <div className="candidate-evaluation-card__body">
+        <div className="candidate-evaluation-card__reason">
+          {card.reason}
+        </div>
+
+        {card.decisiveVariable && (
+          <div className="candidate-evaluation-card__decisive">
+            <span className="candidate-evaluation-card__label">
+              Decisive factor
+            </span>
+            <span className="candidate-evaluation-card__value">
+              {card.decisiveVariable}
+            </span>
+          </div>
+        )}
+
+        {card.adjustments.length > 0 && (
+          <div className="candidate-evaluation-card__adjustments">
+            <div className="candidate-evaluation-card__label">
+              Adjustments
+            </div>
+
+            <ul className="candidate-evaluation-card__list">
+              {card.adjustments.map((adjustment) => (
+                <li key={adjustment}>{adjustment}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+4. Result panel
+
+src/ui/components/evaluation/EvaluationResultPanel.tsx
+
+import React from "react";
+import { EvaluationResult } from "../../../evaluation/eval_types";
+import { mapEvaluationResultToViewModel } from "../../mappers/evaluation_mapper";
+import { CandidateEvaluationCard } from "./CandidateEvaluationCard";
+
+export interface EvaluationResultPanelProps {
+  result?: EvaluationResult;
+}
+
+export function EvaluationResultPanel({
+  result,
+}: EvaluationResultPanelProps) {
+  if (!result) return null;
+
+  const vm = mapEvaluationResultToViewModel(result);
+
+  return (
+    <div className="panel evaluation-result-panel">
+      <div className="panel-header">Evaluation Result</div>
+
+      <div className="evaluation-result-panel__summary-grid">
+        <div className="evaluation-result-panel__summary-item">
+          <div className="evaluation-result-panel__summary-label">
+            Overall Status
+          </div>
+          <div className={`evaluation-result-panel__summary-value ${vm.overallToneClassName}`}>
+            {vm.overallStatusLabel}
+          </div>
+        </div>
+
+        <div className="evaluation-result-panel__summary-item">
+          <div className="evaluation-result-panel__summary-label">
+            Lawful Candidate Set
+          </div>
+          <div className="evaluation-result-panel__summary-value">
+            {vm.lawfulSetLabel}
+          </div>
+        </div>
+
+        {vm.decisiveVariable && (
+          <div className="evaluation-result-panel__summary-item evaluation-result-panel__summary-item--full">
+            <div className="evaluation-result-panel__summary-label">
+              Decisive Variable
+            </div>
+            <div className="evaluation-result-panel__summary-value">
+              {vm.decisiveVariable}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="evaluation-result-panel__cards">
+        {vm.candidateCards.map((card) => (
+          <CandidateEvaluationCard key={card.id} card={card} />
+        ))}
+      </div>
+
+      {vm.notes.length > 0 && (
+        <div className="evaluation-result-panel__notes">
+          <div className="evaluation-result-panel__notes-title">Notes</div>
+          <ul>
+            {vm.notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+5. Example integration
+
+Wherever you currently render evaluation output, pass the actual EvaluationResult from your engine:
+
+<EvaluationResultPanel result={evaluationResult} />
+
+If your current UI still uses the old placeholder type, replace that with the real engine output type from eval_types.ts.
+
+⸻
+
+6. CSS for clean rendering
+
+Add this to your NOMOS stylesheet.
+
+src/ui/styles/nomos.css
+
+.evaluation-result-panel__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--nm-space-4);
+  margin-bottom: var(--nm-space-5);
+}
+
+.evaluation-result-panel__summary-item {
+  padding: var(--nm-space-4);
+  border: 1px solid var(--nm-border);
+  border-radius: var(--nm-radius-sm);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.evaluation-result-panel__summary-item--full {
+  grid-column: 1 / -1;
+}
+
+.evaluation-result-panel__summary-label {
+  color: var(--nm-text-muted);
+  font-size: var(--nm-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--nm-space-2);
+}
+
+.evaluation-result-panel__summary-value {
+  color: var(--nm-text-primary);
+  font-size: var(--nm-text-lg);
+  font-weight: 600;
+}
+
+.evaluation-result-panel__summary-value.is-lawful {
+  color: var(--nm-lawful);
+}
+
+.evaluation-result-panel__summary-value.is-degraded {
+  color: var(--nm-degraded);
+}
+
+.evaluation-result-panel__summary-value.is-invalid {
+  color: var(--nm-invalid);
+}
+
+.evaluation-result-panel__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-4);
+}
+
+.candidate-evaluation-card {
+  border-left-width: 3px;
+}
+
+.candidate-evaluation-card.is-lawful {
+  border-left-color: var(--nm-lawful);
+}
+
+.candidate-evaluation-card.is-degraded {
+  border-left-color: var(--nm-degraded);
+}
+
+.candidate-evaluation-card.is-invalid {
+  border-left-color: var(--nm-invalid);
+}
+
+.candidate-evaluation-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--nm-space-3);
+  margin-bottom: var(--nm-space-3);
+}
+
+.candidate-evaluation-card__title {
+  font-size: var(--nm-text-lg);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.candidate-evaluation-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-3);
+}
+
+.candidate-evaluation-card__reason {
+  color: var(--nm-text-secondary);
+  line-height: var(--nm-line-loose);
+}
+
+.candidate-evaluation-card__decisive,
+.candidate-evaluation-card__adjustments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+}
+
+.candidate-evaluation-card__label {
+  color: var(--nm-text-muted);
+  font-size: var(--nm-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.candidate-evaluation-card__value {
+  color: var(--nm-text-primary);
+  font-weight: 600;
+}
+
+.candidate-evaluation-card__list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.evaluation-result-panel__notes {
+  margin-top: var(--nm-space-5);
+  padding-top: var(--nm-space-4);
+  border-top: 1px solid var(--nm-border);
+}
+
+.evaluation-result-panel__notes-title {
+  color: var(--nm-text-muted);
+  font-size: var(--nm-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--nm-space-2);
+}
+
+@media (max-width: 720px) {
+  .evaluation-result-panel__summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-evaluation-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+⸻
+
+7. What the UI should now show for your transport example
+
+After the real evaluation engine is wired, this panel should show roughly:
+	•	Overall Status: LAWFUL
+	•	Lawful Candidate Set: A, C
+	•	Decisive Variable: drop risk.
+
+Candidate A:
+	•	LAWFUL
+	•	Constraint satisfied under controlled transport.
+	•	Decisive factor: control continuity.
+
+Candidate B:
+	•	INVALID
+	•	Constraint violated: control is released during transport.
+	•	Decisive factor: drop risk.
+	•	Adjustment: Use continuous controlled transport.
+
+Candidate C:
+	•	LAWFUL
+	•	Constraint satisfied under controlled transport.
+
+Candidate D:
+	•	DEGRADED
+	•	Constraint preserved with reduced control margin.
+	•	Decisive factor: control margin.
+	•	Adjustment: Increase transport stability.
+
+That is the moment the UI stops looking like a validator and starts looking like a reasoning system.
+
+⸻
+
+8. What to tell Replit
+
+Paste this:
+
+Add a UI mapping layer for the real evaluation engine.
+
+Create:
+- src/ui/mappers/evaluation_view_models.ts
+- src/ui/mappers/evaluation_mapper.ts
+- src/ui/components/evaluation/CandidateEvaluationCard.tsx
+- update src/ui/components/evaluation/EvaluationResultPanel.tsx
+
+Requirements:
+1. Map EvaluationResult and CandidateEvaluation into UI-friendly view models.
+2. Each candidate card must render:
+   - candidate title
+   - status badge
+   - reason
+   - decisive variable
+   - adjustments (if present)
+3. The overall result panel must render:
+   - overall status
+   - lawful candidate set
+   - decisive variable
+   - candidate cards
+   - notes
+4. Add CSS so lawful/degraded/invalid cards are visually distinct.
+5. Keep wording exact and concise. Do not add conversational language.
+
+Once that is in place, the next strongest move is to make the transport example prove the kernel by rendering B = INVALID and D = DEGRADED.
