@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { HybridNomosQueryParser } from "../../../query/query_parser";
 import { NomosQuery } from "../../../query/query_types";
@@ -266,9 +266,11 @@ export function QueryBuilderPage() {
     buildEmptyAutoState()
   );
 
-  const [auditRecords, setAuditRecords] = useState<AuditRecord[]>(() =>
-    listAuditRecords()
-  );
+  const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([]);
+
+  useEffect(() => {
+    listAuditRecords().then(setAuditRecords);
+  }, []);
 
   /* --- Guided / Natural handlers --- */
 
@@ -480,9 +482,9 @@ export function QueryBuilderPage() {
     };
   }
 
-  function persistAuditRecord(record: AuditRecord) {
-    saveAuditRecord(record);
-    setAuditRecords(listAuditRecords());
+  async function persistAuditRecord(record: AuditRecord) {
+    await saveAuditRecord(record);
+    setAuditRecords(await listAuditRecords());
     setAutoState((prev) => ({
       ...prev,
       activeAuditId: record.id,
@@ -490,12 +492,12 @@ export function QueryBuilderPage() {
     }));
   }
 
-  function handleAutoConfirm() {
+  async function handleAutoConfirm() {
     if (!effectiveDraft?.isEvaluable) return;
     setAutoState((prev) => ({ ...prev, isConfirmed: true }));
 
     const record = buildAutoAuditRecord({ evaluationResult: null, isConfirmed: true });
-    if (record) persistAuditRecord(record);
+    if (record) await persistAuditRecord(record);
   }
 
   function handleAutoRevise() {
@@ -553,7 +555,7 @@ export function QueryBuilderPage() {
         isConfirmed: true,
         routingDecision,
       });
-      if (record) persistAuditRecord(record);
+      if (record) await persistAuditRecord(record);
     } catch (err) {
       setAutoState((prev) => ({
         ...prev,
@@ -586,13 +588,13 @@ export function QueryBuilderPage() {
     void loadDraft;
   }
 
-  function handleDeleteAuditRecord(id: string) {
-    deleteAuditRecord(id);
-    setAuditRecords(listAuditRecords());
+  async function handleDeleteAuditRecord(id: string) {
+    await deleteAuditRecord(id);
+    setAuditRecords(await listAuditRecords());
   }
 
-  function handleClearAuditRecords() {
-    clearAuditRecords();
+  async function handleClearAuditRecords() {
+    await clearAuditRecords();
     setAuditRecords([]);
   }
 
