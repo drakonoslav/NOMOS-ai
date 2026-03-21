@@ -37,20 +37,21 @@ packages/constitutional-kernel/
 ## Quick Start
 
 ```bash
-# From workspace root
+# From workspace root (pnpm monorepo)
 pnpm install
+pnpm --filter @workspace/constitutional-kernel run start
+pnpm --filter @workspace/constitutional-kernel run check
 
-# Run the demo (from workspace root)
-pnpm --filter @workspace/constitutional-kernel exec tsx src/main.ts
-
-# Or run directly from the package directory
+# Or directly from the package directory
 pnpm start
-
-# Typecheck (from workspace root)
-pnpm --filter @workspace/constitutional-kernel exec tsc --noEmit
-
-# Or from the package directory
 pnpm check
+pnpm test          # typecheck + demo in one pass
+
+# Standalone (npm — if extracted outside the monorepo)
+npm install
+npm run start      # tsx src/main.ts
+npm run check      # tsc --noEmit
+npm test           # tsc --noEmit && tsx src/main.ts
 ```
 
 The demo exercises the full constitutional chain:
