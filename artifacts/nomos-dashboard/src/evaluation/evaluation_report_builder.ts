@@ -117,6 +117,7 @@ function buildCandidateReport(
     verdict,
     decisiveVariable: candidate.decisiveVariable,
     margin: candidate.marginScore,
+    marginLabel: candidate.marginLabel ?? null,
     constraintsTotal,
     constraintsDeterministicallyClassified,
     constraintsInterpretationRequired,

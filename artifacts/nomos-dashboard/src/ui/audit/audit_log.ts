@@ -3,7 +3,14 @@
  *
  * Client-side audit log for NOMOS UI.
  * Records pipeline stage traces from live evaluations.
- * Persists to localStorage between sessions.
+ *
+ * PERSISTENCE: IN_MEMORY_CLIENT_ONLY
+ * Storage backend: browser localStorage (key: "nomos_ui_audit_log")
+ * Durability: none — clears on browser data wipe, private/incognito session end,
+ *             or explicit user action. Not replicated, not server-backed.
+ * Classification: client convenience / local audit trail
+ * Server-side durable storage: NOT wired
+ * This is NOT immutable infrastructure. Do not treat as canonical truth.
  */
 
 export interface AuditEntry {

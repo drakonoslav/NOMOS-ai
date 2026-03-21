@@ -56,14 +56,32 @@ export async function runNomosEvaluation(
 
   const activeConstraint = findActiveConstraint(result);
 
+  // DISPLAY_ADAPTER_CONSTANTS — these numerical values are not from the kernel.
+  // They are fixed display hints for the tone resolver, which drives narrative text only.
+  // They do NOT affect verdict, margin scoring, or constitutional gating.
+  // Source of truth for robustness and confidence is the kernel/API path.
+  // Replace with API-sourced fields once the kernel exposes them in EvaluationResult.
+  const DISPLAY_MODEL_CONFIDENCE: Record<"LAWFUL" | "DEGRADED" | "INVALID", number> = {
+    LAWFUL:   0.90,
+    DEGRADED: 0.62,
+    INVALID:  0.72,
+  };
+  const DISPLAY_ROBUSTNESS_EPSILON: Record<"LAWFUL" | "DEGRADED" | "INVALID", number> = {
+    LAWFUL:   0.12,
+    DEGRADED: 0.034,
+    INVALID:  0,
+  };
+  const DISPLAY_EPSILON_X           = 0.06;
+  const DISPLAY_ROBUSTNESS_EPSILON_MIN = 0.03;
+
   const toneInput: ToneResolverInput = {
     verificationStatus,
     authority,
-    epsilonX: 0.06,
+    epsilonX: DISPLAY_EPSILON_X,
     identifiability: query.completeness === "COMPLETE" ? "FULL" : "PARTIAL",
-    modelConfidence: verificationStatus === "LAWFUL" ? 0.90 : verificationStatus === "DEGRADED" ? 0.62 : 0.72,
-    robustnessEpsilon: verificationStatus === "LAWFUL" ? 0.12 : verificationStatus === "DEGRADED" ? 0.034 : 0,
-    robustnessEpsilonMin: 0.03,
+    modelConfidence: DISPLAY_MODEL_CONFIDENCE[verificationStatus],
+    robustnessEpsilon: DISPLAY_ROBUSTNESS_EPSILON[verificationStatus],
+    robustnessEpsilonMin: DISPLAY_ROBUSTNESS_EPSILON_MIN,
     feasibilityOk: verificationStatus !== "INVALID",
     robustnessOk: verificationStatus === "LAWFUL",
     observabilityOk: true,

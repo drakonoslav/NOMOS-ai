@@ -151,6 +151,12 @@ export interface CandidateEvaluationReport {
   verdict: CandidateVerdict;
   decisiveVariable: string | null;
   margin: number | null;
+  /**
+   * Margin label as returned by the kernel's margin_scorer.ts.
+   * Passed through from the API response — do not re-derive in the dashboard.
+   * Values: "HIGH" | "MODERATE" | "LOW" | "FAILED"
+   */
+  marginLabel: string | null;
 
   constraintsTotal: number;
   constraintsDeterministicallyClassified: number;

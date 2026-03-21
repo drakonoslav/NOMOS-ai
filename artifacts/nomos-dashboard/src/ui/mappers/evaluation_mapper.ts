@@ -117,7 +117,7 @@ function mapReportCandidateToCard(
     toneClassName: toToneClassName(uiStatus),
     decisiveVariable: cleanPhrase(candidate.decisiveVariable ?? undefined),
     marginScore: formatScore(candidate.margin ?? 0),
-    marginLabel: marginLabelFromScore(candidate.margin ?? 0) as UiMarginLabel,
+    marginLabel: (candidate.marginLabel ?? "FAILED") as UiMarginLabel,
     reason: cleanPhrase(candidate.summaryReason) ?? "",
     adjustments: candidate.adjustments.map((a) => cleanPhrase(a) ?? a),
     trace: candidate.decisiveConstraintTrace ?? null,
@@ -399,9 +399,3 @@ function formatScore(score: number): string {
   return score.toFixed(2);
 }
 
-function marginLabelFromScore(score: number): string {
-  if (score >= 0.75) return "HIGH";
-  if (score >= 0.5)  return "MODERATE";
-  if (score > 0)     return "LOW";
-  return "FAILED";
-}
