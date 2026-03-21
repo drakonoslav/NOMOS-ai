@@ -32,3 +32,23 @@ export { generateProposalJSON } from "./llm/openai_client.js";
 
 export { runKernelOnce } from "./kernel_runner.js";
 export type { KernelRunResult, KernelProposalResult, KernelVerificationResult, KernelBeliefResult, KernelModelResult, KernelDecisionResult, KernelAuditResult } from "./kernel_runner.js";
+
+export type {
+  NomosQuery,
+  NomosStateBlock,
+  NomosCandidateBlock,
+  NomosObjectiveBlock,
+  ParserConfidence,
+  SubmissionCompleteness,
+} from "./query/query_types.js";
+
+export type {
+  NomosQueryResponse,
+  NomosCandidateEvaluation,
+  NomosAdjustment,
+  NomosActionClassification,
+} from "./query/query_response_types.js";
+
+export { HybridNomosQueryParser } from "./query/query_parser.js";
+export type { HybridQueryParserInput } from "./query/query_parser.js";
+export { NomosQueryEvaluator } from "./query/query_evaluator.js";

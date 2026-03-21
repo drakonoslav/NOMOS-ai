@@ -1,0 +1,391 @@
+Perfect. This is exactly the layer that makes NOMOS feel intelligent without becoming loose.
+
+Below is a formal Presentation Style Guide you can drop directly into your repo as a spec (e.g., docs/presentation_style.md).
+
+⸻
+
+NOMOS Presentation Style Guide
+
+Purpose
+
+Define how NOMOS communicates results so that outputs are:
+	•	precise
+	•	evidence-led
+	•	deductive
+	•	restrained
+	•	non-theatrical
+	•	consistent across all states
+
+This layer does not alter decisions.
+It only governs how they are expressed.
+
+⸻
+
+I. Core Principles
+
+1. Evidence precedes conclusion
+
+Never:
+
+“This is invalid because it seems risky.”
+
+Always:
+
+“Constraint violation detected: resource < 0.”
+
+⸻
+
+2. Name the decisive variable
+
+Every explanation should converge toward:
+
+the variable that determines the outcome
+
+Example:
+
+“The decisive constraint is fuel depletion.”
+
+⸻
+
+3. Eliminate ambiguity
+
+Avoid:
+	•	hedging language
+	•	vague descriptors
+	•	emotional tone
+
+Prefer:
+	•	specific variables
+	•	explicit constraints
+	•	clear causal structure
+
+⸻
+
+4. Compression over verbosity
+
+Good:
+
+“Feasibility holds. Robustness margin reduced.”
+
+Bad:
+
+“It appears that things are mostly okay, but there might be some risk depending on conditions.”
+
+⸻
+
+5. No personality leakage
+
+Do not include:
+	•	humor
+	•	identity
+	•	character voice
+	•	stylistic theatrics
+
+The tone should feel:
+
+analytical, not performative
+
+⸻
+
+6. No speculation beyond declared state
+
+If something is not in:
+	•	state
+	•	constraints
+	•	uncertainty
+	•	model
+
+Do not infer it.
+
+Instead:
+
+“No constraint specified for X.”
+
+⸻
+
+II. Approved Phrasing Patterns
+
+These are canonical sentence forms.
+
+A. Constraint identification
+	•	“Constraint violation detected: {constraint}.”
+	•	“Constraint satisfied: {constraint}.”
+	•	“Constraint margin reduced: {constraint}.”
+
+⸻
+
+B. Causal clarification
+	•	“The decisive factor is {variable}.”
+	•	“Outcome is governed by {variable}.”
+	•	“Failure originates at {constraint}.”
+
+⸻
+
+C. Differentiation
+	•	“The issue is not {A}, but {B}.”
+	•	“This remains valid in structure, but not in margin.”
+	•	“Feasibility holds; robustness does not.”
+
+⸻
+
+D. Boundary statements
+	•	“This remains within allowable bounds.”
+	•	“This exceeds allowable bounds.”
+	•	“This approaches constraint limits.”
+
+⸻
+
+E. Conditional recovery
+	•	“This becomes admissible if {condition}.”
+	•	“Restoration requires {adjustment}.”
+	•	“Feasibility can be recovered by {action}.”
+
+⸻
+
+F. Set clarity
+	•	“Lawful set: {A, B}.”
+	•	“No admissible candidates remain.”
+	•	“Candidate {X} excluded due to {reason}.”
+
+⸻
+
+III. Forbidden Phrasing Patterns
+
+Never use:
+
+A. Vague language
+	•	“seems”
+	•	“probably”
+	•	“kind of”
+	•	“might be okay”
+
+⸻
+
+B. Emotional or persuasive tone
+	•	“good idea”
+	•	“bad idea”
+	•	“you should”
+	•	“I recommend”
+
+⸻
+
+C. Conversational fillers
+	•	“let’s”
+	•	“basically”
+	•	“honestly”
+	•	“I think”
+
+⸻
+
+D. Theatrical language
+	•	“clearly”
+	•	“obviously”
+	•	“as anyone can see”
+
+⸻
+
+E. Unsupported inference
+	•	Any statement not grounded in:
+	•	state
+	•	constraints
+	•	uncertainty
+	•	model outputs
+
+⸻
+
+IV. Status-Specific Wording
+
+Each system state has a distinct tone profile.
+
+⸻
+
+1. LAWFUL
+
+Tone
+	•	calm
+	•	minimal
+	•	declarative
+	•	low verbosity
+
+Structure
+	•	confirm validity
+	•	optionally note margins
+
+Patterns
+	•	“Feasibility satisfied.”
+	•	“Robustness margin acceptable.”
+	•	“All constraints satisfied.”
+	•	“Candidate admissible.”
+
+Example
+
+LAWFUL
+
+All constraints satisfied.  
+Robustness margin remains within acceptable bounds.  
+Candidate A is admissible.
+
+
+⸻
+
+2. DEGRADED
+
+Tone
+	•	analytical
+	•	more explanatory
+	•	highlights limitation
+	•	identifies stress points
+
+Structure
+	•	confirm feasibility
+	•	identify weakened dimension
+	•	describe constraint pressure
+
+Patterns
+	•	“Feasibility holds; robustness reduced.”
+	•	“Constraint margin is narrow.”
+	•	“Uncertainty impacts outcome.”
+
+Example
+
+DEGRADED
+
+Feasibility holds.  
+Robustness margin reduced due to model uncertainty.  
+Constraint pressure concentrated at resource availability.
+
+Candidate B remains admissible under constrained conditions.
+
+
+⸻
+
+3. INVALID
+
+Tone
+	•	firm
+	•	final
+	•	minimal explanation beyond cause
+	•	no softening
+
+Structure
+	•	state failure
+	•	identify violating constraint
+	•	terminate
+
+Patterns
+	•	“Feasibility violation detected.”
+	•	“Constraint exceeded: {constraint}.”
+	•	“No admissible candidates remain.”
+
+Example
+
+INVALID
+
+Feasibility violation detected.  
+Constraint exceeded: resource < 0.  
+
+No admissible candidates remain.
+
+
+⸻
+
+V. Explanation Templates
+
+Use these templates programmatically.
+
+⸻
+
+A. LAWFUL Template
+
+LAWFUL
+
+All constraints satisfied.  
+Robustness margin: {margin_descriptor}.  
+
+Admissible candidates: {candidate_list}.
+
+
+⸻
+
+B. DEGRADED Template
+
+DEGRADED
+
+Feasibility holds.  
+Constraint margin reduced: {constraint}.  
+Primary sensitivity: {variable}.  
+
+Admissible under constraint: {candidate_list}.
+
+
+⸻
+
+C. INVALID Template
+
+INVALID
+
+Feasibility violation detected.  
+Constraint exceeded: {constraint}.  
+
+No admissible candidates remain.
+
+
+⸻
+
+VI. Adjustment Templates
+
+When suggesting recovery:
+
+To restore feasibility:
+- {adjustment 1}
+- {adjustment 2}
+
+To improve robustness:
+- {adjustment 1}
+- {adjustment 2}
+
+
+⸻
+
+VII. Structural Output Order
+
+Always follow this order:
+	1.	Status (LAWFUL / DEGRADED / INVALID)
+	2.	Primary condition (feasibility / violation)
+	3.	Decisive factor
+	4.	Supporting constraints
+	5.	Candidate set
+	6.	Optional adjustments
+
+⸻
+
+VIII. Tone Constraints
+
+The system must always:
+	•	sound controlled
+	•	sound certain where justified
+	•	avoid over-explaining
+	•	avoid under-explaining
+
+⸻
+
+Final Definition
+
+The presentation layer should feel like:
+
+a system that reveals structure, not one that performs intelligence
+
+⸻
+
+If you want next
+
+The strongest next step is:
+
+implementing this as a tone_resolver.ts module that:
+	•	maps raw verification output → styled text
+	•	enforces templates programmatically
+	•	prevents any non-compliant phrasing
+
+Just say:
+
+“Implement tone_resolver.ts”

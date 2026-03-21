@@ -1,0 +1,306 @@
+Absolutely. Here are small first-pass components that consume tone_resolver.ts directly.
+
+They assume you already have:
+	•	src/ui/tone/tone_resolver.ts
+	•	a stylesheet with the class names used earlier, or similar panel/badge styles
+
+⸻
+
+src/ui/components/nomos/StatusCard.tsx
+
+import React from "react";
+import {
+  resolveToneMessage,
+  ToneResolverInput,
+} from "../../tone/tone_resolver";
+
+export interface StatusCardProps {
+  input: ToneResolverInput;
+  title?: string;
+}
+
+export function StatusCard({
+  input,
+  title = "System Status",
+}: StatusCardProps) {
+  const message = resolveToneMessage(input);
+
+  return (
+    <div className="panel status-card">
+      <div className="panel-header">{title}</div>
+
+      <div className="status-card__top">
+        <div
+          className={`status-card__badge status-card__badge--${message.status.toLowerCase()}`}
+        >
+          {message.title}
+        </div>
+
+        <div
+          className={`status-card__authority status-card__authority--${message.authority.toLowerCase()}`}
+        >
+          {message.authority}
+        </div>
+      </div>
+
+      <div className="status-card__summary">{message.summary}</div>
+
+      {message.body.length > 0 && (
+        <div className="status-card__body">
+          {message.body.map((line, idx) => (
+            <p key={`${idx}-${line}`} className="status-card__line">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div className="status-card__meta">
+        <span className="status-card__tone-label">Tone</span>
+        <span className="status-card__tone-value">{message.tone}</span>
+      </div>
+    </div>
+  );
+}
+
+
+⸻
+
+src/ui/components/nomos/VerificationSummary.tsx
+
+import React from "react";
+import {
+  resolveToneMessage,
+  ToneResolverInput,
+} from "../../tone/tone_resolver";
+
+export interface VerificationSummaryProps {
+  input: ToneResolverInput;
+  heading?: string;
+  showAdjustments?: boolean;
+}
+
+export function VerificationSummary({
+  input,
+  heading = "Verification Summary",
+  showAdjustments = true,
+}: VerificationSummaryProps) {
+  const message = resolveToneMessage(input);
+
+  return (
+    <div className="panel verification-summary">
+      <div className="panel-header">{heading}</div>
+
+      <div className="verification-summary__headline">
+        <div
+          className={`verification-summary__status verification-summary__status--${message.status.toLowerCase()}`}
+        >
+          {message.title}
+        </div>
+        <div className="verification-summary__summary">{message.summary}</div>
+      </div>
+
+      {message.findings.length > 0 && (
+        <section className="verification-summary__section">
+          <div className="verification-summary__section-title">Findings</div>
+          <ol className="verification-summary__list">
+            {message.findings.map((finding, idx) => (
+              <li key={`${idx}-${finding}`} className="verification-summary__item">
+                {finding}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {showAdjustments && message.adjustments.length > 0 && (
+        <section className="verification-summary__section">
+          <div className="verification-summary__section-title">Adjustments</div>
+          <ul className="verification-summary__list verification-summary__list--unordered">
+            {message.adjustments.map((adjustment, idx) => (
+              <li
+                key={`${idx}-${adjustment}`}
+                className="verification-summary__item"
+              >
+                {adjustment}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+
+⸻
+
+Optional minimal CSS additions
+
+If you want these to look good immediately, add this to nomos.css:
+
+.status-card__top,
+.verification-summary__headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--nm-space-3);
+  margin-bottom: var(--nm-space-4);
+}
+
+.status-card__badge,
+.status-card__authority,
+.verification-summary__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: var(--nm-radius-xs);
+  border: 1px solid var(--nm-border-strong);
+  font-size: var(--nm-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--nm-surface-3);
+}
+
+.status-card__badge--lawful,
+.verification-summary__status--lawful {
+  border-color: var(--nm-lawful);
+  color: #dff4ea;
+  background: color-mix(in srgb, var(--nm-lawful) 22%, transparent);
+}
+
+.status-card__badge--degraded,
+.verification-summary__status--degraded {
+  border-color: var(--nm-degraded);
+  color: #f5e7d0;
+  background: color-mix(in srgb, var(--nm-degraded) 22%, transparent);
+}
+
+.status-card__badge--invalid,
+.verification-summary__status--invalid {
+  border-color: var(--nm-invalid);
+  color: #f0d6d6;
+  background: color-mix(in srgb, var(--nm-invalid) 24%, transparent);
+}
+
+.status-card__authority--authorized {
+  color: var(--nm-text-primary);
+}
+
+.status-card__authority--constrained {
+  border-color: var(--nm-degraded);
+  color: #f5e7d0;
+}
+
+.status-card__authority--refused {
+  border-color: var(--nm-invalid);
+  color: #f0d6d6;
+}
+
+.status-card__summary,
+.verification-summary__summary {
+  color: var(--nm-text-primary);
+  font-size: var(--nm-text-lg);
+  font-weight: 600;
+  line-height: var(--nm-line-normal);
+}
+
+.status-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nm-space-2);
+  margin-top: var(--nm-space-3);
+}
+
+.status-card__line {
+  margin: 0;
+  color: var(--nm-text-secondary);
+}
+
+.status-card__meta {
+  display: flex;
+  gap: var(--nm-space-2);
+  align-items: center;
+  margin-top: var(--nm-space-4);
+  padding-top: var(--nm-space-3);
+  border-top: 1px solid var(--nm-border);
+}
+
+.status-card__tone-label {
+  color: var(--nm-text-muted);
+  font-size: var(--nm-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.status-card__tone-value {
+  color: var(--nm-text-secondary);
+  font-family: var(--nm-font-mono);
+  font-size: var(--nm-text-sm);
+}
+
+.verification-summary__section + .verification-summary__section {
+  margin-top: var(--nm-space-5);
+}
+
+.verification-summary__section-title {
+  margin-bottom: var(--nm-space-3);
+  color: var(--nm-text-secondary);
+  font-size: var(--nm-text-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.verification-summary__list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.verification-summary__list--unordered {
+  list-style: disc;
+}
+
+.verification-summary__item + .verification-summary__item {
+  margin-top: var(--nm-space-2);
+}
+
+
+⸻
+
+Example usage
+
+import { StatusCard } from "./ui/components/nomos/StatusCard";
+import { VerificationSummary } from "./ui/components/nomos/VerificationSummary";
+
+const toneInput = {
+  verificationStatus: "DEGRADED" as const,
+  authority: "CONSTRAINED" as const,
+  epsilonX: 0.14,
+  identifiability: "PARTIAL" as const,
+  modelConfidence: 0.61,
+  robustnessEpsilon: 0.035,
+  robustnessEpsilonMin: 0.03,
+  feasibilityOk: true,
+  robustnessOk: false,
+  observabilityOk: true,
+  identifiabilityOk: true,
+  modelOk: false,
+  adaptationOk: true,
+  selectedCandidateIds: ["B"],
+  rejectedCandidateIds: ["A", "C"],
+  activeConstraint: "resource availability",
+  decisiveVariable: "model confidence",
+  adjustments: [
+    "Increase resource margin",
+    "Reduce control aggressiveness",
+  ],
+};
+
+<StatusCard input={toneInput} />
+<VerificationSummary input={toneInput} />
+
+If you want, the next step is to write a tiny scenario_builder.ts that emits the three deterministic dashboard states these components can render immediately.

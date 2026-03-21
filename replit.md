@@ -118,8 +118,37 @@ Implements four Constitutional Laws (Feasibility, Robustness, Observability, Ada
 
 React + Vite SPA at previewPath `/`. Dark theme, monospace data display, status colors only for LAWFUL/DEGRADED/INVALID.
 
-- 6 pages: Overview, Verification, Proposals, Belief, Decision, Audit
+- 7 pages: Overview, Verification, Proposals, Belief, Decision, Audit, **Query Builder** (`/query`)
 - API client: uses generated React Query hooks from `lib/api-client-react`
 - Endpoint: `GET /api/nomos/state` → runs kernel once, returns full `NomosState`
 - Auto-refreshes every 10 seconds
 - All proposals display `LAWFUL: FALSE` / `NON-AUTHORITATIVE` badge (constitutional rule: LLM is proposer only)
+
+#### NOMOS Query System
+
+Strict 4-step interaction model:
+1. User provides input (guided structured form OR natural language textarea)
+2. User clicks "Parse Submission" — extracts canonical `NomosQuery`
+3. User reviews parsed preview and checks confirmation checkbox
+4. Evaluate becomes available only after confirmation + completeness ≥ PARTIAL
+
+**Architecture:**
+- `src/query/query_types.ts` — frontend types (`NomosQuery`, `GuidedQueryDraft`, `draftToQuery()`)
+- `src/query/query_api.ts` — `parseQuery()` + `evaluateQuery()` fetch wrappers
+- `src/pages/query.tsx` — `QueryBuilderPage` (owns all page state)
+- `src/components/query/` — all sub-components
+
+**Completeness states:** COMPLETE / PARTIAL / INSUFFICIENT (separate from LAWFUL/DEGRADED/INVALID)
+**Constitutional rule:** parser confidence is extraction quality only, never lawfulness.
+
+**API endpoints (api-server routes/query.ts):**
+- `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)
+- `POST /api/nomos/query/evaluate` — LLM-based semantic evaluation
+
+**nomos-core query module** (`packages/constitutional-kernel/src/query/`):
+- `query_types.ts` — canonical `NomosQuery` type
+- `query_response_types.ts` — `NomosQueryResponse` type
+- `query_parser_rule_based.ts` — deterministic regex parser (fallback)
+- `llm_query_parser.ts` — OpenAI Responses API + JSON Schema extraction
+- `query_parser.ts` — `HybridNomosQueryParser` (LLM → fallback wrapper)
+- `query_evaluator.ts` — `NomosQueryEvaluator` (LLM semantic classification)
