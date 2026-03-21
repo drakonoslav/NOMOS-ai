@@ -1,0 +1,496 @@
+STATE:
+- Audit and correct a multi-phase meal system.
+- This is a nutrition audit task.
+- The meal structure already exists and must be preserved.
+- Source-truth macros are declared below for whey, flax, oat flour, cyclic dextrin, and yogurt.
+- Banana and egg values are declared defaults for this task.
+- Goal: fix macros without breaking timing or protein placement.
+
+CONSTRAINTS:
+- Do not move protein placements between meals.
+- Do not change meal order.
+- Do not remove meals.
+- Do not botch meal plan dispersal.
+- Keep calories on lockdown as tightly as possible.
+- Only adjust gram amounts or unit counts of already-present foods.
+- Use declared macro values as truth.
+- Treat banana and egg values as estimated defaults for this task.
+- Prefer minimal structure-preserving changes.
+
+UNCERTAINTIES:
+- Yogurt 1 cup should be interpreted as 1 container / 150g.
+- Fiber may be tracked separately, but calories/protein/carbs/fat are the primary correction variables.
+
+CANDIDATES:
+A: Audit only. Determine whether each phase is accurate against declared food values.
+B: Audit and minimally correct. Preserve full meal structure and protein placement.
+C: Derive global bias. Identify recurring drift across phases and express the smallest reusable correction rule.
+
+OBJECTIVE:
+- Determine whether each phase is accurate against declared food values.
+- If not accurate, produce the smallest structure-preserving correction pattern.
+- Rewrite corrected phases line-by-line in the original format only if correction is needed.
+
+FOOD_SOURCE_TRUTH:
+WHEY
+reference_amount_g: 37
+calories: 140
+protein_g: 28
+carbs_g: 3
+fat_g: 1
+
+FLAX
+reference_amount_g: 14
+calories: 60
+protein_g: 4
+carbs_g: 6
+fat_g: 1.5
+
+OAT_FLOUR
+reference_amount_g: 32
+calories: 120
+protein_g: 4
+carbs_g: 22
+fat_g: 2
+
+CYCLIC_DEXTRIN
+reference_amount_g: 30
+calories: 120
+protein_g: 0
+carbs_g: 29
+fat_g: 0
+
+YOGURT
+reference_amount_unit: 1
+reference_label: 1 container / 150g
+calories: 130
+protein_g: 20
+carbs_g: 6
+fat_g: 3
+
+ESTIMATED_DEFAULTS:
+EGG
+reference_amount_unit: 1
+calories: 70
+protein_g: 6
+carbs_g: 0
+fat_g: 5
+
+BANANA
+reference_amount_unit: 1
+calories: 105
+protein_g: 1.3
+carbs_g: 27
+fat_g: 0.4
+
+MEAL_SYSTEM_OR_PHASE_PLAN:
+
+PHASE: BASE
+TARGET_MACRO_BLOCK:
+calories: 2695
+protein_g: 174
+carbs_g: 331
+fat_g: 54
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 95
+- whey_g: 25
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 20
+- whey_g: 10
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 12
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 80
+- whey_g: 15
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 70
+- whey_g: 30
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 110
+- flax_g: 18
+- egg_unit: 3
+- banana_unit: 1
+
+PHASE: CARB_UP
+TARGET_MACRO_BLOCK:
+calories: 2800
+protein_g: 175
+carbs_g: 400
+fat_g: 40
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 86
+- whey_g: 24
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 9
+- whey_g: 10
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 12
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 135
+- whey_g: 15
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 120
+- whey_g: 29
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 99
+- flax_g: 9
+- egg_unit: 2
+- banana_unit: 1.5
+
+PHASE: CARB_CUT
+TARGET_MACRO_BLOCK:
+calories: 2450
+protein_g: 180
+carbs_g: 250
+fat_g: 60
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 65
+- whey_g: 31
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 32
+- whey_g: 12
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 15
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 40
+- whey_g: 20
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 55
+- whey_g: 37
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 75
+- flax_g: 28
+- egg_unit: 3
+- banana_unit: 0.5
+
+PHASE: FAT_CUT
+TARGET_MACRO_BLOCK:
+calories: 2400
+protein_g: 180
+carbs_g: 320
+fat_g: 35
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 76
+- whey_g: 31
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 5
+- whey_g: 12
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 15
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 85
+- whey_g: 20
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 105
+- whey_g: 37
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 89
+- flax_g: 5
+- egg_unit: 2
+- banana_unit: 1
+
+PHASE: RECOMP
+TARGET_MACRO_BLOCK:
+calories: 2575
+protein_g: 180
+carbs_g: 300
+fat_g: 50
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 79
+- whey_g: 31
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 20
+- whey_g: 12
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 15
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 70
+- whey_g: 20
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 75
+- whey_g: 37
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 91
+- flax_g: 18
+- egg_unit: 3
+- banana_unit: 1
+
+PHASE: DELOAD
+TARGET_MACRO_BLOCK:
+calories: 2500
+protein_g: 175
+carbs_g: 280
+fat_g: 55
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 74
+- whey_g: 27
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 26
+- whey_g: 11
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 13
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 55
+- whey_g: 18
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 65
+- whey_g: 31
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 86
+- flax_g: 24
+- egg_unit: 3
+- banana_unit: 1
+
+PHASE: DIET_BREAK
+TARGET_MACRO_BLOCK:
+calories: 2800
+protein_g: 175
+carbs_g: 360
+fat_g: 55
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 86
+- whey_g: 27
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 26
+- whey_g: 11
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 13
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 80
+- whey_g: 18
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 90
+- whey_g: 31
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 99
+- flax_g: 24
+- egg_unit: 3
+- banana_unit: 1
+
+PHASE: PEAK_BULK
+TARGET_MACRO_BLOCK:
+calories: 3000
+protein_g: 180
+carbs_g: 420
+fat_g: 55
+MEALS:
+meal: 1
+label: Pre-cardio
+foods:
+- banana_unit: 1
+
+meal: 2
+label: Post-cardio
+foods:
+- oats_g: 95
+- whey_g: 30
+
+meal: 3
+label: Mid-morning
+foods:
+- yogurt_unit: 1
+- flax_g: 26
+- whey_g: 12
+
+meal: 4
+label: Reserve
+foods:
+- whey_g: 14
+
+meal: 5
+label: Pre-lift
+foods:
+- dextrin_g: 130
+- whey_g: 20
+
+meal: 6
+label: Post-lift
+foods:
+- dextrin_g: 130
+- whey_g: 34
+
+meal: 7
+label: Evening
+foods:
+- oats_g: 110
+- flax_g: 24
+- egg_unit: 3
+- banana_unit: 1.5
+
+REQUIRED_OUTPUT_FORMAT:
+STATE
+CONSTRAINTS
+UNCERTAINTIES
+FINDINGS
+PHASE_AUDIT
+CORRECTION_RULE
+CORRECTED_SYSTEM
+FINAL_VERDICT

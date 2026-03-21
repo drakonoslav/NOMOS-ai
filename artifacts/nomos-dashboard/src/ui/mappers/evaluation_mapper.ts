@@ -92,9 +92,115 @@ export function mapCandidateEvaluation(
     decisiveVariable: cleanPhrase(decisiveVariable),
     marginScore: formatScore(evaluation.marginScore),
     marginLabel: evaluation.marginLabel as UiMarginLabel,
-    reason: cleanPhrase(evaluation.reason) ?? "",
-    adjustments: (evaluation.adjustments ?? []).map((a) => cleanPhrase(a) ?? a),
+    reason: cleanPhrase(deduplicateReasonString(evaluation.reason)) ?? "",
+    adjustments: deduplicateAdjustments(evaluation.adjustments ?? []).map(
+      (a) => cleanPhrase(a) ?? a
+    ),
   };
+}
+
+/* =========================================================
+   Reason-text deduplication
+   Applied at map time so the card is always a clean display value.
+   ========================================================= */
+
+const REASON_SEPARATOR = " Additionally: ";
+
+/**
+ * Signals that a reason clause originated from the LLM semantic fallback
+ * (no deterministic classification was possible for that constraint).
+ * Mirrors the FALLBACK_SIGNAL constant in candidate_scoring.ts.
+ */
+const FALLBACK_CLAUSE_SIGNALS = [
+  "could not be deterministically classified",
+  "unresolved constraint interpretation",
+  "require manual review (not deterministically classifiable)",
+  "constraint interpretation required",
+];
+
+function isUnresolvedClause(clause: string): boolean {
+  const lower = clause.toLowerCase();
+  return FALLBACK_CLAUSE_SIGNALS.some((sig) => lower.includes(sig));
+}
+
+/**
+ * Deduplicates a merged reason string.
+ *
+ * Steps:
+ * 1. Split on the clause separator " Additionally: ".
+ * 2. Separate typed clauses from fallback clauses.
+ * 3. Deduplicate typed clauses by case-insensitive exact match — keep first occurrence.
+ * 4. Deduplicate fallback clauses by case-insensitive exact match.
+ *    - If exactly 1 unique fallback clause → keep it as-is.
+ *    - If 2+ unique fallback clauses → replace with:
+ *      "N unresolved constraint interpretations remain."
+ * 5. Rejoin with the same separator.
+ */
+function deduplicateReasonString(reason: string): string {
+  if (!reason) return reason;
+
+  const clauses = reason
+    .split(REASON_SEPARATOR)
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (clauses.length <= 1) return reason;
+
+  const typedClauses: string[] = [];
+  const fallbackClauses: string[] = [];
+
+  for (const clause of clauses) {
+    if (isUnresolvedClause(clause)) {
+      fallbackClauses.push(clause);
+    } else {
+      typedClauses.push(clause);
+    }
+  }
+
+  // Deduplicate typed clauses — preserve order, keep first occurrence
+  const seenTyped = new Set<string>();
+  const uniqueTyped: string[] = [];
+  for (const clause of typedClauses) {
+    const key = clause.toLowerCase();
+    if (!seenTyped.has(key)) {
+      seenTyped.add(key);
+      uniqueTyped.push(clause);
+    }
+  }
+
+  // Deduplicate fallback clauses, then summarize if multiple unique ones remain
+  const seenFallback = new Set<string>();
+  const uniqueFallbacks: string[] = [];
+  for (const clause of fallbackClauses) {
+    const key = clause.toLowerCase();
+    if (!seenFallback.has(key)) {
+      seenFallback.add(key);
+      uniqueFallbacks.push(clause);
+    }
+  }
+
+  const result = [...uniqueTyped];
+  if (uniqueFallbacks.length > 1) {
+    result.push(`${uniqueFallbacks.length} unresolved constraint interpretations remain.`);
+  } else if (uniqueFallbacks.length === 1) {
+    result.push(uniqueFallbacks[0]!);
+  }
+
+  return result.join(REASON_SEPARATOR);
+}
+
+/**
+ * Deduplicates adjustment strings by case-insensitive exact match.
+ * Preserves order; keeps first occurrence.
+ */
+function deduplicateAdjustments(adjustments: string[]): string[] {
+  const seen = new Set<string>();
+  return adjustments.filter((a) => {
+    const key = a.trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function toToneClassName(status: UiCandidateStatus): string {
