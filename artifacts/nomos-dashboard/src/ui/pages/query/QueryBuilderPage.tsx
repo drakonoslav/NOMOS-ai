@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 
 import { HybridNomosQueryParser } from "../../../query/query_parser";
 import { NomosQuery } from "../../../query/query_types";
-import { NomosQueryResponse } from "../../../query/query_response_types";
+import { EvaluationResult } from "../../evaluation/eval_types";
 import { useScenario } from "@/context/scenario-context";
 
 import { QueryPageHeader } from "../../components/query/QueryPageHeader";
@@ -12,7 +12,7 @@ import { NaturalLanguageForm } from "../../components/query/NaturalLanguageForm"
 import { ParsePreviewPanel } from "../../components/query/ParsePreviewPanel";
 import { MissingInfoPanel } from "../../components/query/MissingInfoPanel";
 import { EvaluationLaunchPanel } from "../../components/query/EvaluationLaunchPanel";
-import { EvaluationResultPanel } from "../../components/query/EvaluationResultPanel";
+import { EvaluationResultPanel } from "../../components/evaluation/EvaluationResultPanel";
 
 import "./query-builder.css";
 
@@ -51,7 +51,7 @@ export interface QueryBuilderPageState {
 
   previewAccepted: boolean;
 
-  evaluationResult?: NomosQueryResponse;
+  evaluationResult?: EvaluationResult;
 }
 
 /* =========================================================
@@ -136,56 +136,23 @@ function canEvaluate(state: QueryBuilderPageState): boolean {
 }
 
 /**
- * First-pass evaluator.
- * Maps completeness directly to constitutional status.
- * Upgrade path: replace this with a call to POST /api/nomos/query/evaluate.
+ * Call the NOMOS evaluation API.
+ * Returns EvaluationResult from the full deterministic + LLM pipeline.
  */
-async function evaluateNomosQuery(query: NomosQuery): Promise<NomosQueryResponse> {
-  const candidateEvaluations = query.candidates.map((candidate) => ({
-    id: candidate.id,
-    classification:
-      query.completeness === "COMPLETE"
-        ? ("LAWFUL" as const)
-        : query.completeness === "PARTIAL"
-        ? ("DEGRADED" as const)
-        : ("INVALID" as const),
-    reasons:
-      query.completeness === "COMPLETE"
-        ? ["Submission is sufficiently structured for candidate evaluation."]
-        : query.completeness === "PARTIAL"
-        ? ["Submission is usable but materially incomplete."]
-        : ["Submission lacks sufficient declared structure for lawful evaluation."],
-  }));
+async function callEvaluateApi(query: NomosQuery): Promise<EvaluationResult> {
+  const baseUrl = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}/api/nomos/query/evaluate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
 
-  const lawfulSet =
-    query.completeness === "COMPLETE"
-      ? query.candidates.map((c) => c.id)
-      : query.completeness === "PARTIAL"
-      ? query.candidates.slice(0, 1).map((c) => c.id)
-      : [];
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Evaluation API error ${response.status}: ${text}`);
+  }
 
-  return {
-    submissionQuality: query.completeness,
-    overallStatus:
-      query.completeness === "COMPLETE"
-        ? "LAWFUL"
-        : query.completeness === "PARTIAL"
-        ? "DEGRADED"
-        : "INVALID",
-    candidateEvaluations,
-    lawfulSet,
-    notes: query.notes,
-    adjustments:
-      query.completeness === "PARTIAL"
-        ? query.candidates.map((c) => ({
-            candidateId: c.id,
-            actions: [
-              "Declare at least one explicit hard constraint.",
-              "Clarify missing uncertainties or objective tradeoffs.",
-            ],
-          }))
-        : undefined,
-  };
+  return response.json() as Promise<EvaluationResult>;
 }
 
 /* =========================================================
@@ -265,7 +232,7 @@ export function QueryBuilderPage() {
 
     try {
       const [evaluationResult] = await Promise.all([
-        evaluateNomosQuery(state.parsedQuery),
+        callEvaluateApi(state.parsedQuery),
         evaluateLiveQuery(state.parsedQuery),
       ]);
       setState((prev) => ({ ...prev, isEvaluating: false, evaluationResult }));

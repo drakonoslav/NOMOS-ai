@@ -2,11 +2,12 @@
  * evaluate_nomos.ts
  *
  * Runtime evaluation adapter.
- * Calls the NOMOS API and maps the response to a DashboardScenarioState.
- * Records a synthetic audit trace at each pipeline stage.
+ * Calls the NOMOS evaluation API and maps the EvaluationResult to a
+ * DashboardScenarioState for the scenario context and audit system.
  */
 
-import type { NomosQuery, NomosQueryResponse } from "@/query/query_types";
+import type { NomosQuery } from "@/query/query_types";
+import type { EvaluationResult } from "@/ui/evaluation/eval_types";
 import type { DashboardScenarioState, DemoScenario } from "../demo/scenario_builder";
 import type { ToneResolverInput } from "../tone/tone_types";
 import type { AuditLog } from "../audit/audit_log";
@@ -27,10 +28,9 @@ export async function runNomosEvaluation(
     parserConfidence: query.parserConfidence,
   });
 
-  const baseUrl = import.meta.env.BASE_URL ?? "/";
-  const apiBase = baseUrl.replace(/\/$/, "");
+  const baseUrl = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 
-  const response = await fetch(`${apiBase}/api/nomos/query/evaluate`, {
+  const response = await fetch(`${baseUrl}/api/nomos/query/evaluate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
@@ -41,37 +41,39 @@ export async function runNomosEvaluation(
     throw new Error(`Evaluation API error ${response.status}: ${text}`);
   }
 
-  const result: NomosQueryResponse = await response.json();
+  const result: EvaluationResult = await response.json();
 
   const verificationStatus = mapStatus(result.overallStatus);
-  const authority         = mapAuthority(verificationStatus);
-  const actionOutcome     = mapActionOutcome(verificationStatus);
-  const selectedIds       = result.lawfulSet ?? [];
-  const rejectedIds       = result.candidateEvaluations
-    .filter((e) => e.classification !== "LAWFUL")
+  const authority          = mapAuthority(verificationStatus);
+  const actionOutcome      = mapActionOutcome(verificationStatus);
+  const selectedIds        = result.lawfulSet ?? [];
+  const rejectedIds        = result.candidateEvaluations
+    .filter((e) => e.status !== "LAWFUL")
     .map((e) => e.id);
 
-  const adjustments = (result.adjustments ?? []).flatMap((a) => a.actions);
+  const adjustments = result.candidateEvaluations
+    .flatMap((e) => e.adjustments ?? []);
+
   const activeConstraint = findActiveConstraint(result);
 
   const toneInput: ToneResolverInput = {
     verificationStatus,
     authority,
     epsilonX: 0.06,
-    identifiability: result.submissionQuality === "COMPLETE" ? "FULL" : "PARTIAL",
+    identifiability: query.completeness === "COMPLETE" ? "FULL" : "PARTIAL",
     modelConfidence: verificationStatus === "LAWFUL" ? 0.90 : verificationStatus === "DEGRADED" ? 0.62 : 0.72,
     robustnessEpsilon: verificationStatus === "LAWFUL" ? 0.12 : verificationStatus === "DEGRADED" ? 0.034 : 0,
     robustnessEpsilonMin: 0.03,
     feasibilityOk: verificationStatus !== "INVALID",
     robustnessOk: verificationStatus === "LAWFUL",
     observabilityOk: true,
-    identifiabilityOk: result.submissionQuality !== "INSUFFICIENT",
+    identifiabilityOk: query.completeness !== "INSUFFICIENT",
     modelOk: verificationStatus !== "DEGRADED",
     adaptationOk: verificationStatus !== "INVALID",
     selectedCandidateIds: selectedIds,
     rejectedCandidateIds: rejectedIds,
     activeConstraint,
-    decisiveVariable: findDecisiveVariable(verificationStatus),
+    decisiveVariable: result.decisiveVariable,
     reasons: result.notes ?? [],
     adjustments,
   };
@@ -94,9 +96,6 @@ export async function runNomosEvaluation(
 
   audit.record("evaluation_complete", evaluationPayload);
 
-  // Compute prediction from the existing history (runs 1..N-1) BEFORE
-  // recording the current run_summary, so the forecast is always derived
-  // from prior entries, not the current one.
   const summaries      = extractRunSummaries(audit.getEntries());
   const basePrediction = predictNextFailure(summaries);
   const prediction     = basePrediction
@@ -154,13 +153,7 @@ function mapScenarioKey(s: "LAWFUL" | "DEGRADED" | "INVALID"): DemoScenario {
   return "refused_infeasible";
 }
 
-function findActiveConstraint(result: NomosQueryResponse): string {
-  const invalid = result.candidateEvaluations.find((e) => e.classification === "INVALID");
-  return invalid?.reasons[0] ?? "none";
-}
-
-function findDecisiveVariable(s: "LAWFUL" | "DEGRADED" | "INVALID"): string {
-  if (s === "INVALID")  return "feasibility constraint";
-  if (s === "DEGRADED") return "model confidence";
-  return "robustness margin";
+function findActiveConstraint(result: EvaluationResult): string {
+  const invalid = result.candidateEvaluations.find((e) => e.status === "INVALID");
+  return invalid?.reason ?? result.candidateEvaluations[0]?.reason ?? "none";
 }

@@ -3,16 +3,18 @@
  *
  * NOMOS Query API routes.
  *
- * POST /nomos/query/parse   — Extract structured NomosQuery from natural language.
- * POST /nomos/query/evaluate — Evaluate a structured NomosQuery.
+ * POST /nomos/query/parse     — Extract structured NomosQuery from natural language.
+ * POST /nomos/query/evaluate  — Evaluate a NomosQuery using the full evaluation pipeline.
  *
  * Constitutional note:
  * - The parse endpoint is extraction only. It does not assign lawfulness.
- * - The evaluate endpoint applies constitutional reasoning to declared state.
+ * - The evaluate endpoint runs the deterministic pipeline first, LLM semantic
+ *   evaluator second (for UNKNOWN constraint kinds), and produces EvaluationResult.
  */
 
 import { Router } from "express";
-import { HybridNomosQueryParser, NomosQueryEvaluator } from "nomos-core";
+import { HybridNomosQueryParser, evaluateQueryCandidates } from "nomos-core";
+import type { NomosQuery } from "nomos-core";
 
 const queryRouter = Router();
 
@@ -54,9 +56,8 @@ queryRouter.post("/nomos/query/evaluate", async (req, res) => {
     return;
   }
 
-  const evaluator = new NomosQueryEvaluator();
   try {
-    const result = await evaluator.evaluate(body.query as Parameters<typeof evaluator.evaluate>[0]);
+    const result = await evaluateQueryCandidates(body.query as NomosQuery);
     res.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Evaluation failure";

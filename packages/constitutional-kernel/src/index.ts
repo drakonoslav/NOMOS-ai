@@ -54,3 +54,15 @@ export type { HybridQueryParserInput } from "./query/query_parser.js";
 export { NomosQueryEvaluator, RuleBasedQueryEvaluator } from "./query/query_evaluator.js";
 export { evaluateConstraint, evaluateCandidateAgainstConstraints } from "./query/constraint_evaluator.js";
 export type { ConstraintEvalResult, CandidateConstraintSummary } from "./query/constraint_evaluator.js";
+
+export { evaluateQueryCandidates } from "./evaluation/candidate_scoring.js";
+export { normalizeConstraint } from "./evaluation/constraint_normalizer.js";
+export { normalizeCandidate } from "./evaluation/candidate_normalizer.js";
+export { evaluateDeterministically } from "./evaluation/deterministic_matcher.js";
+export type {
+  CandidateStatus,
+  NormalizedConstraint,
+  NormalizedCandidate,
+  CandidateEvaluation,
+  EvaluationResult,
+} from "./evaluation/eval_types.js";
