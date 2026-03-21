@@ -88,7 +88,11 @@ export {
 } from "./evaluation/windowed_aggregator.js";
 
 export type { MacroProfile, MacrosPerGram, FoodPrimitive } from "./nutrition/food_primitive.js";
-export type { MealFoodEntry, MealBlock, PhasePlan } from "./nutrition/meal_types.js";
+export type { PhaseTarget, MealFoodEntry, MealBlock, PhasePlan } from "./nutrition/meal_types.js";
+export type { RawMealFood, RawMeal, RawPhase, ParseError } from "./nutrition/meal_plan_parser.js";
+export { parsePhasePlan, parsePhaseRegistry } from "./nutrition/meal_plan_parser.js";
+export { PHASE_REGISTRY, PHASE_IDS, getPhaseById, listPhases } from "./nutrition/phase_registry.js";
+export type { PhaseId } from "./nutrition/phase_registry.js";
 export type {
   MacroDelta,
   FoodMacroResult,

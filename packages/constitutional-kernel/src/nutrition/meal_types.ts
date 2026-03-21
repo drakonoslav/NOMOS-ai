@@ -10,6 +10,13 @@
 import { MacroProfile } from "./food_primitive.js";
 
 /**
+ * Declared macro targets for one phase day.
+ * Structurally identical to MacroProfile — kept as a named alias
+ * so call sites can distinguish intent (target vs computed value).
+ */
+export type PhaseTarget = MacroProfile;
+
+/**
  * One food item within a meal, with its measured amount.
  */
 export interface MealFoodEntry {
