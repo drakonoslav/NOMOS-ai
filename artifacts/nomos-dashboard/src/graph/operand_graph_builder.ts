@@ -114,7 +114,10 @@ export function buildOperandGraph(result: BindingResult): OperandGraph {
       id,
       type:  "unit",
       label: normalizedUnit,
-      data:  { category: unitCategory ?? "unknown" },
+      data:  {
+        normalizedUnit,               // explicit — avoids label-parse fallback
+        category: unitCategory ?? "unknown",
+      },
     });
     unitNodeId.set(key, id);
     return id;
@@ -143,11 +146,15 @@ export function buildOperandGraph(result: BindingResult): OperandGraph {
         type:  "entity",
         label: span.label,
         data:  {
-          entityId:    span.id,
-          category:    span.category,
-          role:        span.role,
-          confidence:  span.confidence,
+          entityId:        span.id,
+          category:        span.category,
+          role:            span.role,
+          confidence:      span.confidence,
           normalizedLabel: span.normalizedLabel,
+          // tags: category-derived default so tag-based filtering works on real
+          // pipeline graphs.  Consumers may augment these with domain-specific
+          // tags; the category itself is always included as a stable base tag.
+          tags: span.category !== "unknown" ? [span.category] : [],
         },
       });
 

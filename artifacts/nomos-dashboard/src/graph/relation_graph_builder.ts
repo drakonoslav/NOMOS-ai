@@ -23,12 +23,20 @@ import { buildOperandGraph }  from "./operand_graph_builder.ts";
 import type { OperandGraph, GraphNode, GraphEdge } from "./operand_graph_types.ts";
 
 /* =========================================================
-   ID counter (module-level, reset per call)
+   ID helpers (graph-length-derived — no module-level state)
+   =========================================================
+   Using the graph's current node/edge count as the suffix guarantees that
+   IDs generated here never collide with those produced by buildOperandGraph's
+   IdFactory, because both node and edge arrays only grow: the suffix is always
+   ≥ the length at the time of the call.
    ========================================================= */
 
-let _graphCounter = 0;
-function nextId(prefix: string): string {
-  return `${prefix}_${_graphCounter++}`;
+function nextNodeId(graph: OperandGraph, prefix: string): string {
+  return `${prefix}_${graph.nodes.length}`;
+}
+
+function nextEdgeId(graph: OperandGraph, prefix: string): string {
+  return `${prefix}_${graph.edges.length}`;
 }
 
 /* =========================================================
@@ -60,17 +68,19 @@ export interface RelationGraphResult {
  * based on the section role assigned during entity extraction.
  */
 export function buildRelationGraph(rawText: string): OperandGraph {
-  _graphCounter = 0;
-
   const bindingResult = bindRelations(rawText);
   const graph         = buildOperandGraph(bindingResult);
 
   // ── Candidate nodes ────────────────────────────────────────────────────────
   const hasCandidates = CANDIDATE_HEADER_RE.test(rawText);
   if (hasCandidates) {
-    // Create a single candidate node (could be extended to one-per-candidate)
+    // NOTE: single candidate node is a known limitation — multi-candidate
+    // inputs (A: / B: blocks) each need their own node.  Tracked for the
+    // constraint algebra phase.  For now all candidate_item entities are
+    // wired to one "candidates" node, which is correct for single-candidate
+    // queries and degenerate (but non-crashing) for multi-candidate inputs.
     const candidateNode: GraphNode = {
-      id:    nextId("gn_candidate"),
+      id:    nextNodeId(graph, "gn_candidate"),
       type:  "candidate",
       label: "candidates",
       data:  { source: "CANDIDATES section" },
@@ -84,7 +94,7 @@ export function buildRelationGraph(rawText: string): OperandGraph {
         (node.data as Record<string, unknown>)?.role === "candidate_item"
       ) {
         const edge: GraphEdge = {
-          id:   nextId("ge"),
+          id:   nextEdgeId(graph, "ge_rg"),
           from: node.id,
           to:   candidateNode.id,
           type: "BELONGS_TO_CANDIDATE",
@@ -102,7 +112,7 @@ export function buildRelationGraph(rawText: string): OperandGraph {
     const objText  = objMatch?.[1]?.split("\n")[0]?.trim() ?? "optimize";
 
     const objectiveNode: GraphNode = {
-      id:    nextId("gn_objective"),
+      id:    nextNodeId(graph, "gn_objective"),
       type:  "objective",
       label: objText,
       data:  { source: "OBJECTIVE section" },
@@ -116,7 +126,7 @@ export function buildRelationGraph(rawText: string): OperandGraph {
         (node.data as Record<string, unknown>)?.role === "objective_operand"
       ) {
         const edge: GraphEdge = {
-          id:   nextId("ge"),
+          id:   nextEdgeId(graph, "ge_rg"),
           from: node.id,
           to:   objectiveNode.id,
           type: "BELONGS_TO_OBJECTIVE",

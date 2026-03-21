@@ -1,0 +1,395 @@
+Yes — that’s the right correction.
+
+You do not want a pile of use-case patches.
+
+You want NOMOS to have a semantic measurement core that is:
+	•	domain-agnostic
+	•	unit-aware
+	•	relation-aware
+	•	algebra-ready
+	•	robust to messy language
+
+So it can reason about:
+	•	fuel
+	•	food
+	•	dose
+	•	load
+	•	duration
+	•	distance
+	•	count
+	•	rate
+	•	time windows
+	•	relative position
+	•	thresholds
+
+without needing a custom parser for each niche.
+
+The real target
+
+Not:
+	•	“nutrition tags”
+	•	“training tags”
+	•	“special cases”
+
+But:
+
+canonical measurable entity schema
+
+That schema should let NOMOS say:
+	•	this is a thing
+	•	it has a measure
+	•	it belongs to a candidate / state / constraint / objective
+	•	it has semantic classes
+	•	those classes came from somewhere
+	•	those classes are reliable to some degree
+	•	it participates in relations
+	•	it can be selected algebraically
+
+That is the wheelhouse you want.
+
+⸻
+
+The schema I would use
+
+type EntityCategory =
+  | "substance"
+  | "food"
+  | "fluid"
+  | "supplement"
+  | "object"
+  | "load"
+  | "duration"
+  | "distance"
+  | "countable_item"
+  | "event"
+  | "anchor"
+  | "unknown";
+
+type TagProvenance =
+  | "explicit"
+  | "registry"
+  | "normalized"
+  | "inferred"
+  | "fallback";
+
+interface TagRecord {
+  tag: string;                         // e.g. "carb", "fast", "liquid", "pre_lift"
+  provenance: TagProvenance;          // where it came from
+  confidence: number;                 // 0.0 to 1.0
+  sourceRegistryId?: string | null;   // if registry-driven
+}
+
+interface NormalizationRecord {
+  stage: string;                      // "raw", "unit_normalization", "entity_normalization", etc.
+  before: string;
+  after: string;
+  reason: string;
+}
+
+interface MeasureRecord {
+  amount: number;
+  unitRaw: string;                    // e.g. "grams", "g", "hours"
+  unitNormalized: string;             // e.g. "g", "hour"
+  dimension:
+    | "mass"
+    | "volume"
+    | "count"
+    | "time"
+    | "distance"
+    | "energy"
+    | "rate"
+    | "unknown";
+}
+
+interface CanonicalEntity {
+  id: string;
+
+  rawText: string;
+  normalizedText: string;
+
+  labelRaw: string;                   // e.g. "cyclic dextrin"
+  labelNormalized: string;            // e.g. "cyclic_dextrin"
+
+  category: EntityCategory;
+  categoryConfidence: number;         // 0.0 to 1.0
+
+  measures: MeasureRecord[];          // supports one or more measures if needed
+
+  tags: TagRecord[];                  // canonical semantic tags
+
+  role:
+    | "candidate_item"
+    | "constraint_operand"
+    | "state_fact"
+    | "objective_operand"
+    | "anchor"
+    | "unknown";
+
+  sourceRegistryId?: string | null;
+  normalizationHistory: NormalizationRecord[];
+
+  modifiers?: string[];               // e.g. "fast-digesting", "pre-lift"
+  notes?: string[];
+}
+
+
+⸻
+
+Why this schema is strong
+
+It separates things that should not be conflated:
+
+1. category
+
+What kind of thing it broadly is.
+	•	food
+	•	supplement
+	•	duration
+	•	load
+
+2. tags
+
+What semantic properties matter for reasoning.
+	•	carb
+	•	fast
+	•	slow
+	•	protein
+	•	fluid
+	•	stimulant
+	•	pre_lift
+
+3. tagProvenance
+
+Where the tag came from.
+	•	explicit
+	•	registry
+	•	inferred
+	•	fallback
+
+4. confidence
+
+How much NOMOS should trust that classification.
+
+5. sourceRegistryId
+
+Which registry entry anchored the normalization, if any.
+
+6. normalizationHistory
+
+How the raw text became the canonical entity.
+
+That is the difference between “works sometimes” and “auditably works.”
+
+⸻
+
+Example 1 — clean case
+
+Input:
+80g cyclic dextrin 30 minutes before lifting
+
+Canonical entity:
+
+{
+  id: "ent_001",
+  rawText: "80g cyclic dextrin",
+  normalizedText: "80 g cyclic dextrin",
+  labelRaw: "cyclic dextrin",
+  labelNormalized: "cyclic_dextrin",
+  category: "substance",
+  categoryConfidence: 0.95,
+  measures: [
+    {
+      amount: 80,
+      unitRaw: "g",
+      unitNormalized: "g",
+      dimension: "mass"
+    }
+  ],
+  tags: [
+    { tag: "carb", provenance: "registry", confidence: 0.98, sourceRegistryId: "food.cyclic_dextrin" },
+    { tag: "fast", provenance: "registry", confidence: 0.97, sourceRegistryId: "food.cyclic_dextrin" }
+  ],
+  role: "candidate_item",
+  sourceRegistryId: "food.cyclic_dextrin",
+  normalizationHistory: [
+    { stage: "unit_normalization", before: "80g", after: "80 g", reason: "split compact quantity-unit token" },
+    { stage: "entity_normalization", before: "cyclic dextrin", after: "cyclic_dextrin", reason: "canonical label formatting" }
+  ]
+}
+
+
+⸻
+
+Example 2 — weird but valid
+
+Input:
+9 grams wishes
+
+{
+  id: "ent_002",
+  rawText: "9 grams wishes",
+  normalizedText: "9 grams wishes",
+  labelRaw: "wishes",
+  labelNormalized: "wishes",
+  category: "unknown",
+  categoryConfidence: 0.15,
+  measures: [
+    {
+      amount: 9,
+      unitRaw: "grams",
+      unitNormalized: "g",
+      dimension: "mass"
+    }
+  ],
+  tags: [],
+  role: "unknown",
+  sourceRegistryId: null,
+  normalizationHistory: [
+    { stage: "unit_normalization", before: "grams", after: "g", reason: "canonical unit mapping" }
+  ]
+}
+
+That is correct behavior. It preserves structure without pretending to understand more than it does.
+
+⸻
+
+The deeper architecture you want
+
+Layer 1 — measurable entity extraction
+
+Find:
+	•	quantity
+	•	unit
+	•	noun phrase
+
+Layer 2 — canonical normalization
+
+Normalize:
+	•	unit
+	•	label
+	•	category
+	•	tags
+	•	provenance
+
+Layer 3 — relation binding
+
+Bind:
+	•	before / after / within / during / between
+	•	anchor relations
+	•	candidate ownership
+
+Layer 4 — graph build
+
+Store:
+	•	entities
+	•	measures
+	•	relations
+	•	constraints
+	•	candidates
+
+Layer 5 — algebraic execution
+
+Select:
+	•	entities
+	•	by tag
+	•	by role
+	•	by relation/window
+	•	aggregate measure
+	•	compare threshold
+
+That is the correct wheelhouse.
+
+⸻
+
+The law you want NOMOS to follow
+
+Any measurable noun phrase becomes a canonical entity.
+Any relation word becomes a structural binding.
+Any threshold becomes an algebraic constraint.
+
+That is how you make it “algebraic wizard” strong without making it brittle.
+
+⸻
+
+What to tell Replit
+
+Use this:
+
+We need to stop building use-case parsers and instead build a canonical measurable entity schema.
+
+Goal:
+NOMOS must reason over any measurable noun phrase in a domain-agnostic way.
+
+This means:
+- extract measurable entities from messy language
+- normalize them canonically
+- preserve semantic tags with provenance
+- preserve confidence and normalization history
+- make them usable for graph building and algebraic constraint execution
+
+Create or update:
+- src/compiler/canonical_entity_types.ts
+- src/compiler/canonical_entity_normalizer.ts
+- src/compiler/tag_registry.ts
+- src/compiler/unit_registry.ts
+- src/tests/canonical_entity_schema_test.ts
+
+Required schema must include:
+- category
+- tags
+- tagProvenance
+- confidence
+- sourceRegistryId
+- normalizationHistory
+
+Design rules:
+
+1. Open vocabulary:
+Do not require a closed noun list.
+Any measurable noun phrase should be preserved structurally.
+
+2. Canonical separation:
+- category = broad type
+- tags = semantic properties
+- provenance = source of tag
+- confidence = trust level
+
+3. Tag provenance values:
+- explicit
+- registry
+- normalized
+- inferred
+- fallback
+
+4. Support examples like:
+- 80g cyclic dextrin
+- 1 banana
+- 500 mL water
+- 2 capsules magnesium
+- 40 lb dumbbell
+- 3 hours sleep
+- 12 reps curls
+- 9 grams wishes
+
+5. All downstream systems must consume canonical entities, not raw text.
+
+Success condition:
+NOMOS has a domain-agnostic measurable entity substrate suitable for graph building and algebraic reasoning.
+
+
+⸻
+
+The strongest next step after this schema
+
+After the canonical schema is in place, the strongest next move is:
+
+typed relation schema
+
+Because then you can pair:
+	•	canonical entities
+with
+	•	canonical relations
+
+and the graph becomes fully rigorous.
+
+If you want, I’ll draft that exact typed relation schema next.
