@@ -106,6 +106,85 @@ const BODY_LIMIT: Record<ToneLevel, number> = {
   EXPANDED:  5,
 };
 
+/**
+ * Maximum body lines per verification status.
+ * Applied in conjunction with BODY_LIMIT — the tighter limit wins.
+ */
+const MAX_LINES: Record<VerificationStatus, number> = {
+  LAWFUL:   3,
+  DEGRADED: 4,
+  INVALID:  3,
+};
+
+/** Hard character-width limit per line. Prevents overflow in fixed-width UI panels. */
+const MAX_CHARS_PER_LINE = 88;
+
+function enforceLineWidth(lines: string[]): string[] {
+  return lines.map((line) =>
+    line.length <= MAX_CHARS_PER_LINE
+      ? line
+      : line.slice(0, MAX_CHARS_PER_LINE - 3) + "..."
+  );
+}
+
+/* =========================================================
+   Semantic compression
+   Merges adjacent lines that share semantic subject matter.
+   INVALID lines are never merged — refusal clarity is paramount.
+   ========================================================= */
+
+function semanticCompress(lines: string[], status: VerificationStatus): string[] {
+  if (lines.length <= 1) return lines;
+  if (status === "INVALID") return lines;
+
+  const result: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const current = lines[i];
+    const next    = lines[i + 1];
+
+    if (next && canMerge(current, next)) {
+      result.push(mergeLines(current, next));
+      i++; // skip next — already consumed
+    } else {
+      result.push(current);
+    }
+  }
+  return result;
+}
+
+function canMerge(a: string, b: string): boolean {
+  const A = normalize(a);
+  const B = normalize(b);
+
+  if (shareKeyword(A, B, "robustness")) return true;
+  if (shareKeyword(A, B, "feasibility")) return true;
+  if (shareKeyword(A, B, "model"))       return true;
+
+  if (A.includes("feasibility holds") && B.includes("decisive")) return true;
+  if (A.includes("decisive")          && B.includes("drift"))    return true;
+
+  return false;
+}
+
+function mergeLines(a: string, b: string): string {
+  const A = stripPeriod(a);
+  const B = stripPeriod(b);
+
+  if (A.toLowerCase().includes("feasibility holds") && B.toLowerCase().includes("decisive")) {
+    return `${A}; ${B.toLowerCase()}.`;
+  }
+  if (A.toLowerCase().includes("decisive") && B.includes("Given current drift")) {
+    return `${A}; ${B.toLowerCase()}`;
+  }
+
+  return `${A}; ${lowerFirst(B)}.`;
+}
+
+function normalize(s: string):            string  { return s.toLowerCase(); }
+function shareKeyword(a: string, b: string, k: string): boolean { return a.includes(k) && b.includes(k); }
+function stripPeriod(s: string):          string  { return s.replace(/\.$/, ""); }
+function lowerFirst(s: string):           string  { return s.charAt(0).toLowerCase() + s.slice(1); }
+
 function resolveToneMessage(input: ToneResolverInput): ToneMessage {
   if (!input.decisiveVariable) {
     input = { ...input, decisiveVariable: inferDecisiveVariable(input) };
@@ -120,12 +199,14 @@ function resolveToneMessage(input: ToneResolverInput): ToneMessage {
     default:         msg = invalidMessage(input, tone);  break;
   }
 
-  // Hard output compression — no body may exceed its tone-level line limit.
-  const limit = BODY_LIMIT[tone];
-  if (msg.body.length > limit) {
-    return { ...msg, body: msg.body.slice(0, limit) };
-  }
-  return msg;
+  // Full output pipeline: semantic compress → tighter of status/tone budget → width → hard fail
+  const limit = Math.min(MAX_LINES[msg.status], BODY_LIMIT[tone]);
+  let   body  = semanticCompress(msg.body, msg.status);
+  body = body.slice(0, limit);
+  body = enforceLineWidth(body);
+  if (body.length === 0) body = ["Invalid output state."];
+
+  return { ...msg, body, decisiveVariable: input.decisiveVariable };
 }
 
 /* =========================================================

@@ -1,0 +1,217 @@
+Unify validation and completeness tone
+
+This locks the system into one voice across all layers:
+
+validation (local)
+completeness (global)
+tone (final output)
+
+All must describe the same issue using the same wording root.
+
+⸻
+
+🧠 Core principle
+
+One issue → one canonical phrase → reused everywhere
+
+No paraphrasing. No variation. No drift.
+
+⸻
+
+🧱 1. Create canonical phrase registry
+
+📁 semantic_phrases.ts
+
+export const PHRASES = {
+  constraint_threshold: {
+    short: "Constraint lacks threshold.",
+    guidance: "Completeness limited by missing constraint thresholds.",
+  },
+
+  constraint_unit: {
+    short: "Constraint missing unit.",
+    guidance: "Completeness limited by missing units.",
+  },
+
+  constraint_ambiguous: {
+    short: "Constraint ambiguous.",
+    guidance: "Completeness limited by ambiguous constraints.",
+  },
+
+  intent_missing: {
+    short: "Intent not declared.",
+    guidance: "Completeness limited by undefined intent.",
+  },
+
+  constraints_missing: {
+    short: "No constraints declared.",
+    guidance: "Completeness limited by missing constraints.",
+  },
+
+  assumptions_missing: {
+    short: "Assumptions not defined.",
+    guidance: "Completeness limited by missing assumptions.",
+  },
+
+  valid: {
+    short: "Submission structurally complete.",
+    guidance: "Submission structurally complete.",
+  },
+};
+
+
+⸻
+
+🧠 2. Refactor validation to use phrases
+
+📁 validation_engine.ts
+
+Replace messages:
+
+import { PHRASES } from "./semantic_phrases";
+
+issues.push({
+  id: `constraint_threshold_${i}`,
+  field: "constraint",
+  severity: "error",
+  message: PHRASES.constraint_threshold.short,
+  suggestion: suggestThreshold(c),
+});
+
+Do this for all validation outputs.
+
+⸻
+
+🧠 3. Refactor completeness guidance
+
+📁 completeness_engine.ts
+
+Replace hardcoded strings:
+
+import { PHRASES } from "./semantic_phrases";
+
+if (thresholdErr) {
+  return PHRASES.constraint_threshold.guidance;
+}
+
+if (unitWarn) {
+  return PHRASES.constraint_unit.guidance;
+}
+
+if (ambiguousWarn) {
+  return PHRASES.constraint_ambiguous.guidance;
+}
+
+if (!breakdown.intent) {
+  return PHRASES.intent_missing.guidance;
+}
+
+if (!breakdown.constraintsPresent) {
+  return PHRASES.constraints_missing.guidance;
+}
+
+if (!breakdown.assumptions) {
+  return PHRASES.assumptions_missing.guidance;
+}
+
+if (breakdown.noErrors) {
+  return PHRASES.valid.guidance;
+}
+
+
+⸻
+
+🧠 4. Optional: unify tone_resolver (advanced)
+
+When NOMOS blocks evaluation, use same phrase:
+
+if (!canEvaluate(issues)) {
+  const firstError = issues.find(i => i.severity === "error");
+  return {
+    status: "INVALID",
+    authority: "REFUSED",
+    lines: [firstError?.message ?? "Invalid input."],
+  };
+}
+
+
+⸻
+
+🧠 5. Resulting alignment
+
+Validation panel
+
+Constraint lacks threshold.
+
+Completeness
+
+Completeness limited by missing constraint thresholds.
+
+Tone (if blocked)
+
+Constraint lacks threshold.
+
+
+⸻
+
+🧠 What you eliminated
+
+Before:
+	•	“missing number”
+	•	“needs threshold”
+	•	“add value”
+	•	“unclear constraint”
+
+After:
+	•	ONE phrase
+
+⸻
+
+🧠 Why this matters
+
+You now have:
+
+1. Cognitive consistency
+
+Users learn the system language once.
+
+2. Structural clarity
+
+Every message maps to a specific failure mode.
+
+3. System identity
+
+NOMOS sounds like one entity, not layered code.
+
+⸻
+
+🧠 Final insight
+
+This is subtle but critical:
+
+systems feel intelligent when they are consistent, not when they are expressive
+
+You just removed:
+	•	linguistic entropy
+	•	phrasing drift
+	•	interpretation noise
+
+⸻
+
+If you want next
+
+👉 compress validation + suggestions into a single line
+
+So instead of:
+
+Constraint lacks threshold.
+Suggested: sleep ≥ 7h
+
+You get:
+
+Constraint lacks threshold; e.g., sleep ≥ 7h.
+
+Just say:
+“Merge validation and suggestion output”
+
+and we’ll make it even tighter.

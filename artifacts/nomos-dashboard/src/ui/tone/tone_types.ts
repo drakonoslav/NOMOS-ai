@@ -88,4 +88,9 @@ export interface ToneMessage {
    * Optional next-step adjustments.
    */
   adjustments: string[];
+
+  /**
+   * The decisive variable for this evaluation — surfaced for UI emphasis.
+   */
+  decisiveVariable?: string;
 }

@@ -1387,3 +1387,79 @@ textarea {
 .confidence-bar.calibrated {
   background: var(--nm-lawful);
 }
+
+/* =========================================================
+   Semantic highlighting — decisive / degraded / violation
+   ========================================================= */
+
+:root {
+  --nm-accent-strong: #7df9aa;
+}
+
+.nm-line {
+  margin-bottom: 2px;
+  line-height: 1.35;
+}
+
+.nm-decisive-line {
+  border-left: 2px solid var(--nm-accent-strong);
+  padding-left: 6px;
+}
+
+.nm-decisive {
+  font-weight: 600;
+  color: var(--nm-accent-strong);
+}
+
+.nm-degraded-highlight {
+  color: var(--nm-degraded);
+  font-weight: 500;
+}
+
+.nm-violation {
+  color: var(--nm-invalid);
+  font-weight: 600;
+}
+
+/* =========================================================
+   Semantic tooltips
+   ========================================================= */
+
+.nm-tooltip-wrapper {
+  position: relative;
+  cursor: help;
+}
+
+.nm-tooltip {
+  position: absolute;
+  bottom: 125%;
+  left: 0;
+  min-width: 220px;
+  max-width: 280px;
+  background: #0f1115;
+  border: 1px solid var(--nm-border);
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12px;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.nm-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--nm-accent-strong);
+}
+
+.nm-tooltip-desc {
+  color: var(--nm-text-secondary);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.nm-tooltip-dynamic {
+  font-family: var(--nm-font-mono);
+  font-size: 11px;
+  color: var(--nm-text-muted);
+}

@@ -1,0 +1,221 @@
+Compress multi-issue output
+
+This is the final step in making NOMOS surgically dense.
+
+You move from:
+
+Constraint lacks threshold; e.g., sleep ≥ 7h.
+Constraint ambiguous; e.g., replace vague term with measurable variable.
+Constraint missing unit; e.g., sleep ≥ 7h.
+
+to:
+
+Constraints invalid: missing threshold; ambiguous; missing unit.
+
+
+⸻
+
+🧠 Core rule
+
+Multiple issues → one domain line → compact clauses
+
+⸻
+
+🧱 1. Group issues by domain
+
+📁 validation_format.ts
+
+import { ValidationIssue } from "./validation_engine";
+
+export function groupIssues(
+  issues: ValidationIssue[]
+): Record<string, ValidationIssue[]> {
+  const groups: Record<string, ValidationIssue[]> = {};
+
+  for (const i of issues) {
+    const key = i.field; // constraint / intent / assumption
+
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(i);
+  }
+
+  return groups;
+}
+
+
+⸻
+
+🧠 2. Extract compact labels
+
+function compactLabel(i: ValidationIssue): string {
+  const m = i.message.toLowerCase();
+
+  if (m.includes("threshold")) return "missing threshold";
+  if (m.includes("unit")) return "missing unit";
+  if (m.includes("ambiguous")) return "ambiguous";
+  if (m.includes("intent")) return "undefined intent";
+  if (m.includes("constraints")) return "missing constraints";
+  if (m.includes("assumptions")) return "missing assumptions";
+
+  return "invalid";
+}
+
+
+⸻
+
+🧠 3. Build compressed line
+
+export function compressIssues(
+  issues: ValidationIssue[]
+): string[] {
+  if (!issues.length) return [];
+
+  const groups = groupIssues(issues);
+  const lines: string[] = [];
+
+  for (const [field, list] of Object.entries(groups)) {
+    const labels = Array.from(
+      new Set(list.map(compactLabel))
+    );
+
+    const prefix =
+      field === "constraint"
+        ? "Constraints invalid"
+        : field === "intent"
+        ? "Intent invalid"
+        : "Assumptions invalid";
+
+    lines.push(`${prefix}: ${labels.join("; ")}.`);
+  }
+
+  return lines;
+}
+
+
+⸻
+
+🧩 4. Use instead of per-line rendering
+
+📁 ValidationPanel.tsx
+
+Replace:
+
+issues.map(...)
+
+With:
+
+import { compressIssues } from "../validation/validation_format";
+
+const lines = compressIssues(issues);
+
+return (
+  <div className="nm-validation">
+    {lines.map((line, i) => (
+      <div key={i} className="nm-validation-item nm-error">
+        {line}
+      </div>
+    ))}
+  </div>
+);
+
+
+⸻
+
+🧠 5. Preserve examples (optional, controlled)
+
+If you still want one example:
+
+function attachExample(
+  line: string,
+  issues: ValidationIssue[]
+): string {
+  const example = issues.find((i) => i.example)?.example;
+
+  if (!example) return line;
+
+  return `${stripPeriod(line)}; e.g., ${example}.`;
+}
+
+Use ONLY for first group.
+
+⸻
+
+🔥 Resulting behavior
+
+⸻
+
+Before
+
+Constraint lacks threshold; e.g., sleep ≥ 7h.
+Constraint ambiguous; e.g., replace vague term.
+Constraint missing unit; e.g., sleep ≥ 7h.
+
+
+⸻
+
+After
+
+Constraints invalid: missing threshold; ambiguous; missing unit.
+
+
+⸻
+
+Mixed domains
+
+Intent invalid: undefined intent.
+Constraints invalid: missing threshold; ambiguous.
+
+
+⸻
+
+🧠 Why this is correct
+
+You achieve:
+
+1. Extreme compression
+	•	3–5 issues → 1 line
+
+2. Domain clarity
+	•	grouped by meaning
+
+3. Zero redundancy
+	•	no repeated phrasing
+
+⸻
+
+🧠 Design constraints (important)
+
+Do NOT:
+	•	exceed 1 line per domain
+	•	include explanations
+	•	include verbs like “try”, “add”, “consider”
+
+Keep it:
+
+declarative + structural
+
+⸻
+
+🧠 Final insight
+
+At this point, NOMOS output is:
+
+closer to a diagnostic readout than a UI message
+
+That’s exactly what you want.
+
+⸻
+
+If you want next
+
+👉 integrate compressed validation directly into the conversation prompt line
+
+So NOMOS says:
+
+Constraints invalid: missing threshold; ambiguous.
+Declare constraints.
+
+Just say:
+“Integrate compressed validation into conversation flow”
+
+and the system will feel even tighter.

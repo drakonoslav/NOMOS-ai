@@ -1,0 +1,197 @@
+Merge validation and suggestion output
+
+This is the final tightening step.
+
+You move from:
+
+Constraint lacks threshold.
+Suggested: sleep ≥ 7h
+
+to:
+
+Constraint lacks threshold; e.g., sleep ≥ 7h.
+
+Shorter. Cleaner. Same meaning.
+
+⸻
+
+🧠 Core rule
+
+One issue → one line → optional example appended
+
+No separate suggestion UI. No duplication.
+
+⸻
+
+🧱 1. Update ValidationIssue
+
+📁 validation_engine.ts
+
+export interface ValidationIssue {
+  id: string;
+  message: string;
+  severity: "error" | "warning";
+  field: "intent" | "constraint" | "assumption";
+
+  example?: string; // replaces suggestion
+}
+
+
+⸻
+
+🧠 2. Replace suggestion → example
+
+Update detection logic:
+
+issues.push({
+  id: `constraint_threshold_${i}`,
+  field: "constraint",
+  severity: "error",
+  message: PHRASES.constraint_threshold.short,
+  example: suggestThreshold(c),
+});
+
+Do the same for unit + ambiguous.
+
+⸻
+
+🧠 3. Merge into single line
+
+📁 validation_format.ts (new helper)
+
+export function formatIssue(i: ValidationIssue): string {
+  if (!i.example) return i.message;
+
+  return `${stripPeriod(i.message)}; e.g., ${i.example}.`;
+}
+
+function stripPeriod(s: string): string {
+  return s.replace(/\.$/, "");
+}
+
+
+⸻
+
+🧩 4. Update ValidationPanel
+
+📁 ValidationPanel.tsx
+
+Replace rendering:
+
+import { formatIssue } from "../validation/validation_format";
+
+export function ValidationPanel({
+  issues,
+}: {
+  issues: ValidationIssue[];
+}) {
+  if (!issues.length) return null;
+
+  return (
+    <div className="nm-validation">
+      {issues.map((i) => (
+        <div
+          key={i.id}
+          className={`nm-validation-item nm-${i.severity}`}
+        >
+          {formatIssue(i)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
+⸻
+
+🎨 5. (Optional) subtle emphasis on example
+
+.nm-validation-item {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.nm-validation-item::after {
+  opacity: 0.8;
+}
+
+(Keep minimal—don’t over-style)
+
+⸻
+
+🔥 Resulting behavior
+
+⸻
+
+Before
+
+Constraint lacks threshold.
+Suggested: sleep ≥ 7h
+
+
+⸻
+
+After
+
+Constraint lacks threshold; e.g., sleep ≥ 7h.
+
+
+⸻
+
+Another case
+
+Constraint ambiguous; e.g., replace vague term with measurable variable.
+
+
+⸻
+
+🧠 Why this is better
+
+You now have:
+
+1. Single-line corrections
+	•	faster scanning
+	•	less UI noise
+
+2. No duplicated meaning
+	•	validation + suggestion unified
+
+3. Perfect tone alignment
+	•	still declarative
+	•	still non-conversational
+
+⸻
+
+🧠 What you removed
+	•	extra panels
+	•	extra buttons
+	•	redundant phrasing
+	•	UI friction
+
+⸻
+
+🧠 Final insight
+
+This is peak NOMOS style:
+
+minimal surface, maximum information density
+
+Every line now:
+	•	identifies the issue
+	•	shows the fix
+	•	does not waste space
+
+⸻
+
+If you want next
+
+👉 collapse multiple issues into a single compressed diagnostic line
+
+Example:
+
+Constraints invalid: missing threshold; ambiguous.
+
+Just say:
+“Compress multi-issue output”
+
+and we’ll take density one level higher.

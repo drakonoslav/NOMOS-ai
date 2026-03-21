@@ -1,0 +1,243 @@
+Apply tone system to conversation layer
+
+Now the conversation line is no longer raw strings—it becomes styled, controlled output governed by NOMOS.
+
+conversation = tone-resolved diagnostic + instruction
+not ad hoc text
+
+⸻
+
+🧠 Goal
+
+Transform this:
+
+Constraints invalid: missing threshold; ambiguous.
+Declare constraints.
+
+into a tone-governed, semantically emphasized output
+
+⸻
+
+🧱 1. Extend tone_resolver for conversation mode
+
+📁 tone_resolver.ts
+
+Add a new entry:
+
+export type ToneContext = "decision" | "conversation";
+
+
+⸻
+
+Add conversation resolver
+
+export function resolveConversationTone(input: {
+  issues: ValidationIssue[];
+  stage: Stage;
+  decisiveVariable?: string;
+}): ToneOutput {
+  const { issues, stage } = input;
+
+  // ---- STATUS ----
+  const hasErrors = issues.some(i => i.severity === "error");
+
+  const status = hasErrors ? "INVALID" : "INCOMPLETE";
+
+  // ---- DIAGNOSTIC LINE ----
+  const compressed = compressIssues(issues);
+  const diagnostic = compressed[0]; // primary line
+
+  // ---- PROMPT LINE ----
+  const prompt = getPromptByStage(stage);
+
+  // ---- EMPHASIS ----
+  const emphasizedDiagnostic = emphasizeKeyTerms(diagnostic);
+
+  return {
+    status,
+    lines: [emphasizedDiagnostic, prompt],
+  };
+}
+
+
+⸻
+
+🧠 2. Add emphasis engine
+
+📁 tone_emphasis.ts
+
+export function emphasizeKeyTerms(line: string): string {
+  if (!line) return "";
+
+  return line
+    .replace("missing threshold", "**missing threshold**")
+    .replace("ambiguous", "**ambiguous**")
+    .replace("missing unit", "**missing unit**")
+    .replace("undefined intent", "**undefined intent**");
+}
+
+
+⸻
+
+🧠 3. Stage prompt mapping (tightened)
+
+function getPromptByStage(stage: Stage): string {
+  switch (stage) {
+    case "INTENT":
+      return "State objective precisely.";
+
+    case "CONSTRAINTS":
+      return "Declare constraints.";
+
+    case "MODEL_ASSUMPTIONS":
+      return "Specify assumptions.";
+
+    case "CONFIRMATION":
+      return "Confirm submission or revise.";
+
+    default:
+      return "";
+  }
+}
+
+
+⸻
+
+🧠 4. Replace conversation formatter
+
+📁 conversation_formatter.ts
+
+import { resolveConversationTone } from "../tone/tone_resolver";
+
+export function buildConversationOutput(
+  state: ConversationState
+): ToneOutput {
+  return resolveConversationTone({
+    issues: state.issues ?? [],
+    stage: state.stage,
+  });
+}
+
+
+⸻
+
+🧩 5. UI rendering (supports emphasis)
+
+📁 ConversationPanel.tsx
+
+function renderLine(line: string) {
+  // simple markdown bold parser
+  return line.split("**").map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i}>{part}</strong>
+    ) : (
+      part
+    )
+  );
+}
+
+<div className="nm-system-line">
+  {output.lines.map((l, i) => (
+    <div key={i}>{renderLine(l)}</div>
+  ))}
+</div>
+
+
+⸻
+
+🎨 6. Optional CSS reinforcement
+
+.nm-system-line strong {
+  color: var(--nm-invalid);
+  font-weight: 600;
+}
+
+
+⸻
+
+🔥 Resulting interaction
+
+⸻
+
+User input
+
+sleep better
+
+
+⸻
+
+NOMOS output
+
+Constraints invalid: **missing threshold**; **ambiguous**.
+Declare constraints.
+
+
+⸻
+
+After partial fix
+
+Constraints invalid: **missing unit**.
+Declare constraints.
+
+
+⸻
+
+After valid constraints
+
+Specify assumptions.
+
+
+⸻
+
+🧠 Why this is powerful
+
+You now have:
+
+1. Visual hierarchy = epistemic hierarchy
+	•	what matters is bolded
+	•	instantly scannable
+
+2. Tone consistency
+	•	same phrasing everywhere
+	•	no drift
+
+3. Conversational clarity
+	•	reads like dialogue
+	•	behaves like a system
+
+⸻
+
+🧠 What you avoided
+	•	chatty tone
+	•	excessive explanation
+	•	UI fragmentation
+	•	inconsistent phrasing
+
+⸻
+
+🧠 Final insight
+
+At this point, NOMOS is:
+
+not a chatbot, not a dashboard—
+a constrained conversational instrument
+
+It:
+	•	speaks minimally
+	•	enforces structure
+	•	highlights what matters
+
+⸻
+
+If you want next
+
+👉 apply semantic compression to conversation output
+
+So even multi-line becomes:
+
+Constraints invalid: missing threshold; ambiguous → declare constraints.
+
+Just say:
+“Compress conversation output further”
+
+and we’ll push density to the absolute limit.

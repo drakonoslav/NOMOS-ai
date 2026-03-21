@@ -1,0 +1,265 @@
+Integrate compressed validation into conversation flow
+
+This is the moment everything becomes one continuous system:
+
+prompt → validation → guidance → next action
+in a single, tight exchange
+
+⸻
+
+🧠 Target behavior
+
+Instead of:
+
+State the objective precisely.
+
+Constraint lacks threshold.
+Constraint ambiguous.
+
+You get:
+
+Constraints invalid: missing threshold; ambiguous.
+Declare constraints.
+
+
+⸻
+
+🧱 1. Conversation output model
+
+📁 conversation_engine.ts
+
+interface ConversationOutput {
+  line: string;                 // what NOMOS says
+  draft: Partial<NomosQuery>;  // current structured state
+  issues: ValidationIssue[];
+  completeness: CompletenessResult;
+}
+
+
+⸻
+
+🧠 2. Build unified system line
+
+📁 conversation_formatter.ts
+
+import { compressIssues } from "../validation/validation_format";
+
+export function buildConversationLine(
+  state: ConversationState
+): string {
+  const issues = state.issues ?? [];
+
+  // If there are validation issues → lead with them
+  if (issues.length > 0) {
+    const compressed = compressIssues(issues);
+
+    // pick the highest priority domain line
+    const primary = compressed[0];
+
+    const nextPrompt = getPrompt(state);
+
+    return `${primary}\n${nextPrompt}`;
+  }
+
+  // No issues → just prompt
+  return getPrompt(state);
+}
+
+
+⸻
+
+🧠 3. Stage-aware prompt (tightened)
+
+Update your prompt function to be sharper:
+
+function getPrompt(state: ConversationState): string {
+  switch (state.stage) {
+    case "INTENT":
+      return "State objective precisely.";
+
+    case "CONSTRAINTS":
+      return "Declare constraints.";
+
+    case "MODEL_ASSUMPTIONS":
+      return "Specify assumptions.";
+
+    case "CONFIRMATION":
+      return "Confirm submission or revise.";
+
+    default:
+      return "";
+  }
+}
+
+
+⸻
+
+🧠 4. Full conversation step
+
+export function stepConversation(
+  state: ConversationState,
+  input: string
+): ConversationOutput {
+  // 1. update draft
+  const updated = updateDraft(state, input);
+
+  // 2. detect issues
+  const issues = detectIssues(updated.draftQuery);
+
+  // 3. compute completeness
+  const completeness = computeCompleteness(
+    updated.draftQuery,
+    issues
+  );
+
+  // 4. determine next stage
+  const next = nextStage({
+    ...updated,
+    issues,
+  });
+
+  const nextState: ConversationState = {
+    ...updated,
+    stage: next,
+    issues,
+    completeness,
+  };
+
+  // 5. build output line
+  const line = buildConversationLine(nextState);
+
+  return {
+    line,
+    draft: nextState.draftQuery,
+    issues,
+    completeness,
+  };
+}
+
+
+⸻
+
+🧩 5. UI: ConversationPanel integration
+
+📁 ConversationPanel.tsx
+
+Replace system message rendering:
+
+<div className="nm-system-line">
+  {output.line}
+</div>
+
+
+⸻
+
+🎨 6. Styling (clean, authoritative)
+
+.nm-system-line {
+  font-size: 14px;
+  font-weight: 500;
+  white-space: pre-line;
+}
+
+
+⸻
+
+🔥 Resulting interaction
+
+⸻
+
+User input
+
+sleep better
+
+
+⸻
+
+NOMOS response
+
+Constraints invalid: missing threshold; ambiguous.
+Declare constraints.
+
+
+⸻
+
+User refines
+
+sleep ≥ 7h
+
+
+⸻
+
+NOMOS response
+
+Specify assumptions.
+
+
+⸻
+
+Final
+
+Confirm submission or revise.
+
+
+⸻
+
+🧠 Why this works
+
+You now have:
+
+1. Single voice
+	•	no panels arguing with each other
+	•	no duplicated messaging
+
+2. Immediate correction
+	•	error appears in the same line as instruction
+
+3. Conversational clarity
+	•	feels like dialogue
+	•	remains structured
+
+⸻
+
+🧠 Critical design constraint
+
+Never allow:
+
+State objective precisely.
+Constraints invalid: ...
+
+Always:
+
+diagnostic → instruction
+
+⸻
+
+🧠 Final insight
+
+You’ve achieved:
+
+conversation without ambiguity
+
+It feels like dialogue, but it is actually:
+
+state progression under constraint
+
+⸻
+
+If you want next
+
+👉 inject tone resolver into conversation line
+
+So this becomes:
+
+Constraints invalid: missing threshold; ambiguous.
+Declare constraints.
+
+BUT styled with:
+	•	emphasis
+	•	decisive variable highlighting
+	•	consistent NOMOS voice
+
+Just say:
+“Apply tone system to conversation layer”
+
+and we’ll unify everything end-to-end.
