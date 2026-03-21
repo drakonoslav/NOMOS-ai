@@ -37,22 +37,18 @@ packages/constitutional-kernel/
 ## Quick Start
 
 ```bash
-# From workspace root (pnpm monorepo)
+# From workspace root
 pnpm install
 pnpm --filter @workspace/constitutional-kernel run start
 pnpm --filter @workspace/constitutional-kernel run check
 
 # Or directly from the package directory
-pnpm start
-pnpm check
-pnpm test          # typecheck + demo in one pass
-
-# Standalone (npm — if extracted outside the monorepo)
-npm install
-npm run start      # tsx src/main.ts
-npm run check      # tsc --noEmit
-npm test           # tsc --noEmit && tsx src/main.ts
+pnpm start          # tsx src/main.ts
+pnpm check          # tsc --noEmit
+pnpm test           # tsc --noEmit && tsx src/main.ts (smoke test)
 ```
+
+> **Note:** This package uses pnpm `catalog:` dependency specifiers and must be run inside the pnpm workspace. It is not npm-compatible as-is. To extract it as a standalone package, replace the `catalog:` specifiers in `package.json` with concrete semver versions (`tsx@^4.x`, `@types/node@^22.x`).
 
 The demo exercises the full constitutional chain:
 
