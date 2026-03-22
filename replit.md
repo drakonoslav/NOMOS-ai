@@ -141,6 +141,25 @@ Strict 4-step interaction model:
 **Completeness states:** COMPLETE / PARTIAL / INSUFFICIENT (separate from LAWFUL/DEGRADED/INVALID)
 **Constitutional rule:** parser confidence is extraction quality only, never lawfulness.
 
+#### NOMOS Canonical Entity Schema (`src/compiler/canonical_*` + `tag_registry.ts`)
+
+The domain-agnostic measurable entity substrate used by all downstream systems.
+
+- `canonical_entity_types.ts` — full schema: `CanonicalEntity`, `TagRecord`, `MeasureRecord`, `NormalizationRecord`, `EntityCategory`, `TagProvenance`, `MeasureDimension`, `EntityRole`
+- `tag_registry.ts` — rich canonical tag registry (TagRecord[] per entry, with confidence 0–1 and sourceRegistryId); `lookupCanonicalTags()` with 3-tier lookup
+- `canonical_entity_normalizer.ts` — `normalizeEntities(rawText)` → `CanonicalEntity[]`; `normalizeEntitiesStable()` for ID-stable calls; `normalizeSpan()` for pre-extracted spans
+- `unit_registry.ts` — extended with `"energy"` and `"rate"` UnitCategory + units (kcal, cal, kj, bpm, rpm, mph, kph)
+
+**Canonical schema contract:**
+- `category` = broad structural type (food/supplement/fluid/load/duration/substance/unknown/…)  
+- `tags: TagRecord[]` = semantic properties with per-tag `provenance`, `confidence`, `sourceRegistryId`
+- `TagProvenance` = `"explicit" | "registry" | "normalized" | "inferred" | "fallback"`
+- `measures: MeasureRecord[]` = amount + unitRaw + unitNormalized + dimension
+- `normalizationHistory: NormalizationRecord[]` = auditable log of every transformation step
+- `categoryConfidence` = 0.15–0.95 based on registry hit + extraction confidence
+
+**All downstream systems consume CanonicalEntity, not raw text.**
+
 #### NOMOS Compiler Layer (`src/compiler/`)
 
 The compiler layer runs before domain routing. All types are domain-agnostic.
@@ -163,10 +182,11 @@ The compiler layer runs before domain routing. All types are domain-agnostic.
 - `graph_constraint_executor.ts` — constraint pipeline: candidate→tag filter→label filter→window→aggregate→compare→proof
 - `graph_constraint_types.ts` — `GraphConstraintSpec`, `GraphConstraintExecutionResult` (with proof trace)
 
-**Test suite:** 49 test files, 1962 tests (all passing)
+**Test suite:** 50 test files, 1996 tests (all passing)
 - `invariants_test.ts` — 52 tests (4 invariants: GF/ED/PI/MI)
 - `candidate_graph_test.ts` — 52 tests (candidate blocks, multi-candidate graph, ownership, objective, bare measurements)
 - `tag_provenance_test.ts` — 28 tests (registry lookup, enricher, graph propagation, real pipeline tag filtering)
+- `canonical_entity_schema_test.ts` — 34 tests (schema structure, normalizer correctness, tag registry, normalization history, dimension mapping)
 
 **API endpoints (api-server routes/query.ts):**
 - `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)

@@ -32,7 +32,9 @@ export type UnitCategory =
   | "count"
   | "time"
   | "distance"
-  | "training";
+  | "training"
+  | "energy"
+  | "rate";
 
 export interface UnitRecord {
   canonical: string;
@@ -112,6 +114,18 @@ export const UNIT_REGISTRY: readonly UnitRecord[] = [
   { canonical: "set",  category: "training", aliases: ["sets",  "set"] },
   { canonical: "lap",  category: "training", aliases: ["laps",  "lap"] },
   { canonical: "step", category: "training", aliases: ["steps", "step"] },
+
+  // ── Energy ────────────────────────────────────────────────────────────────
+  { canonical: "kcal", category: "energy", aliases: ["kilocalories", "kilocalorie", "kcal", "Calories", "Cal"] },
+  { canonical: "cal",  category: "energy", aliases: ["calories",     "calorie",     "cal"] },
+  { canonical: "kj",   category: "energy", aliases: ["kilojoules",   "kilojoule",   "kJ",  "kj"] },
+  { canonical: "j",    category: "energy", aliases: ["joules",       "joule",       "J"] },
+
+  // ── Rate ──────────────────────────────────────────────────────────────────
+  { canonical: "bpm",  category: "rate", aliases: ["bpm",   "beats per minute"] },
+  { canonical: "rpm",  category: "rate", aliases: ["rpm",   "revolutions per minute"] },
+  { canonical: "mph",  category: "rate", aliases: ["mph",   "miles per hour"] },
+  { canonical: "kph",  category: "rate", aliases: ["kph",   "kmh", "km/h", "kilometers per hour"] },
 ];
 
 /* =========================================================
