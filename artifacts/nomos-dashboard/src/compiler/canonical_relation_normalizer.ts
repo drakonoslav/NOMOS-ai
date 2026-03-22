@@ -23,8 +23,10 @@
 
 import { bindRelations }          from "./relation_binder.ts";
 import { resolveUnit }            from "./unit_registry.ts";
+import { normalizeSpan }          from "./canonical_entity_normalizer.ts";
 import type { MeasuredEntitySpan }from "./measured_entity_types.ts";
 import type { RelationBinding, BindingResult } from "./measured_entity_types.ts";
+import type { CanonicalEntity }   from "./canonical_entity_types.ts";
 import type {
   CanonicalRelation,
   CanonicalRelationType,
@@ -279,4 +281,60 @@ export function normalizeRelations(rawText: string): CanonicalRelation[] {
 export function normalizeRelationsStable(rawText: string): CanonicalRelation[] {
   _relCounter = 0;
   return normalizeRelations(rawText);
+}
+
+/* =========================================================
+   Combined output for graph projection
+   ========================================================= */
+
+/**
+ * Result type for normalizeWithAnchors().
+ * Provides everything the canonical graph builder needs in one call.
+ */
+export interface CanonicalNormalizationOutput {
+  /** Canonical entity records, one per extracted span. */
+  entities: CanonicalEntity[];
+  /** Canonical relation records (HAS_MEASURE + explicit). */
+  relations: CanonicalRelation[];
+  /**
+   * Map of anchorId → anchor label, for anchor node creation.
+   * Keys match the toEntityId fields of anchor-targeting relations (e.g. "anc_0").
+   */
+  anchorLabels: Map<string, string>;
+}
+
+/**
+ * Normalize rawText into canonical entities, relations, and anchor labels
+ * in a single extraction pass.
+ *
+ * This is the recommended entry point for the canonical graph builder.
+ * All IDs are stable (entity counter is reset at the start of bindRelations).
+ * The relation counter is also reset to rel_0.
+ *
+ * Entity IDs match those produced by normalizeEntitiesStable() on the same input.
+ */
+export function normalizeWithAnchors(rawText: string): CanonicalNormalizationOutput {
+  _relCounter = 0;
+  const result: BindingResult = bindRelations(rawText);
+
+  const entityMap = new Map<string, MeasuredEntitySpan>(
+    result.entities.map((e) => [e.id, e]),
+  );
+
+  const entities: CanonicalEntity[] = result.entities.map((span) => normalizeSpan(span));
+
+  const relations: CanonicalRelation[] = [];
+  for (const entity of result.entities) {
+    relations.push(buildHasMeasureRelation(entity));
+  }
+  for (const binding of result.bindings) {
+    relations.push(buildCanonicalRelation(binding, entityMap));
+  }
+
+  const anchorLabels = new Map<string, string>();
+  for (const anchor of result.anchors) {
+    anchorLabels.set(anchor.id, anchor.label);
+  }
+
+  return { entities, relations, anchorLabels };
 }

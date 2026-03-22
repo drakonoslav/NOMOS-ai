@@ -168,6 +168,26 @@ Typed relation edges for the canonical entity-relation graph. All downstream gra
 - `relation_registry.ts` — maps legacy surface strings to CanonicalRelationType; `resolveCanonicalRelationType()`, `isShorthandRelation()`, `computeRelationConfidence()`, `getRelationSourceRegistryId()`
 - `canonical_relation_normalizer.ts` — `normalizeRelations(rawText)` → `CanonicalRelation[]`; `normalizeRelationsStable()` for tests; structural HAS_MEASURE inferred per entity + explicit bindings from binder
 
+#### NOMOS Canonical Entity-Relation Graph (`src/graph/canonical_graph_*`)
+
+The semantic spine of the system — a pure projection of canonical records into a queryable graph. No re-inference, no re-classification.
+
+- `canonical_graph_types.ts` — `CanonicalGraphNode` (id/kind/label/data), `CanonicalGraphEdge` (id/kind/from/to/data), `CanonicalGraph`, `CanonicalGraphTrace`, `CanonicalGraphInput`, `CanonicalGraphResult`
+- `canonical_graph_projection.ts` — per-record projection functions: `projectEntityNode()`, `projectAnchorNode()`, `projectCandidateNode()`, `projectRelationEdge()`, `buildProjectionTrace()`, `relTypeToEdgeKind()`
+- `canonical_graph_builder.ts` — `buildCanonicalGraph(input)`, `buildCanonicalGraphFromText(rawText, options)`, invariant checkers `checkI1EntityNodeCount()`, `checkI3NoTagReclassification()`, `checkEdgeSourcesValid()`
+- `canonical_relation_normalizer.ts` — added `normalizeWithAnchors(rawText)` → `{ entities, relations, anchorLabels }` for graph builder
+
+**Design law:** "The graph projects canonical semantics. It never invents them."
+
+**Projection rules:**
+- CanonicalEntity (labelRaw!="") → `kind="entity"` node; (labelRaw=="") → `kind="quantity"` node; 1:1 always
+- CanonicalRelation → one graph edge; HAS_MEASURE produces a self-edge (from=to=entity_node); anchor-targeting relations produce anchor nodes
+- Edge `kind` = CanonicalRelationType lowercased (e.g. "before", "within_window", "has_measure")
+- All tags, provenance, confidence, offset, window, history survive verbatim into node/edge data
+- Invariant I1: entity count = entity/quantity node count; Invariant I3: no tag reclassification
+
+**Trace output:** `canonicalEntityCount`, `canonicalRelationCount`, `graphNodeCount`, `graphEdgeCount`, `nodeKindCounts`, `edgeKindCounts`, `projectionWarnings`
+
 **Canonical relation contract:**
 - `type` = one of 17 canonical types (BEFORE/AFTER/WITHIN_WINDOW/DURING/WITH/BETWEEN/HAS_MEASURE/…)
 - `offset: RelationOffset` = first-class scalar displacement (amount + unitNormalized + dimension)
@@ -200,12 +220,13 @@ The compiler layer runs before domain routing. All types are domain-agnostic.
 - `graph_constraint_executor.ts` — constraint pipeline: candidate→tag filter→label filter→window→aggregate→compare→proof
 - `graph_constraint_types.ts` — `GraphConstraintSpec`, `GraphConstraintExecutionResult` (with proof trace)
 
-**Test suite:** 51 test files, 2030 tests (all passing)
+**Test suite:** 52 test files, 2064 tests (all passing)
 - `invariants_test.ts` — 52 tests (4 invariants: GF/ED/PI/MI)
 - `candidate_graph_test.ts` — 52 tests (candidate blocks, multi-candidate graph, ownership, objective, bare measurements)
 - `tag_provenance_test.ts` — 28 tests (registry lookup, enricher, graph propagation, real pipeline tag filtering)
 - `canonical_entity_schema_test.ts` — 34 tests (schema structure, normalizer correctness, tag registry, normalization history, dimension mapping)
 - `canonical_relation_schema_test.ts` — 34 tests (structure, relation types, offsets, windows, provenance, HAS_MEASURE, normalization history, pre/post shorthand)
+- `canonical_graph_unification_test.ts` — 34 tests (graph types, entity projection, relation/edge projection, anchor nodes, invariants I1/I3, trace output, stability)
 
 **API endpoints (api-server routes/query.ts):**
 - `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)
