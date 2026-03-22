@@ -177,7 +177,7 @@ The semantic spine of the system — a pure projection of canonical records into
 - `canonical_graph_builder.ts` — `buildCanonicalGraph(input)`, `buildCanonicalGraphFromText(rawText, options)`, invariant checkers `checkI1EntityNodeCount()`, `checkI3NoTagReclassification()`, `checkEdgeSourcesValid()`
 - `canonical_relation_normalizer.ts` — added `normalizeWithAnchors(rawText)` → `{ entities, relations, anchorLabels }` for graph builder
 
-**Design law:** "The graph projects canonical semantics. It never invents them."
+**Design law (graph):** "The graph projects canonical semantics. It never invents them."
 
 **Projection rules:**
 - CanonicalEntity (labelRaw!="") → `kind="entity"` node; (labelRaw=="") → `kind="quantity"` node; 1:1 always
@@ -187,6 +187,41 @@ The semantic spine of the system — a pure projection of canonical records into
 - Invariant I1: entity count = entity/quantity node count; Invariant I3: no tag reclassification
 
 **Trace output:** `canonicalEntityCount`, `canonicalRelationCount`, `graphNodeCount`, `graphEdgeCount`, `nodeKindCounts`, `edgeKindCounts`, `projectionWarnings`
+
+#### NOMOS Graph-as-Source Execution Layer (`src/execution/`)
+
+The execution layer makes the canonical graph the **default substrate** for constraint evaluation. One route is selected per run; routes are never blended.
+
+- `execution_route_types.ts` — all types: `ExecutionRoute` ("graph_first"|"event_fallback"|"text_fallback"), `ExecutionRoutingDecision`, `ExecutionRoutingContext`, `GraphNativeDiff`, `GraphNativeRepair`, `GraphRepairSuggestion`, `GraphFirstConstraintResult`, `GraphFirstEvaluationResult`, `FallbackEvaluationResult`
+- `execution_trace.ts` — `ExecutionTrace` (route/proofMode/diffMode/repairMode/graphUsed/fallbackUsed/notes); `buildGraphFirstTrace()`, `buildEventFallbackTrace()`, `buildTextFallbackTrace()`, `buildExecutionTrace()`
+- `execution_router.ts` — `resolveExecutionRoute(context)` deterministic dispatch; `routeDisplayLabel()`, `isGraphFirstRoute()`, `isFallbackRoute()`
+- `graph_first_evaluator.ts` — `evaluateGraphFirst({ graph, constraints, routingDecision })` → `GraphFirstEvaluationResult`; 6-step pipeline: candidate selection → tag filter → label filter → window restriction → aggregation → comparison; graph-native proof, diff, repair per constraint
+- `fallback_evaluator.ts` — `evaluateEventFallback({ constraints, events, routingDecision })`, `evaluateTextFallback({ constraints, rawText, routingDecision })`; `FallbackEvent` type
+
+**Design law (execution):** "One chosen route. One explicit trace. One proof mode."
+
+**Route priority:**
+1. `graph_first` — canonical graph present and non-empty → preferred always
+2. `event_fallback` — temporal event-array available, no graph
+3. `text_fallback` — only when `fallbackAllowed=true` explicitly; produces inconclusive results
+
+**Execution invariants:**
+- I1: `graph_first` → `proofMode/diffMode/repairMode` all "graph"
+- I2: canonical graph present → `text_fallback` never selected silently
+- I3: one route, one trace, never blended
+
+**Graph-first 6-step pipeline:**
+1. Candidate Selection — all entity/quantity nodes, optionally scoped to `candidateId`
+2. Tag Filter — retain nodes where all `entityTags` match node `data.tags`
+3. Label Filter — retain nodes whose label matches any `entityLabels`
+4. Window Restriction — retain nodes with matching relation edge to anchor node within `windowMinutes`
+5. Aggregation — sum/count/max/min of unit-matched measures from `data.measures`
+6. Threshold Comparison — observed vs threshold → pass/fail
+
+**Diff:** `deltaRequired` = amount missing/excess; `targetNodeIds` = graph nodes to modify
+**Repair:** suggestions: `adjust_quantity_edge` (change amount), `add_entity_node` (new node), `adjust_window_edge` (widen window), `add_relation` (new edge)
+
+**UI:** `routeDisplayLabel()` → "Graph-first execution" | "Event fallback" | "Text fallback"
 
 **Canonical relation contract:**
 - `type` = one of 17 canonical types (BEFORE/AFTER/WITHIN_WINDOW/DURING/WITH/BETWEEN/HAS_MEASURE/…)
@@ -220,13 +255,14 @@ The compiler layer runs before domain routing. All types are domain-agnostic.
 - `graph_constraint_executor.ts` — constraint pipeline: candidate→tag filter→label filter→window→aggregate→compare→proof
 - `graph_constraint_types.ts` — `GraphConstraintSpec`, `GraphConstraintExecutionResult` (with proof trace)
 
-**Test suite:** 52 test files, 2064 tests (all passing)
+**Test suite:** 53 test files, 2108 tests (all passing)
 - `invariants_test.ts` — 52 tests (4 invariants: GF/ED/PI/MI)
 - `candidate_graph_test.ts` — 52 tests (candidate blocks, multi-candidate graph, ownership, objective, bare measurements)
 - `tag_provenance_test.ts` — 28 tests (registry lookup, enricher, graph propagation, real pipeline tag filtering)
 - `canonical_entity_schema_test.ts` — 34 tests (schema structure, normalizer correctness, tag registry, normalization history, dimension mapping)
 - `canonical_relation_schema_test.ts` — 34 tests (structure, relation types, offsets, windows, provenance, HAS_MEASURE, normalization history, pre/post shorthand)
 - `canonical_graph_unification_test.ts` — 34 tests (graph types, entity projection, relation/edge projection, anchor nodes, invariants I1/I3, trace output, stability)
+- `graph_as_source_execution_test.ts` — 44 tests (routing, trace builders, graph_first evaluator, carb timing, proof/diff/repair, event/text fallback, route invariants I1/I2/I3)
 
 **API endpoints (api-server routes/query.ts):**
 - `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)
