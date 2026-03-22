@@ -160,6 +160,24 @@ The domain-agnostic measurable entity substrate used by all downstream systems.
 
 **All downstream systems consume CanonicalEntity, not raw text.**
 
+#### NOMOS Canonical Relation Schema (`src/compiler/canonical_relation_*` + `relation_registry.ts`)
+
+Typed relation edges for the canonical entity-relation graph. All downstream graph builders must consume CanonicalRelation — never raw binding strings.
+
+- `canonical_relation_types.ts` — full schema: `CanonicalRelation`, `CanonicalRelationType` (17 types), `RelationProvenance`, `RelationOffset`, `RelationWindow`, `RelationNormalizationRecord`
+- `relation_registry.ts` — maps legacy surface strings to CanonicalRelationType; `resolveCanonicalRelationType()`, `isShorthandRelation()`, `computeRelationConfidence()`, `getRelationSourceRegistryId()`
+- `canonical_relation_normalizer.ts` — `normalizeRelations(rawText)` → `CanonicalRelation[]`; `normalizeRelationsStable()` for tests; structural HAS_MEASURE inferred per entity + explicit bindings from binder
+
+**Canonical relation contract:**
+- `type` = one of 17 canonical types (BEFORE/AFTER/WITHIN_WINDOW/DURING/WITH/BETWEEN/HAS_MEASURE/…)
+- `offset: RelationOffset` = first-class scalar displacement (amount + unitNormalized + dimension)
+- `window: RelationWindow` = bounded interval context for WITHIN_WINDOW/BETWEEN
+- `provenance` = `"explicit" | "registry" | "normalized" | "inferred" | "fallback"`
+- `"pre"/"post"` shorthands expand to BEFORE/AFTER with provenance="normalized" + shorthand_expansion history record
+- `HAS_MEASURE` — inferred structural relation, confidence=0.99, toEntityId=null
+- Entity IDs compatible with `normalizeEntitiesStable()` (both reset counter before extraction)
+- `sourceRegistryId` format: `"{category}.{type_lowercase}"` e.g. `"temporal.before"`, `"accompaniment.with"`
+
 #### NOMOS Compiler Layer (`src/compiler/`)
 
 The compiler layer runs before domain routing. All types are domain-agnostic.
@@ -182,11 +200,12 @@ The compiler layer runs before domain routing. All types are domain-agnostic.
 - `graph_constraint_executor.ts` — constraint pipeline: candidate→tag filter→label filter→window→aggregate→compare→proof
 - `graph_constraint_types.ts` — `GraphConstraintSpec`, `GraphConstraintExecutionResult` (with proof trace)
 
-**Test suite:** 50 test files, 1996 tests (all passing)
+**Test suite:** 51 test files, 2030 tests (all passing)
 - `invariants_test.ts` — 52 tests (4 invariants: GF/ED/PI/MI)
 - `candidate_graph_test.ts` — 52 tests (candidate blocks, multi-candidate graph, ownership, objective, bare measurements)
 - `tag_provenance_test.ts` — 28 tests (registry lookup, enricher, graph propagation, real pipeline tag filtering)
 - `canonical_entity_schema_test.ts` — 34 tests (schema structure, normalizer correctness, tag registry, normalization history, dimension mapping)
+- `canonical_relation_schema_test.ts` — 34 tests (structure, relation types, offsets, windows, provenance, HAS_MEASURE, normalization history, pre/post shorthand)
 
 **API endpoints (api-server routes/query.ts):**
 - `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)
