@@ -223,6 +223,40 @@ The execution layer makes the canonical graph the **default substrate** for cons
 
 **UI:** `routeDisplayLabel()` → "Graph-first execution" | "Event fallback" | "Text fallback"
 
+#### NOMOS Graph-Native Repair Layer (`src/repair/`)
+
+Makes NOMOS structurally prescriptive — repairs are explicit graph transformations, not prose.
+
+- `graph_repair_types.ts` — all types: `GraphRepairActionType` (10 types), `GraphRepairAction` (id/type/targetNodeId/targetEdgeId/payload/rationale), `GraphRepairPlan` (id/constraintId/variableName/actions/expectedRepairEffect/estimatedMinimalityScore/violationType), `GraphRepairExecutionResult`, `GraphRepairValidationResult` (with newViolations), `ConstraintDiffInput`
+- `graph_repair_planner.ts` — `buildGraphRepairPlan(graph, constraintDiff)` → `GraphRepairPlan`; violation type detection from proof trace steps; per-violation repair generators; `resetActionCounter()`, `resetPlanCounter()` for determinism
+- `graph_repair_executor.ts` — `applyGraphRepairPlan(graph, plan)` → `GraphRepairExecutionResult`; pure function (input never mutated); per-action appliers for all 10 types; `resetExecutorCounters()` for determinism
+- `graph_repair_validation.ts` — `validateGraphRepairPlan(input)` → `GraphRepairValidationResult`; re-runs graph-first evaluator; detects newViolations (constraints passing before that fail after); `summaryLines` always present
+
+**Design law (repair):** "Explicit. Local. Auditable. Replayable. Validated."
+
+**10 repair action types:**
+| Type | Minimality | Description |
+|---|---|---|
+| UPDATE_QUANTITY | 0.90 | Change a measure amount on an existing node |
+| UPDATE_RELATION_OFFSET | 0.80 | Change a temporal offset on an existing edge |
+| ADD_ENTITY | 0.60 | Create a new node with measures + optional relation |
+| REMOVE_ENTITY | 0.50 | Delete a node and all incident edges |
+| ADD_RELATION | 0.60 | Create a new typed edge |
+| REMOVE_RELATION | 0.55 | Delete an existing edge |
+| MOVE_ENTITY_TO_CANDIDATE | 0.65 | Reassign candidate ownership |
+| UPDATE_UNIT | 0.85 | Change unit on an existing measure |
+| ADD_TAG | 0.70 | Append a classification tag |
+| REMOVE_TAG | 0.70 | Remove a classification tag |
+
+**Violation types and preferred actions:**
+- `undershoot` (observed < threshold for >=/>): UPDATE_QUANTITY on existing qualifying node → else ADD_ENTITY
+- `overshoot` (observed > threshold for <=/<): UPDATE_QUANTITY downward → else REMOVE_ENTITY
+- `window_failure` (entities outside temporal window): UPDATE_RELATION_OFFSET → else ADD_RELATION
+- `structural_failure` (no qualifying entities): ADD_ENTITY with full tags + relation
+
+**Repair pipeline:** buildGraphRepairPlan → applyGraphRepairPlan → validateGraphRepairPlan → `restoredFeasibility`
+**Carb timing example (C):** dextrin at 120min → UPDATE_RELATION_OFFSET → 75min → within 90min window → passes
+
 **Canonical relation contract:**
 - `type` = one of 17 canonical types (BEFORE/AFTER/WITHIN_WINDOW/DURING/WITH/BETWEEN/HAS_MEASURE/…)
 - `offset: RelationOffset` = first-class scalar displacement (amount + unitNormalized + dimension)
@@ -255,7 +289,7 @@ The compiler layer runs before domain routing. All types are domain-agnostic.
 - `graph_constraint_executor.ts` — constraint pipeline: candidate→tag filter→label filter→window→aggregate→compare→proof
 - `graph_constraint_types.ts` — `GraphConstraintSpec`, `GraphConstraintExecutionResult` (with proof trace)
 
-**Test suite:** 53 test files, 2108 tests (all passing)
+**Test suite:** 54 test files, 2154 tests (all passing)
 - `invariants_test.ts` — 52 tests (4 invariants: GF/ED/PI/MI)
 - `candidate_graph_test.ts` — 52 tests (candidate blocks, multi-candidate graph, ownership, objective, bare measurements)
 - `tag_provenance_test.ts` — 28 tests (registry lookup, enricher, graph propagation, real pipeline tag filtering)
@@ -263,6 +297,7 @@ The compiler layer runs before domain routing. All types are domain-agnostic.
 - `canonical_relation_schema_test.ts` — 34 tests (structure, relation types, offsets, windows, provenance, HAS_MEASURE, normalization history, pre/post shorthand)
 - `canonical_graph_unification_test.ts` — 34 tests (graph types, entity projection, relation/edge projection, anchor nodes, invariants I1/I3, trace output, stability)
 - `graph_as_source_execution_test.ts` — 44 tests (routing, trace builders, graph_first evaluator, carb timing, proof/diff/repair, event/text fallback, route invariants I1/I2/I3)
+- `graph_repair_test.ts` — 46 tests (planner: undershoot/overshoot/window_failure/structural_failure; executor: UPDATE_QUANTITY/ADD_ENTITY/UPDATE_RELATION_OFFSET/REMOVE_ENTITY; validation: feasibility restored, no new violations)
 
 **API endpoints (api-server routes/query.ts):**
 - `POST /api/nomos/query/parse` — hybrid parser (LLM → rule-based fallback)
